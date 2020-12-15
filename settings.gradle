@@ -1,0 +1,3 @@
+rootProject.name = 'kvd'
+include 'kvd-client'
+include 'kvd-server'
