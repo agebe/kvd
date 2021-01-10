@@ -52,6 +52,8 @@ public class KvdClient implements AutoCloseable {
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
+  private AtomicBoolean run = new AtomicBoolean(true);
+
   public KvdClient(String serverAddress) {
     try {
       HostAndPort hp = HostAndPort.fromString(serverAddress);
@@ -85,7 +87,7 @@ public class KvdClient implements AutoCloseable {
   }
 
   private void checkClosed() {
-    if(closed.get()) {
+    if(isClosed()) {
       throw new KvdException("closed");
     }
   }
@@ -102,7 +104,7 @@ public class KvdClient implements AutoCloseable {
         try {
           channelId = backend.createChannel();
           backend.sendAsync(new Packet(PacketType.PUT_INIT, channelId, Utils.toUTF8(key)));
-          while(!isClosed()) {
+          while(isRun()) {
             byte[] buf = new byte[16*1024];
             int read = in.read(buf);
             if(read < 0) {
@@ -119,7 +121,7 @@ public class KvdClient implements AutoCloseable {
           }
           backend.sendAsync(new Packet(PacketType.PUT_FINISH, channelId));
           BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
-          while(!isClosed()) {
+          while(isRun()) {
             Packet packet = queue.poll(1, TimeUnit.SECONDS);
             if(packet != null) {
               if(PacketType.PUT_COMPLETE.equals(packet.getType())) {
@@ -161,7 +163,7 @@ public class KvdClient implements AutoCloseable {
           channelId = backend.createChannel();
           backend.sendAsync(new Packet(PacketType.GET_INIT, channelId, Utils.toUTF8(key)));
           BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
-          while(!isClosed()) {
+          while(isRun()) {
             Packet packet = queue.poll(1, TimeUnit.SECONDS);
             if(packet != null) {
               if(PacketType.GET_DATA.equals(packet.getType())) {
@@ -217,7 +219,7 @@ public class KvdClient implements AutoCloseable {
         channelId = backend.createChannel();
         backend.sendAsync(new Packet(PacketType.CONTAINS_REQUEST, channelId, Utils.toUTF8(key)));
         BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
-        while(!isClosed()) {
+        while(isRun()) {
           Packet packet = queue.poll(1, TimeUnit.SECONDS);
           if(packet != null) {
             if(PacketType.CONTAINS_RESPONSE.equals(packet.getType())) {
@@ -266,7 +268,7 @@ public class KvdClient implements AutoCloseable {
         channelId = backend.createChannel();
         backend.sendAsync(new Packet(PacketType.REMOVE_REQUEST, channelId, Utils.toUTF8(key)));
         BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
-        while(!isClosed()) {
+        while(isRun()) {
           Packet packet = queue.poll(1, TimeUnit.SECONDS);
           if(packet != null) {
             if(PacketType.REMOVE_RESPONSE.equals(packet.getType())) {
@@ -307,6 +309,7 @@ public class KvdClient implements AutoCloseable {
   @Override
   public synchronized void close() {
     if(!closed.get()) {
+      closed.set(true);
       closeables.forEach(c -> {
         try {
           c.close();
@@ -321,8 +324,12 @@ public class KvdClient implements AutoCloseable {
         // ignore
       }
       backend.closeGracefully();
-      closed.set(true);
+      run.set(false);
     }
+  }
+
+  private boolean isRun() {
+    return run.get();
   }
 
   public boolean isClosed() {
