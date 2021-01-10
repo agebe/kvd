@@ -150,51 +150,62 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
-  public InputStream get(String key) {
+  public Future<InputStream> getAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    try {
-      final PipedOutputStream src = new PipedOutputStream();
-      final PipedInputStream in = new PipedInputStream(src, 64 * 1024);
-      ThreadCloseable tc = new ThreadCloseable();
-      Thread t = new Thread(() -> {
-        int channelId = 0;
-        try {
-          channelId = backend.createChannel();
-          backend.sendAsync(new Packet(PacketType.GET_INIT, channelId, Utils.toUTF8(key)));
-          BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
-          while(isRun()) {
-            Packet packet = queue.poll(1, TimeUnit.SECONDS);
-            if(packet != null) {
-              if(PacketType.GET_DATA.equals(packet.getType())) {
-                src.write(packet.getBody());
-              } else if(PacketType.GET_FINISH.equals(packet.getType())) {
-                break;
-              } else {
-                throw new KvdException("received unexpected packet " + packet.getType());
+    final CompletableFuture<InputStream> future = new CompletableFuture<>();
+    ThreadCloseable tc = new ThreadCloseable();
+    Thread t = new Thread(() -> {
+      int channelId = 0;
+      try(PipedOutputStream src = new PipedOutputStream()) {
+        channelId = backend.createChannel();
+        backend.sendAsync(new Packet(PacketType.GET_INIT, channelId, Utils.toUTF8(key)));
+        BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
+        while(isRun()) {
+          Packet packet = queue.poll(1, TimeUnit.SECONDS);
+          if(packet != null) {
+            if(PacketType.GET_DATA.equals(packet.getType())) {
+              if(!future.isDone()) {
+                future.complete(new PipedInputStream(src, 64 * 1024));
               }
+              src.write(packet.getBody());
+            } else if(PacketType.GET_FINISH.equals(packet.getType())) {
+              break;
+            } else {
+              throw new KvdException("received unexpected packet " + packet.getType());
             }
           }
-        } catch(Exception e) {
-          log.warn("get failure", e);
-        } finally {
-          backend.closeChannel(channelId);
-          Utils.closeQuietly(src);
-          ForkJoinPool.commonPool().execute(() -> removeCloseable(tc));
         }
-      }, "kvd-get-" + backend.getClientId());
-      tc.setThread(t);
-      addCloseable(tc);
-      t.start();
-      return in;
-    } catch(IOException e) {
-      throw new KvdException("get failed", e);
+      } catch(Exception e) {
+        log.warn("get failure", e);
+      } finally {
+        if(!future.isDone()) {
+          future.complete(null);
+        }
+        backend.closeChannel(channelId);
+        ForkJoinPool.commonPool().execute(() -> removeCloseable(tc));
+      }
+    }, "kvd-get-" + backend.getClientId());
+    tc.setThread(t);
+    addCloseable(tc);
+    t.start();
+    return future;
+  }
+
+  public InputStream get(String key) {
+    try {
+      return getAsync(key).get();
+    } catch(Exception e) {
+      throw new KvdException("get failed");
     }
   }
 
   public void putString(String key, String value) {
+    if(value == null) {
+      throw new KvdException("null string value not supported");
+    }
     try(DataOutputStream out = new DataOutputStream(put(key))) {
-      out.writeUTF(value!=null?value:"");
+      out.writeUTF(value);
     } catch(IOException e) {
       throw new KvdException("put string failed", e);
     }

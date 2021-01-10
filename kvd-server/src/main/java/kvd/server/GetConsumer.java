@@ -57,6 +57,11 @@ public class GetConsumer implements ChannelConsumer {
       Thread t = new Thread(() -> {
         try {
           if(in != null) {
+            // Send an empty packet so the client can distinguish between
+            // non existing keys and keys with an empty value.
+            // This is only required on empty values when no other GET_DATA packets are send
+            // but to keep things simple here just send it first thing once before the loop.
+            client.sendAsync(new Packet(PacketType.GET_DATA, channel, new byte[0]));
             while(!closed.get()) {
               byte[] buf = new byte[16*1024];
               int read = in.read(buf);
