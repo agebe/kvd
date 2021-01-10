@@ -163,11 +163,15 @@ public class FileStorage implements Storage {
   public boolean remove(String key) {
     String s = KeyUtils.internalKey(key);
     File f = new File(storage, s);
-    boolean removed = f.delete();
-    if(!removed) {
-      log.warn("file '{}' could not be removed", f.getAbsolutePath());
+    if(f.exists()) {
+      boolean removed = f.delete();
+      if(!removed) {
+        log.warn("file '{}' could not be removed", f.getAbsolutePath());
+      }
+      return removed;
+    } else {
+      return false;
     }
-    return removed;
   }
 
 }
