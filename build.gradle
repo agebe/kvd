@@ -5,7 +5,7 @@ plugins {
 }
 
 allprojects {
-  project.version = '0.0.2'
+  project.version = '0.1.0'
 }
 
 subprojects {
@@ -45,6 +45,11 @@ subprojects {
 
   dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.30'
+  }
+
+  java {
+    withSourcesJar()
+    withJavadocJar()
   }
 
   jar {
