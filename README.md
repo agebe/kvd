@@ -32,7 +32,8 @@ $ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPT
 ### Running the server from source
 
 * Clone kvd from this repository
-* Install [gradle](https://gradle.org/)
+* Make sure you have jdk1.8+ installed.
+* Install recent version of [gradle](https://gradle.org/)
 * To start the server execute
 ```bash
 $ gradle run
