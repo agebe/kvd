@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -165,10 +166,25 @@ public class KvdTest {
   }
 
   @Test
-  public void simpleStreamTest() throws Exception {
+  public void simpleStreamWriteTest() throws Exception {
     try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
       try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
         out.writeLong(42);
+      }
+    }
+  }
+
+  @Test
+  public void simpleStreamReadTest() throws Exception {
+    simpleStreamWriteTest();
+    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+      InputStream i = client.get("simplestream");
+      if(i != null) {
+        try(DataInputStream in = new DataInputStream(i)) {
+         assertEquals(42, in.readLong());
+        }
+      } else {
+        throw new RuntimeException("value missing");
       }
     }
   }
