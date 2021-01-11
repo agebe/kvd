@@ -20,13 +20,13 @@ The server listens by default on TCP port 3030 and writes to $HOME/.kvd
 ### Docker
 
 To start a a test server for playing do this:
-```
+```bash
 $ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.0.2
 ```
 
 Otherwise you might want to keep the database files between restarts or change some JVM settings etc. do this:
-```
-docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.0.2 --storage /storage --log-level debug
+```bash
+$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.0.2 --storage /storage --log-level debug
 ```
 
 ### Running the server from source
@@ -34,7 +34,7 @@ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS=
 * Clone kvd from this repository
 * Install [gradle](https://gradle.org/)
 * To start the server execute
-```
+```bash
 $ gradle run
 ```
 In this case the database is written to $HOME/.kvd
@@ -48,7 +48,7 @@ TODO add gradle example
 The examples below show how to use the client API to access the database
 
 ### Write a value to the database
-```
+```java
     try(KvdClient client = new KvdClient("localhost:3030")) {
       try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
         out.writeLong(42);
@@ -57,7 +57,7 @@ The examples below show how to use the client API to access the database
 ```
 
 ### Read a value from the database
-```
+```java
     try(KvdClient client = new KvdClient("localhost:3030")) {
       InputStream i = client.get("simplestream");
       if(i != null) {
