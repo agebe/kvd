@@ -7,7 +7,7 @@ kvd is a simple key value database that follows a client/server model. Key featu
 
 kvd client and server are written in Java.
 
-Note: I've only tested kvd on linux/x86_64. It might also work on other OS/arch.
+Note: I've only tested kvd on linux/x86_64. It might also work on other OS/arch combinations.
 
 I've written kvd to cache calculation results that take quite some time to compute. The results are sometimes large (> 1GB) and it seems other key value database struggle with large values this is why I've decided to roll my own. Currently the kvd server stores each key and value in a separate file so if you are planning to use it for lots of small key/value pairs you might want to consider this and check if your filesystem supports it (e.g. check free inodes).
 
@@ -19,7 +19,7 @@ The server listens by default on TCP port 3030 and writes to $HOME/.kvd
 
 ### Docker
 
-To start a a test server for playing do this:
+To start a test server for playing do this:
 ```bash
 $ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.0.2
 ```
