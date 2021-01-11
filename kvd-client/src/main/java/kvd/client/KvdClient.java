@@ -43,7 +43,7 @@ import kvd.common.PacketType;
 import kvd.common.Utils;
 
 /**
- * KvdClient is the public API that clients should use to interact with the server.
+ * {@code KvdClient} is the public API that clients should use to interact with the server.
  *
  * <p>Example usage:<pre>
  *  try(KvdClient client = new KvdClient("kvd.example.com:3030")) {
@@ -56,7 +56,7 @@ import kvd.common.Utils;
  * <p>Note: {@link KvdClient#KvdClient(java.lang.String)} establishes a single socket connection to the server
  * that it keeps alive until {@link KvdClient#close} is called.
  *
- * <p>Note: KvdClient is thread-safe.
+ * <p>Note: {@code KvdClient} is thread-safe.
  */
 public class KvdClient implements AutoCloseable {
 
@@ -72,7 +72,9 @@ public class KvdClient implements AutoCloseable {
 
   /**
    * Establishes the connection to the server.
-   * @param serverAddress in the form {@code host:port}. Port can be omitted and 3030 is used in this case.
+   * @param serverAddress in the form
+   *        <a href="https://guava.dev/releases/30.1-jre/api/docs/com/google/common/net/HostAndPort.html">{@code host:port}</a>.
+   *        Port can be omitted and 3030 is used in this case.
    */
   public KvdClient(String serverAddress) {
     try {
