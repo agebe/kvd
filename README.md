@@ -21,12 +21,12 @@ The server listens by default on TCP port 3030 and writes to $HOME/.kvd
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.1.0
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.1.1
 ```
 
 Otherwise you might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.1.0 --storage /storage --log-level debug
+$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.1.1 --storage /storage --log-level debug
 ```
 
 ### Running the server from source
