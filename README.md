@@ -41,7 +41,7 @@ In this case the database is written to $HOME/.kvd
 
 ## Client examples
 
-For the example below to work you need to add the kvd-client library as a dependency in your project.
+For the example below to work you need to add the kvd-client library as a dependency in your project. The kvd-client library only depends on slf4j and java 1.8+.
 
 TODO add gradle example
 
