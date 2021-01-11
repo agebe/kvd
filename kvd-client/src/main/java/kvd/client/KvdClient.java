@@ -42,6 +42,22 @@ import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
 
+/**
+ * KvdClient is the public API that clients should use to interact with the server.
+ *
+ * <p>Example usage:<pre>
+ *  try(KvdClient client = new KvdClient("kvd.example.com:3030")) {
+ *    try(DataOutputStream out = new DataOutputStream(client.put("test"))) {
+ *      out.writeLong(42);
+ *    }
+ *  }
+ * </pre>
+ *
+ * <p>Note: {@link KvdClient#KvdClient(java.lang.String)} establishes a single socket connection to the server
+ * that it keeps alive until {@link KvdClient#close} is called.
+ *
+ * <p>Note: KvdClient is thread-safe.
+ */
 public class KvdClient implements AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdClient.class);
@@ -54,9 +70,13 @@ public class KvdClient implements AutoCloseable {
 
   private AtomicBoolean run = new AtomicBoolean(true);
 
+  /**
+   * Establishes the connection to the server.
+   * @param serverAddress in the form {@code host:port}. Port can be omitted and 3030 is used in this case.
+   */
   public KvdClient(String serverAddress) {
     try {
-      HostAndPort hp = HostAndPort.fromString(serverAddress);
+      HostAndPort hp = HostAndPort.fromString(serverAddress).withDefaultPort(3030);
       log.trace("connecting to '{}'", hp);
       Socket socket = new Socket(InetAddress.getByName(hp.getHost()), hp.getPort());
       socket.setSoTimeout(1000);
@@ -92,6 +112,12 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Put a new value or replace an existing.
+   * @param key key with which the specified value is to be associated
+   * @return {@code OutputStream} to be used to stream the value in.
+   *         Close the {@code OutputStream} to signal that the value is complete.
+   */
   public OutputStream put(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -150,6 +176,12 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Returns the value to which the specified key is mapped
+   * @param key the key whose associated value is to be returned
+   * @return {@code Future} that evaluates either to an {@code InputStream} for keys that exist
+   *         or {@code null} for keys that don't exist on the server.
+   */
   public Future<InputStream> getAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -192,6 +224,11 @@ public class KvdClient implements AutoCloseable {
     return future;
   }
 
+  /**
+   * Convenience method that calls {@getAsync} and waits for the {@code Future} to complete.
+   * @param key key the key whose associated value is to be returned
+   * @return the {@code InputStream} for keys that exist or {@code null} for keys that don't exist on the server.
+   */
   public InputStream get(String key) {
     try {
       return getAsync(key).get();
@@ -200,6 +237,12 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Convenience method that puts a {@code String} value.
+   * <p>Note: Uses {@code DataOutputStream::writeUTF} to write the String
+   * @param key key with which the specified value is to be associated
+   * @param value value to be associated with the specified key
+   */
   public void putString(String key, String value) {
     if(value == null) {
       throw new KvdException("null string value not supported");
@@ -211,14 +254,31 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Convenience method that gets a {@code String} value.
+   * <p>Note: Uses {@code DataInputStream::readUTF} to read the String
+   * @param key the key whose associated value is to be returned
+   * @return {@code String} value that is associated with the key or {@code null}
+   *         if the key does not exist on the server.
+   */
   public String getString(String key) {
-    try(DataInputStream in = new DataInputStream(get(key))) {
-      return in.readUTF();
-    } catch(IOException e) {
-      throw new KvdException("get string failed", e);
+    InputStream i = get(key);
+    if(i != null) {
+      try(DataInputStream in = new DataInputStream(i)) {
+        return in.readUTF();
+      } catch(IOException e) {
+        throw new KvdException("get string failed", e);
+      }
+    } else {
+      return null;
     }
   }
 
+  /**
+   * The returned {@code Future} evaluates to true if the key exists on the server, false otherwise
+   * @param key The key whose presence is to be tested
+   * @return {@code Future} evaluates to {@code true} if the key exists on the server, {@code false} otherwise
+   */
   public Future<Boolean> containsAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -260,6 +320,11 @@ public class KvdClient implements AutoCloseable {
     return future;
   }
 
+  /**
+   * Returns true if a mapping for the specified key exists on the server.
+   * @param key the key whose presence is to be tested
+   * @return {@code true} if the key exists on the server, {@code false} otherwise.
+   */
   public boolean contains(String key) {
     try {
       return containsAsync(key).get();
@@ -268,6 +333,12 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Removes the mapping for the specified key from the server.
+   * @param key key whose mapping is to be removed
+   * @return {@code Future} which evaluates to {@code true} if the key/value was removed from the server,
+   *         @{code false} otherwise.
+   */
   public Future<Boolean> removeAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -309,6 +380,11 @@ public class KvdClient implements AutoCloseable {
     return future;
   }
 
+  /**
+   * Removes the mapping for the specified key from the server.
+   * @param key key key whose mapping is to be removed
+   * @return {@code true} if the key/value was removed from the server, {@code false} otherwise.
+   */
   public boolean remove(String key) {
     try {
       return removeAsync(key).get();
@@ -317,6 +393,10 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Waits for pending requests to finish and closes the connection to the server. Once closed this instance
+   * can't be reused and must be discarded.
+   */
   @Override
   public synchronized void close() {
     if(!closed.get()) {
@@ -343,6 +423,10 @@ public class KvdClient implements AutoCloseable {
     return run.get();
   }
 
+  /**
+   * Check if the KvdClient can still be used.
+   * @return {@code true} if the instance is closed, {@code false} otherwise.
+   */
   public boolean isClosed() {
     return closed.get();
   }

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -115,6 +116,14 @@ public class KvdTest {
   }
 
   @Test
+  public void getStringTest() {
+    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+      String key = "string-key-not-existing";
+      assertNull(client.getString(key));
+    }
+  }
+
+  @Test
   public void streaming() throws Exception {
     String key = "streaming";
     String chars = "abcdefghijklmnopqrstuvwxyz1234567890";
@@ -152,6 +161,15 @@ public class KvdTest {
     }
     for(int i=0;i<32;i++) {
       out.write(buf);
+    }
+  }
+
+  @Test
+  public void simpleStreamTest() throws Exception {
+    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+      try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
+        out.writeLong(42);
+      }
     }
   }
 
