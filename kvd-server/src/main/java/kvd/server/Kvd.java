@@ -14,6 +14,8 @@
 package kvd.server;
 
 import java.io.File;
+import java.net.URL;
+import java.util.jar.Manifest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -25,6 +27,7 @@ import com.beust.jcommander.Parameter;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import kvd.common.Utils;
+import kvd.common.Version;
 
 public class Kvd {
 
@@ -55,6 +58,10 @@ public class Kvd {
 
   public void run(KvdOptions options) {
     setLogLevel("kvd", options.logLevel);
+    Version version = getVersion();
+    if(version != null) {
+      log.info("{}", version.version());
+    }
     handler = new SocketConnectHandler(options.maxClients, new FileStorage(new File(options.storage)));
     log.info("starting kvd with storage directory at '{}'", options.storage);
     socketServer = new SimpleSocketServer(options.port, handler);
@@ -64,6 +71,17 @@ public class Kvd {
 
   public SimpleSocketServer getSocketServer() {
     return socketServer;
+  }
+
+  private Version getVersion() {
+    try {
+      URL manifestUrl = new URL(StringUtils.substringBeforeLast(
+          Kvd.class.getResource("Kvd.class").toString(), "!")+"!/META-INF/MANIFEST.MF");
+      return new Version(new Manifest(manifestUrl.openStream()));
+    } catch(Exception e) {
+      log.trace("failed to determine version", e);
+    }
+    return null;
   }
 
   public static void main(String[] args) {
