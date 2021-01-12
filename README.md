@@ -44,7 +44,7 @@ In this case the database is written to $HOME/.kvd
 
 For the example below to work you need to add the kvd-client library as a dependency in your project. The kvd-client library only depends on slf4j and java 1.8+.
 
-add this to your gradle dependencies:
+Add this to your gradle dependencies:
 ```
   implementation 'io.github.agebe:kvd-client:0.1.2'
 ```
