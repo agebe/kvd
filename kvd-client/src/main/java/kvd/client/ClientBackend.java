@@ -60,6 +60,8 @@ public class ClientBackend {
 
   private Thread receiveThread;
 
+  private Thread pingThread;
+
   private Runnable onClose;
 
   public ClientBackend(Socket socket, Runnable onClose) {
@@ -73,8 +75,31 @@ public class ClientBackend {
       sendThread.start();
       receiveThread = new Thread(this::receiveLoop, "kvd-receive-" + clientId);
       receiveThread.start();
+      pingThread = new Thread(this::pingLoop, "kvd-ping-" + clientId);
+      pingThread.start();
     } else {
       log.warn("already started");
+    }
+  }
+
+  private void pingLoop() {
+    log.trace("starting ping loop");
+    try {
+      while(run.get()) {
+        sendAsync(new Packet(PacketType.PING));
+        for(int i=0;i<10;i++) {
+          if(closed.get()) {
+            break;
+          }
+          Thread.sleep(100);
+        }
+      }
+    } catch(Exception e) {
+      log.warn("send ping failure", e);
+    } finally {
+      log.trace("ping loop exit");
+      run.set(false);
+      onClose.run();
     }
   }
 
@@ -89,8 +114,6 @@ public class ClientBackend {
         } else {
           if(closed.get()) {
             break;
-          } else {
-            new Packet(PacketType.PING).write(out);
           }
         }
       }
@@ -145,6 +168,8 @@ public class ClientBackend {
   }
 
   public void sendAsync(Packet packet) throws InterruptedException {
+    // TODO maybe we need a fair lock here? sending ping packets is required to receive pong packets otherwise
+    // the client disconnects on not receiving any packets which might happen on large value uploads.
     while(true) {
       if(!closed.get() && run.get()) {
         if(sendQueue.offer(packet, 1, TimeUnit.SECONDS)) {
