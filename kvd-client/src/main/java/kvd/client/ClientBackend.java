@@ -86,12 +86,19 @@ public class ClientBackend {
     log.trace("starting ping loop");
     try {
       while(run.get()) {
-        sendAsync(new Packet(PacketType.PING));
+        // do the sleep first before the ping so the ping is sent after the initial hello packet
         for(int i=0;i<10;i++) {
-          if(closed.get()) {
+          if(isClosed()) {
             break;
           }
           Thread.sleep(100);
+        }
+        try {
+          sendAsync(new Packet(PacketType.PING));
+        } catch(Exception e) {
+          if(!isClosed()) {
+            log.warn("send ping failed", e);
+          }
         }
       }
     } catch(Exception e) {
