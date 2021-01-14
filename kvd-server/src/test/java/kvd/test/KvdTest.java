@@ -15,7 +15,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterAll;
@@ -46,9 +50,13 @@ public class KvdTest {
     server.getSocketServer().stop();
   }
 
+  private KvdClient client() {
+    return new KvdClient("localhost:"+server.getSocketServer().getLocalPort());
+  }
+
   @Test
   public void putTest() {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       client.putString("string", "test");
     }
   }
@@ -57,7 +65,7 @@ public class KvdTest {
   public void getTest() {
     final String key = "getTEST";
     final String val = "my string value";
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       client.putString(key, val);
       assertEquals(val, client.getString(key));
     }
@@ -65,7 +73,7 @@ public class KvdTest {
 
   @Test
   public void testEmpty() {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       assertFalse(client.contains("empty"), "contains key 'empty'");
       client.putString("empty", "");
       assertEquals("", client.getString("empty"));
@@ -78,7 +86,7 @@ public class KvdTest {
 
   @Test
   public void testEmptyStream() throws Exception {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       String key = "empty-stream";
       assertFalse(client.contains(key), "contains key '"+key+"'");
       try(OutputStream out = client.put(key)) {
@@ -99,7 +107,7 @@ public class KvdTest {
 
   @Test
   public void testNull() {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       assertFalse(client.contains("null"), "contains key 'null'");
       assertNull(client.get("null"));
       assertThrows(KvdException.class, () -> client.putString("null", null));
@@ -108,7 +116,7 @@ public class KvdTest {
 
   @Test
   public void testRemoveNonExist() {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       String key = "not-existing";
       assertFalse(client.contains(key), "contains key '"+key+"'");
       assertTrue(client.get(key) == null);
@@ -118,7 +126,7 @@ public class KvdTest {
 
   @Test
   public void getStringTest() {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       String key = "string-key-not-existing";
       assertNull(client.getString(key));
     }
@@ -128,14 +136,14 @@ public class KvdTest {
   public void streaming() throws Exception {
     String key = "streaming";
     String chars = "abcdefghijklmnopqrstuvwxyz1234567890";
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       try(OutputStream out = client.put(key)) {
         for(int i = 0;i<1024;i++) {
           write1Kb(out, chars.charAt(i%chars.length()));
         }
       }
     }
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       assertTrue(client.contains(key));
       try(BufferedReader reader = new BufferedReader(new InputStreamReader(client.get(key), "UTF-8"))) {
         long read = 0;
@@ -167,7 +175,7 @@ public class KvdTest {
 
   @Test
   public void simpleStreamWriteTest() throws Exception {
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
         out.writeLong(42);
       }
@@ -177,7 +185,7 @@ public class KvdTest {
   @Test
   public void simpleStreamReadTest() throws Exception {
     simpleStreamWriteTest();
-    try(KvdClient client = new KvdClient("localhost:"+server.getSocketServer().getLocalPort())) {
+    try(KvdClient client = client()) {
       InputStream i = client.get("simplestream");
       if(i != null) {
         try(DataInputStream in = new DataInputStream(i)) {
@@ -186,6 +194,48 @@ public class KvdTest {
       } else {
         throw new RuntimeException("value missing");
       }
+    }
+  }
+
+  // from https://stackoverflow.com/a/9855338
+  private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+  public static String bytesToHex(byte[] bytes) {
+      char[] hexChars = new char[bytes.length * 2];
+      for (int j = 0; j < bytes.length; j++) {
+          int v = bytes[j] & 0xFF;
+          hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+          hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+      }
+      return new String(hexChars);
+  }
+
+  private void testRunner(KvdClient client, int threadId) {
+    Random r = new Random(threadId);
+    byte[] buf = new byte[(threadId+1)*10];
+    IntStream.range(0,100).forEachOrdered(i -> {
+      r.nextBytes(buf);
+      String key = "multithreadedtest_threadid_" + threadId + "_" + i;
+      String val = bytesToHex(buf);
+      client.putString(key, val);
+      assertEquals(val, client.getString(key));
+    });
+  }
+
+  @Test
+  public void multiThreadedTest() {
+    try(KvdClient client = client()) {
+      List<Thread> threads = IntStream.range(0, 10).mapToObj(i -> {
+        Thread t = new Thread(() -> testRunner(client, i), "kvd-testrunner-"+i);
+        t.start();
+        return t;
+      }).collect(Collectors.toList());
+      threads.forEach(t -> {
+        try {
+          t.join();
+        } catch (InterruptedException e) {
+          throw new RuntimeException("interrupted", e);
+        }
+      });
     }
   }
 
