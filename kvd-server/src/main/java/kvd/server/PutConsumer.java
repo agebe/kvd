@@ -58,7 +58,7 @@ public class PutConsumer implements ChannelConsumer {
         try {
           out.write(packet.getBody());
         } catch(Exception e) {
-          throw new KvdException("failed to write to stream for key "+ this.key);
+          throw new KvdException("failed to write to stream for key "+ this.key, e);
         }
       } else {
         throw new KvdException("put has not been initialized yet");
