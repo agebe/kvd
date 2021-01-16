@@ -13,8 +13,6 @@
  */
 package kvd.client;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -241,39 +239,59 @@ public class KvdClient implements AutoCloseable {
 
   /**
    * Convenience method that puts a {@code String} value.
-   * <p>Note: Uses {@code DataOutputStream::writeUTF} to write the String
    * @param key key with which the specified value is to be associated
-   * @param value value to be associated with the specified key
+   * @param value value to be associated with the specified key. {@code null} values are not supported
+   * @param charsetName the name of the requested charset, {@code null} means platform default
    */
-  public void putString(String key, String value) {
+  public void putString(String key, String value, String charsetName) {
     if(value == null) {
-      throw new KvdException("null string value not supported");
+      throw new KvdException("null value not supported");
     }
-    try(DataOutputStream out = new DataOutputStream(put(key))) {
-      out.writeUTF(value);
+    try(OutputStream out = put(key)) {
+      out.write(value.getBytes(Utils.toCharset(charsetName)));
     } catch(IOException e) {
       throw new KvdException("put string failed", e);
     }
   }
 
   /**
+   * Convenience method that puts a {@code String} value. Uses platform default charset
+   * @param key key with which the specified value is to be associated
+   * @param value value to be associated with the specified key. {@code null} values are not supported
+   **/
+  public void putString(String key, String value) {
+    putString(key, value, null);
+  }
+
+  /**
    * Convenience method that gets a {@code String} value.
-   * <p>Note: Uses {@code DataInputStream::readUTF} to read the String
    * @param key the key whose associated value is to be returned
+   * @param charsetName the name of the requested charset, {@code null} means platform default
    * @return {@code String} value that is associated with the key or {@code null}
    *         if the key does not exist on the server.
    */
-  public String getString(String key) {
+  public String getString(String key, String charsetName) {
     InputStream i = get(key);
     if(i != null) {
-      try(DataInputStream in = new DataInputStream(i)) {
-        return in.readUTF();
+      try {
+        byte[] buf = Utils.toByteArray(i);
+        return new String(buf, Utils.toCharset(charsetName));
       } catch(IOException e) {
-        throw new KvdException("get string failed", e);
+        throw new KvdException("getString failed", e);
       }
     } else {
       return null;
     }
+  }
+
+  /**
+   * Convenience method that gets a {@code String} value.
+   * @param key the key whose associated value is to be returned
+   * @return {@code String} value that is associated with the key or {@code null}. Uses platform default charset
+   *         if the key does not exist on the server.
+   */
+  public String getString(String key) {
+    return getString(key, null);
   }
 
   /**

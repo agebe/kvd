@@ -55,9 +55,10 @@ public class KvdTest {
   }
 
   @Test
-  public void putTest() {
+  public void charsetTest() {
     try(KvdClient client = client()) {
-      client.putString("string", "test");
+      client.putString("string", "test", "UTF-16");
+      assertEquals("test", client.getString("string", "UTF-16"));
     }
   }
 
@@ -197,25 +198,13 @@ public class KvdTest {
     }
   }
 
-  // from https://stackoverflow.com/a/9855338
-  private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
-  public static String bytesToHex(byte[] bytes) {
-      char[] hexChars = new char[bytes.length * 2];
-      for (int j = 0; j < bytes.length; j++) {
-          int v = bytes[j] & 0xFF;
-          hexChars[j * 2] = HEX_ARRAY[v >>> 4];
-          hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
-      }
-      return new String(hexChars);
-  }
-
   private void testRunner(KvdClient client, int threadId) {
     Random r = new Random(threadId);
     byte[] buf = new byte[(threadId+1)*10];
     IntStream.range(0,100).forEachOrdered(i -> {
       r.nextBytes(buf);
       String key = "multithreadedtest_threadid_" + threadId + "_" + i;
-      String val = bytesToHex(buf);
+      String val = TestUtils.bytesToHex(buf);
       client.putString(key, val);
       assertEquals(val, client.getString(key));
     });
@@ -236,6 +225,16 @@ public class KvdTest {
           throw new RuntimeException("interrupted", e);
         }
       });
+    }
+  }
+
+  @Test
+  public void largeStringTest() {
+    try(KvdClient client = client()) {
+      String key = "largestring";
+      String val = StringUtils.repeat("0123456789", 10000);
+      client.putString(key, val);
+      assertEquals(val, client.getString(key));
     }
   }
 
