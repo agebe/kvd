@@ -1,15 +1,21 @@
 # kvd
 
-kvd is a simple key value database that follows a client/server model. Key features of kvd are:
+kvd is a simple key value database that follows a client/server model. kvd uses Java IO streams to stream values in/out which enables it to support large values, tested with values up to 8GiB. It only supports 4 operations currently:
 
-* Values are streamed in/out which supports large values.
-* Keys/Values are stored to the filesystem (no jvm in-memory storage currently), each pair in a separate file.
+* **put**, add/replace a key/value pair
+* **get**, get a value
+* **contains**, check if a key exists
+* **remove**, remove a key/value pair
+
+See example code below.
+
+kvd does not have serialization but its put- and get-operations are based on Java IO streams so please bring your own serialization.
 
 kvd client and server are written in Java.
 
-Note: I've only tested kvd on linux/x86_64. It might also work on other OS/arch combinations.
+Note: I've only tested kvd on linux/x86_64. It might work on other OS/arch combinations.
 
-I've written kvd to cache calculation results that take quite some time to compute. The results are sometimes large (> 1GB) and it seems other key value database struggle with large values this is why I've decided to roll my own. Currently the kvd server stores each key and value in a separate file so if you are planning to use it for lots of small key/value pairs you might want to consider this and check if your filesystem supports it (e.g. check free inodes).
+I've written kvd to cache calculation results that take quite some time to compute. The results are sometimes large (> 1GB) and it seems other key value database struggle with large values this is why I've decided to roll my own.
 
 ## Server setup
 
@@ -74,7 +80,28 @@ The examples below show how to use the client API to access the database
     }
 ```
 
+## Storage Backend
+
+Kvd currently only has a quite simple filesystem based storage backend. Each key/value pair is stored into a separate file with the key being the filename and the value the content of the file. Since filesystems have restrictions on filenames only lowercase letters, digits and underscores are used as is. If keys contain other characters, only the hash of the key is used as a filename (and the original key is discarded). The key is also hashed if it contains more than 200 characters.
+
+All files are stored in a single directory and this can work quite nicely depending on your filesystem support for large directories. I've tested this on an ext4 filesystem and put/get/contains/remove operations remain fast even with millions of entries. The feature that makes this work on the ext3/ext4 filesystem is dir_index (man ext4):
+
+> dir_index - Use hashed b-trees to speed up name lookups in large directories.  This feature is supported by ext3 and ext4 file systems, and is ignored by ext2 file systems.
+
+You can check which ext fs features are enabled with
+```bash
+$ sudo dumpe2fs /dev/<my-ext-block-device>  | less
+```
+
+If you are planing to use kvd with large amounts of entries please also read up on filesystem limitations. Ext uses 1 inode per file so make sure your filesystem has enough inodes to support your anticipated database entry size. 
+
+Also consider that files are store in blocks so they consume more space on disk than their actual size. On ext4 this is usally 4kb. If your values are mostly small (<128 byte) you might want to consider creating your filesystem with the inline_data feature (man ext4):
+
+> inline_data - Allow data to be stored in the inode and extended attribute area.
+
+
 ## Future work
+* support custom storage backends
 * let the server cleanup (delete) values that come with expiry information
 * configurable max size for single values
 * configurable max size for database. This might automatically drop values to make room for new values (LRU)
