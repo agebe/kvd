@@ -91,6 +91,10 @@ The examples below show how to use the client API to access the database
     }
 ```
 
+[KvdClient API Javadoc](https://javadoc.io/doc/io.github.agebe/kvd-client/latest/kvd/client/KvdClient.html)
+
+[![javadoc](https://javadoc.io/badge2/io.github.agebe/kvd-client/javadoc.svg)](https://javadoc.io/doc/io.github.agebe/kvd-client)
+
 ## Storage Backend
 
 Kvd has a quite simple filesystem based storage backend. Each key/value pair is stored into a separate file with the key being the filename and the value the content of the file. Since filesystems have restrictions on filenames only lowercase letters, digits and underscores are used as is. If keys contain other characters, only the hash of the key is used as a filename (and the original key is discarded). The key is also hashed if it contains more than 200 characters.
