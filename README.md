@@ -9,7 +9,9 @@ kvd is a simple key value database that follows a client/server model. kvd uses 
 
 See example code below.
 
-kvd does not have serialization but its put- and get-operations are based on Java IO streams so please bring your own serialization.
+kvd does not bring its own serialization support but put- and get-operations are based on Java IO streams so integration with your serialization system should be easy.
+
+TODO: add link to gson example
 
 kvd client and server are written in Java.
 
