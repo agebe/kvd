@@ -11,18 +11,18 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server;
+package kvd.server.storage;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public interface Storage {
+public interface StorageBackend {
 
   OutputStream begin(String key);
 
-  void finish(String key);
+  void commit(String key);
 
-  void abort(String key);
+  void rollack(String key);
 
   InputStream get(String key);
 

@@ -28,6 +28,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import kvd.common.Utils;
 import kvd.common.Version;
+import kvd.server.storage.fs.FileStorage;
 
 public class Kvd {
 

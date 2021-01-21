@@ -23,6 +23,8 @@ import kvd.common.KvdException;
 import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.server.storage.KeyUtils;
+import kvd.server.storage.StorageBackend;
 
 public class PutConsumer implements ChannelConsumer {
 
@@ -32,11 +34,11 @@ public class PutConsumer implements ChannelConsumer {
 
   private OutputStream out;
 
-  private Storage storage;
+  private StorageBackend storage;
 
   private ClientResponseHandler client;
 
-  public PutConsumer(Storage storage, ClientResponseHandler client) {
+  public PutConsumer(StorageBackend storage, ClientResponseHandler client) {
     super();
     this.storage = storage;
     this.client = client;
@@ -65,7 +67,7 @@ public class PutConsumer implements ChannelConsumer {
       }
     } else if(PacketType.PUT_FINISH.equals(packet.getType())) {
       if(out != null) {
-        storage.finish(key);
+        storage.commit(key);
         client.sendAsync(new Packet(PacketType.PUT_COMPLETE, packet.getChannel()));
         this.out = null;
         this.key = null;
@@ -80,7 +82,7 @@ public class PutConsumer implements ChannelConsumer {
   @Override
   public void close() throws Exception {
     if(key != null) {
-      storage.abort(key);
+      storage.rollack(key);
     }
   }
 

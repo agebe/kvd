@@ -11,7 +11,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server;
+package kvd.server.storage.fs;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -32,8 +32,10 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.common.Utils;
+import kvd.server.storage.KeyUtils;
+import kvd.server.storage.StorageBackend;
 
-public class FileStorage implements Storage {
+public class FileStorage implements StorageBackend {
 
   private static final Logger log = LoggerFactory.getLogger(FileStorage.class);
 
@@ -102,7 +104,7 @@ public class FileStorage implements Storage {
   }
 
   @Override
-  public synchronized void finish(String key) {
+  public synchronized void commit(String key) {
     String s = KeyUtils.internalKey(key);
     Staging staging = wmap.get(s);
     try {
@@ -115,7 +117,7 @@ public class FileStorage implements Storage {
         log.warn("staging file for key '{}' missing", key);
       }
     } catch(Exception e) {
-      abort(key);
+      rollack(key);
       throw new KvdException("failed to finish put of " + key);
     } finally {
       wmap.remove(s);
@@ -123,7 +125,7 @@ public class FileStorage implements Storage {
   }
 
   @Override
-  public void abort(String key) {
+  public void rollack(String key) {
     String s = KeyUtils.internalKey(key);
     Staging staging = wmap.get(s);
     if(staging != null) {

@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.common.Utils;
+import kvd.server.storage.StorageBackend;
 
 public class SocketConnectHandler implements Consumer<Socket> {
 
@@ -35,9 +36,9 @@ public class SocketConnectHandler implements Consumer<Socket> {
 
   private int maxClients;
 
-  private Storage storage;
+  private StorageBackend storage;
 
-  public SocketConnectHandler(int maxClients, Storage storage) {
+  public SocketConnectHandler(int maxClients, StorageBackend storage) {
     super();
     if(maxClients <= 0) {
       throw new KvdException("invalid max clients " + maxClients);

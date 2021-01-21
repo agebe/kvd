@@ -23,6 +23,7 @@ import kvd.common.KvdException;
 import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.server.storage.StorageBackend;
 
 public class GetConsumer implements ChannelConsumer {
 
@@ -32,13 +33,13 @@ public class GetConsumer implements ChannelConsumer {
 
   private int channel;
 
-  private Storage storage;
+  private StorageBackend storage;
 
   private ClientResponseHandler client;
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
-  public GetConsumer(long clientId, int channel, Storage storage, ClientResponseHandler client) {
+  public GetConsumer(long clientId, int channel, StorageBackend storage, ClientResponseHandler client) {
     super();
     this.clientId = clientId;
     this.channel = channel;

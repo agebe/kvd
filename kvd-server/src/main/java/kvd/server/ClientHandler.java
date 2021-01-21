@@ -28,6 +28,7 @@ import kvd.common.KvdException;
 import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.server.storage.StorageBackend;
 
 public class ClientHandler implements Runnable, AutoCloseable {
 
@@ -43,11 +44,11 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private Map<Integer, ChannelConsumer> channels = new HashMap<>();
 
-  private Storage storage;
+  private StorageBackend storage;
 
   private ClientResponseHandler client;
 
-  public ClientHandler(long clientId, Socket socket, Storage storage) {
+  public ClientHandler(long clientId, Socket socket, StorageBackend storage) {
     this.clientId = clientId;
     this.socket = socket;
     this.storage = storage;
