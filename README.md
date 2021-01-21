@@ -110,7 +110,7 @@ $ sudo dumpe2fs /dev/<my-ext-block-device>  | less
 
 If you are planing to use kvd with large amounts of entries please also read up on filesystem limitations. Ext uses 1 inode per file so make sure your filesystem has enough inodes to support your anticipated database entry size. 
 
-Also consider that files are store in blocks so they consume more space on disk than their actual size. On ext4 this is usally 4KiB. If your values are mostly small (<=128 byte) you might want to consider creating your filesystem with the inline_data feature (man ext4):
+Also consider that files are stored in blocks so they consume more space on disk than their actual size. On ext4 this is usally 4 KiB. If your values are mostly small (<=128 byte) you might want to consider creating your filesystem with the inline_data feature (man ext4):
 
 > inline_data - Allow data to be stored in the inode and extended attribute area.
 
