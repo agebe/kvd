@@ -43,7 +43,6 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
   }
 
   public BinaryLargeObject toBinaryLargeObject() {
-    a.compact();
     return a;
   }
 
