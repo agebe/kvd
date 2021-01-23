@@ -14,15 +14,10 @@
 package kvd.server.storage;
 
 import java.io.InputStream;
-import java.io.OutputStream;
 
 public interface StorageBackend {
 
-  OutputStream begin(String key);
-
-  void commit(String key);
-
-  void rollack(String key);
+  AbortableOutputStream put(String key);
 
   InputStream get(String key);
 

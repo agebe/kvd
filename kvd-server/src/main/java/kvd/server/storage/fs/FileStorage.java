@@ -19,7 +19,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -31,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
+import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.KeyUtils;
 import kvd.server.storage.StorageBackend;
 
@@ -42,26 +41,21 @@ public class FileStorage implements StorageBackend {
   private static class Staging {
 
     private String key;
-    private File tmpFile;
-    private OutputStream out;
-    public Staging(String key, File tmpFile) {
+
+    private File f;
+
+    public Staging(String key, File f) {
       super();
-      try {
-        this.key = key;
-        this.tmpFile = tmpFile;
-        this.out = new BufferedOutputStream(new FileOutputStream(tmpFile));
-      } catch(Exception e) {
-        throw new KvdException("failed to create staging file for key " + key, e);
-      }
+      this.key = key;
+      this.f = f;
     }
+
     public String getKey() {
       return key;
     }
-    public File getTmpFile() {
-      return tmpFile;
-    }
-    public OutputStream getOut() {
-      return out;
+
+    public File getFile() {
+      return f;
     }
   }
 
@@ -96,44 +90,49 @@ public class FileStorage implements StorageBackend {
   }
 
   @Override
-  public synchronized OutputStream begin(String key) {
-    File f = new File(staging, UUID.randomUUID().toString());
-    Staging staging = new Staging(KeyUtils.internalKey(key), f);
-    wmap.put(staging.getKey(), staging);
-    return staging.getOut();
-  }
-
-  @Override
-  public synchronized void commit(String key) {
-    String s = KeyUtils.internalKey(key);
-    Staging staging = wmap.get(s);
+  public synchronized AbortableOutputStream put(String key) {
+    String txId = UUID.randomUUID().toString();
+    File f = new File(staging, txId);
     try {
-      if(staging != null) {
-        staging.getOut().close();
-        Path to = new File(storage, s).toPath();
-        Path from = staging.getTmpFile().toPath();
-        Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
-      } else {
-        log.warn("staging file for key '{}' missing", key);
-      }
+      AbortableOutputStream out = new AbortableOutputStream(
+          new BufferedOutputStream(new FileOutputStream(f)),
+          txId,
+          this::commit,
+          this::rollback);
+      Staging staging = new Staging(KeyUtils.internalKey(key), f);
+      wmap.put(txId, staging);
+      log.info("starting put, key '{}', tx '{}'", staging.getKey(), txId);
+      return out;
     } catch(Exception e) {
-      rollack(key);
-      throw new KvdException("failed to finish put of " + key);
-    } finally {
-      wmap.remove(s);
+      throw new KvdException("failed to create staging file for key " + key, e);
     }
   }
 
-  @Override
-  public void rollack(String key) {
-    String s = KeyUtils.internalKey(key);
-    Staging staging = wmap.get(s);
+  private synchronized void commit(String txId) {
+    Staging staging = wmap.get(txId);
+    try {
+      if(staging != null) {
+        Path to = new File(storage, staging.getKey()).toPath();
+        Path from = staging.getFile().toPath();
+        Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+      } else {
+        log.warn("staging file missing, {}", txId);
+      }
+    } catch(Exception e) {
+      rollback(txId);
+      throw new KvdException("failed to finish put " + txId);
+    } finally {
+      wmap.remove(txId);
+    }
+  }
+
+  private synchronized void rollback(String txId) {
+    Staging staging = wmap.get(txId);
     if(staging != null) {
-      Utils.closeQuietly(staging.getOut());
-      File f = staging.getTmpFile();
+      File f = staging.getFile();
       if(f.exists()) {
-        if(!staging.getTmpFile().delete()) {
-          log.warn("delete failed for '{}' on abort", f.getAbsolutePath());
+        if(!f.delete()) {
+          log.warn("delete failed for '{}' on abort, {}", f.getAbsolutePath(), txId);
         }
       }
     }

@@ -251,4 +251,46 @@ public class KvdTest {
     }
   }
 
+  private Long getLong(KvdClient client, String key) throws Exception {
+    try(DataInputStream in = new DataInputStream(client.get(key))) {
+      return in.readLong();
+    }
+  }
+
+  @Test
+  public void clobberTest() throws Exception {
+    try(KvdClient client = client()) {
+      String key = "clobber";
+      DataOutputStream stream1 = new DataOutputStream(client.put(key));
+      DataOutputStream stream2 = new DataOutputStream(client.put(key));
+      stream1.writeLong(1);
+      stream2.writeLong(2);
+      stream1.close();
+      assertEquals(1, getLong(client, key));
+      stream2.close();
+      assertEquals(2, getLong(client, key));
+    }
+  }
+
+  @Test
+  public void abortTest() throws Exception {
+    String key1 = "abort1";
+    String key2 = "abort2";
+    try {
+      KvdClient client = client();
+      DataOutputStream stream1 = new DataOutputStream(client.put(key1));
+      DataOutputStream stream2 = new DataOutputStream(client.put(key2));
+      stream1.writeLong(1);
+      stream2.writeLong(2);
+      stream1.close();
+      client.close();
+    } catch(Exception e) {
+      e.printStackTrace();
+    }
+    try(KvdClient client = client()) {
+      assertTrue(client.contains(key1));
+      assertFalse(client.contains(key2));
+    }
+  }
+
 }

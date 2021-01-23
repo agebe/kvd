@@ -13,8 +13,6 @@
  */
 package kvd.server;
 
-import java.io.OutputStream;
-
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +21,7 @@ import kvd.common.KvdException;
 import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.KeyUtils;
 import kvd.server.storage.StorageBackend;
 
@@ -32,7 +31,7 @@ public class PutConsumer implements ChannelConsumer {
 
   private String key;
 
-  private OutputStream out;
+  private AbortableOutputStream out;
 
   private StorageBackend storage;
 
@@ -54,12 +53,17 @@ public class PutConsumer implements ChannelConsumer {
         throw new KvdException("put already initialized for key " + key);
       }
       this.key = k;
-      out = this.storage.begin(this.key);
+      out = this.storage.put(this.key);
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {
         try {
           out.write(packet.getBody());
         } catch(Exception e) {
+          try {
+            out.abort();
+          } catch(Exception abortException) {
+            log.warn("abort failed", abortException);
+          }
           throw new KvdException("failed to write to stream for key "+ this.key, e);
         }
       } else {
@@ -67,10 +71,16 @@ public class PutConsumer implements ChannelConsumer {
       }
     } else if(PacketType.PUT_FINISH.equals(packet.getType())) {
       if(out != null) {
-        storage.commit(key);
-        client.sendAsync(new Packet(PacketType.PUT_COMPLETE, packet.getChannel()));
-        this.out = null;
-        this.key = null;
+        try {
+          out.close();
+          client.sendAsync(new Packet(PacketType.PUT_COMPLETE, packet.getChannel()));
+        } catch(Exception e) {
+          log.warn("failed on close, aborting...", e);
+          client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
+        } finally {
+          this.out = null;
+          this.key = null;
+        }
       } else {
         throw new KvdException("put has not been initialized yet");
       }
@@ -81,8 +91,13 @@ public class PutConsumer implements ChannelConsumer {
 
   @Override
   public void close() throws Exception {
-    if(key != null) {
-      storage.rollack(key);
+    if(out != null) {
+      try {
+        out.abort();
+      } finally {
+        key = null;
+        out = null;
+      }
     }
   }
 

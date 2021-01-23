@@ -64,6 +64,7 @@ public class Kvd {
       log.info("{}", version.version());
     }
     handler = new SocketConnectHandler(options.maxClients, new FileStorage(new File(options.storage)));
+    //handler = new SocketConnectHandler(options.maxClients, new MemStorage());
     log.info("starting kvd with storage directory at '{}'", options.storage);
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();

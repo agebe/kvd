@@ -14,46 +14,110 @@
 package kvd.server.storage.mem;
 
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.StorageBackend;
 
 public class MemStorage implements StorageBackend {
 
-  @Override
-  public OutputStream begin(String key) {
-    // TODO Auto-generated method stub
-    return null;
-  }
+  private static final Logger log = LoggerFactory.getLogger(MemStorage.class);
+
+  private Map<String, BinaryLargeObject> store = new HashMap<>();
+
+  private Map<String, Staging> staging = new HashMap<>();
+
+  private ReentrantReadWriteLock rwlock = new ReentrantReadWriteLock();
+  private Lock rlock = rwlock.readLock();
+  private Lock wlock = rwlock.writeLock();
 
   @Override
-  public void commit(String key) {
-    // TODO Auto-generated method stub
-    
+  public AbortableOutputStream put(String key) {
+    wlock.lock();
+    try {
+      String txId = UUID.randomUUID().toString();
+      BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream();
+      AbortableOutputStream out = new AbortableOutputStream(
+          blobStream,
+          txId,
+          this::commit,
+          this::rollback);
+      Staging staging = new Staging(key, blobStream);
+      this.staging.put(txId, staging);
+      log.info("starting put, key '{}', tx '{}'", StringUtils.substring(key, 0, 200), txId);
+      return out;
+    } finally {
+      wlock.unlock();
+    }
   }
 
-  @Override
-  public void rollack(String key) {
-    // TODO Auto-generated method stub
-    
+  private void commit(String txId) {
+    wlock.lock();
+    try {
+      Staging s = staging.remove(txId);
+      if(s != null) {
+        BinaryLargeObject blob = s.getBlobStream().toBinaryLargeObject();
+        blob.compact();
+        store.put(s.getKey(), blob);
+      } else {
+        log.warn("unknown tx '{}'", txId);
+      }
+    } finally {
+      wlock.unlock();
+    }
+  }
+
+  private void rollback(String txId) {
+    wlock.lock();
+    try {
+      staging.remove(txId);
+    } finally {
+      wlock.unlock();
+    }
   }
 
   @Override
   public InputStream get(String key) {
-    // TODO Auto-generated method stub
-    return null;
+    rlock.lock();
+    try {
+      BinaryLargeObject blob = store.get(key);
+      return blob!=null?new BinaryLargeObjectInputStream(blob):null;
+    } finally {
+      rlock.unlock();
+    }
   }
 
   @Override
   public boolean contains(String key) {
-    // TODO Auto-generated method stub
-    return false;
+    rlock.lock();
+    try {
+      return store.containsKey(key);
+    } finally {
+      rlock.unlock();
+    }
   }
 
   @Override
   public boolean remove(String key) {
-    // TODO Auto-generated method stub
-    return false;
+    wlock.lock();
+    try {
+      if(store.containsKey(key)) {
+        store.remove(key);
+        return true;
+      } else {
+        return false;
+      }
+    } finally {
+      wlock.unlock();
+    }
   }
 
 }
