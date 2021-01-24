@@ -26,8 +26,6 @@ import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Future;
@@ -35,33 +33,15 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import kvd.client.KvdClient;
 import kvd.common.KvdException;
 import kvd.server.Kvd;
 
-public class KvdTest {
+public abstract class KvdTest {
 
-  private static Kvd server;
-
-  @BeforeAll
-  public static void setup() throws Exception {
-    Kvd.KvdOptions options = new Kvd.KvdOptions();
-    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-    options.port = 0;
-    options.storage = "file:"+tempDirWithPrefix.toFile().getAbsolutePath();
-    options.logLevel = "warn";
-    server = new Kvd();
-    server.run(options);
-  }
-
-  @AfterAll
-  public static void done() {
-    server.getSocketServer().stop();
-  }
+  protected static Kvd server;
 
   private KvdClient client() {
     return new KvdClient("localhost:"+server.getSocketServer().getLocalPort());
