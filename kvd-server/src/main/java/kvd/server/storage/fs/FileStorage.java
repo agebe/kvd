@@ -101,7 +101,7 @@ public class FileStorage implements StorageBackend {
           this::rollback);
       Staging staging = new Staging(KeyUtils.internalKey(key), f);
       wmap.put(txId, staging);
-      log.info("starting put, key '{}', tx '{}'", staging.getKey(), txId);
+      log.debug("starting put, key '{}', tx '{}'", staging.getKey(), txId);
       return out;
     } catch(Exception e) {
       throw new KvdException("failed to create staging file for key " + key, e);
