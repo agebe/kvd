@@ -22,14 +22,13 @@ import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
 import kvd.server.storage.AbortableOutputStream;
-import kvd.server.storage.KeyUtils;
 import kvd.server.storage.StorageBackend;
 
 public class PutConsumer implements ChannelConsumer {
 
   private static final Logger log = LoggerFactory.getLogger(PutConsumer.class);
 
-  private String key;
+  private String keyShort;
 
   private AbortableOutputStream out;
 
@@ -48,12 +47,11 @@ public class PutConsumer implements ChannelConsumer {
     log.trace("receive packet '{}'", packet.getType());
     if(PacketType.PUT_INIT.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
-      String k = KeyUtils.internalKey(key);
-      if(StringUtils.isNotBlank(this.key)) {
-        throw new KvdException("put already initialized for key " + key);
+      if(StringUtils.isNotBlank(this.keyShort)) {
+        throw new KvdException("put already initialized for key " + keyShort);
       }
-      this.key = k;
-      out = this.storage.put(this.key);
+      this.keyShort = StringUtils.substring(key, 0, 200);
+      out = this.storage.put(key);
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {
         try {
@@ -64,7 +62,7 @@ public class PutConsumer implements ChannelConsumer {
           } catch(Exception abortException) {
             log.warn("abort failed", abortException);
           }
-          throw new KvdException("failed to write to stream for key "+ this.key, e);
+          throw new KvdException("failed to write to stream for key "+ this.keyShort, e);
         }
       } else {
         throw new KvdException("put has not been initialized yet");
@@ -79,7 +77,6 @@ public class PutConsumer implements ChannelConsumer {
           client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
         } finally {
           this.out = null;
-          this.key = null;
         }
       } else {
         throw new KvdException("put has not been initialized yet");
@@ -95,7 +92,6 @@ public class PutConsumer implements ChannelConsumer {
       try {
         out.abort();
       } finally {
-        key = null;
         out = null;
       }
     }
