@@ -74,6 +74,7 @@ public class PutConsumer implements ChannelConsumer {
           client.sendAsync(new Packet(PacketType.PUT_COMPLETE, packet.getChannel()));
         } catch(Exception e) {
           log.warn("failed on close, aborting...", e);
+          out.abort();
           client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
         } finally {
           this.out = null;
@@ -89,11 +90,7 @@ public class PutConsumer implements ChannelConsumer {
   @Override
   public void close() throws Exception {
     if(out != null) {
-      try {
-        out.abort();
-      } finally {
-        out = null;
-      }
+      out.abort();
     }
   }
 
