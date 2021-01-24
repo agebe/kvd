@@ -52,7 +52,7 @@ public class MemStorage implements StorageBackend {
           this::rollback);
       Staging staging = new Staging(key, blobStream);
       this.staging.put(txId, staging);
-      log.info("starting put, key '{}', tx '{}'", StringUtils.substring(key, 0, 200), txId);
+      log.debug("starting put, key '{}', tx '{}'", StringUtils.substring(key, 0, 200), txId);
       return out;
     } finally {
       wlock.unlock();

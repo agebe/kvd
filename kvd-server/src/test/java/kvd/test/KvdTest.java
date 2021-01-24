@@ -52,7 +52,7 @@ public class KvdTest {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
     Path tempDirWithPrefix = Files.createTempDirectory("kvd");
     options.port = 0;
-    options.storage = tempDirWithPrefix.toFile().getAbsolutePath();
+    options.storage = "file:"+tempDirWithPrefix.toFile().getAbsolutePath();
     options.logLevel = "warn";
     server = new Kvd();
     server.run(options);

@@ -26,9 +26,12 @@ import com.beust.jcommander.Parameter;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
+import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.common.Version;
+import kvd.server.storage.StorageBackend;
 import kvd.server.storage.fs.FileStorage;
+import kvd.server.storage.mem.MemStorage;
 
 public class Kvd {
 
@@ -42,8 +45,8 @@ public class Kvd {
     @Parameter(names="--port", description="port to listen on")
     public int port = 3030;
 
-    @Parameter(names="--storage", description="kvd storage folder")
-    public String storage = new File(Utils.getUserHome().getAbsolutePath(), ".kvd").getAbsolutePath();
+    @Parameter(names="--storage", description="kvd storage backend, file:<directory> or mem:")
+    public String storage = "file:" + new File(Utils.getUserHome().getAbsolutePath(), ".kvd").getAbsolutePath();
 
     @Parameter(names="--max-clients", description="maximum number of clients that can connect to the server at the same time")
     public int maxClients = 100;
@@ -57,15 +60,26 @@ public class Kvd {
 
   private SocketConnectHandler handler;
 
+  private StorageBackend createStorageBackend(KvdOptions options) {
+    if(StringUtils.startsWith(options.storage, "file:")) {
+      String directory = StringUtils.removeStart(options.storage, "file:");
+      log.info("using file storage backend at directory '{}'", directory);
+      return new FileStorage(new File(directory));
+    } else if(StringUtils.startsWith(options.storage, "mem:")) {
+      log.info("using mem storage backend");
+      return new MemStorage();
+    } else {
+      throw new KvdException("unknown storage backend: "+ options.storage);
+    }
+  }
+
   public void run(KvdOptions options) {
     setLogLevel("kvd", options.logLevel);
     Version version = getVersion();
     if(version != null) {
       log.info("{}", version.version());
     }
-    handler = new SocketConnectHandler(options.maxClients, new FileStorage(new File(options.storage)));
-    //handler = new SocketConnectHandler(options.maxClients, new MemStorage());
-    log.info("starting kvd with storage directory at '{}'", options.storage);
+    handler = new SocketConnectHandler(options.maxClients, createStorageBackend(options));
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);
