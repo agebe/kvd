@@ -100,8 +100,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     } catch(Exception e) {
       throw new KvdException("close failed", e);
     } finally {
-      closed = true;
-      this.closeListener.accept(this);
+      closeInternal();
     }
   }
 
@@ -112,9 +111,14 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     } catch(Exception e) {
       throw new KvdException("abort failed", e);
     } finally {
-      closed = true;
-      this.closeListener.accept(this);
+      closeInternal();
     }
+  }
+
+  private void closeInternal() {
+    closed = true;
+    backend.closeChannel(channelId);
+    this.closeListener.accept(this);
   }
 
 }
