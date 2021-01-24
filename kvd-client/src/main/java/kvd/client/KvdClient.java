@@ -92,6 +92,7 @@ public class KvdClient implements AutoCloseable {
       });
       backend.start();
       backend.sendAsync(new HelloPacket());
+      backend.waitForHelloReceived();
     } catch(Exception e) {
       throw new KvdException(String.format("failed to connect to '%s'", serverAddress), e);
     }

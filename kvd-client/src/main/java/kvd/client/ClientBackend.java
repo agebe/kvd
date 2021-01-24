@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,6 +64,8 @@ public class ClientBackend {
   private Thread pingThread;
 
   private Runnable onClose;
+
+  private CompletableFuture<Boolean> helloReceivedFuture = new CompletableFuture<>();
 
   public ClientBackend(Socket socket, Runnable onClose) {
     this.socket = socket;
@@ -132,6 +135,7 @@ public class ClientBackend {
     try {
       in = new DataInputStream(socket.getInputStream());
       Utils.receiveHello(in);
+      helloReceivedFuture.complete(true);
       log.trace("received hello packet");
       long lastReceiveNs = System.nanoTime();
       while(run.get()) {
@@ -211,5 +215,13 @@ public class ClientBackend {
 
   public boolean isClosed() {
     return closed.get();
+  }
+
+  public void waitForHelloReceived() {
+    try {
+      helloReceivedFuture.get(1, TimeUnit.MINUTES);
+    } catch(Exception e) {
+      throw new KvdException("wait for server hello failed", e);
+    }
   }
 }

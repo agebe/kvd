@@ -50,7 +50,11 @@ public class ClientResponseHandler implements Runnable, AutoCloseable {
         }
         Packet packet = sendQueue.poll(1, TimeUnit.SECONDS);
         if(packet != null) {
-          packet.write(out);
+          try {
+            packet.write(out);
+          } catch(Exception e) {
+            throw new KvdException("failed to write packet, " + packet.getType());
+          }
         }
       }
     } catch(Exception e) {
