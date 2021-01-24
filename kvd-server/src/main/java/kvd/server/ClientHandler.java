@@ -104,8 +104,10 @@ public class ClientHandler implements Runnable, AutoCloseable {
       closed.set(true);
     } else if(PacketType.PUT_INIT.equals(packet.getType())) {
       createChannel(packet, new PutConsumer(storage, client));
-    } else if(PacketType.PUT_DATA.equals(packet.getType()) ||
-        PacketType.PUT_FINISH.equals(packet.getType())) {
+    } else if(
+        PacketType.PUT_DATA.equals(packet.getType()) ||
+        PacketType.PUT_FINISH.equals(packet.getType()) ||
+        PacketType.PUT_ABORT.equals(packet.getType())) {
       int channel = packet.getChannel();
       ChannelConsumer c = channels.get(channel);
       if(c != null) {

@@ -16,10 +16,9 @@ package kvd.client;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -32,7 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.HelloPacket;
 import kvd.common.HostAndPort;
-import kvd.common.JoiningOutputStream;
 import kvd.common.KvdException;
 import kvd.common.Packet;
 import kvd.common.PacketType;
@@ -62,6 +60,8 @@ public class KvdClient implements AutoCloseable {
 
   private Set<AutoCloseable> closeables = new HashSet<>();
 
+  private Set<Abortable> abortables = Collections.synchronizedSet(new HashSet<>());
+
   private AtomicBoolean closed = new AtomicBoolean(false);
 
   private AtomicBoolean run = new AtomicBoolean(true);
@@ -80,6 +80,7 @@ public class KvdClient implements AutoCloseable {
       socket.setSoTimeout(1000);
       backend = new ClientBackend(socket, () -> {
         // close the client when the server connection closes
+        // FIXME is ForkJoinPool.commonPool() really required here?
         ForkJoinPool.commonPool().execute(() -> {
           try {
             log.trace("close client");
@@ -120,22 +121,10 @@ public class KvdClient implements AutoCloseable {
     checkClosed();
     Utils.checkKey(key);
     try {
-      final PipedOutputStream src = new PipedOutputStream();
-      final PipedInputStream in = new PipedInputStream(src, 64 * 1024);
-      ThreadCloseable tc = new ThreadCloseable(src);
-      Thread t = new Thread(() -> {
-        try {
-          new KvdPut(run, backend, key, in).run();
-        } finally {
-          Utils.closeQuietly(src);
-          ForkJoinPool.commonPool().execute(() -> removeCloseable(tc));
-        }
-      }, "kvd-put-" + backend.getClientId());
-      tc.setThread(t);
-      addCloseable(tc);
-      t.start();
-      return new JoiningOutputStream(src, t);
-    } catch(IOException e) {
+      KvdPutOutputStream out = new KvdPutOutputStream(backend, key, abortables::remove);
+      abortables.add(out);
+      return out;
+    } catch(Exception e) {
       throw new KvdException("put failed", e);
     }
   }
@@ -315,6 +304,15 @@ public class KvdClient implements AutoCloseable {
   public synchronized void close() {
     if(!closed.get()) {
       closed.set(true);
+      Set<Abortable> set = new HashSet<>(abortables);
+      abortables.clear();
+      set.forEach(a -> {
+        try {
+          a.abort();
+        } catch(Exception e) {
+          // ignore
+        }
+      });
       closeables.forEach(c -> {
         try {
           c.close();

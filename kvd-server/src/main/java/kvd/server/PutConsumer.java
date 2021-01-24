@@ -76,11 +76,17 @@ public class PutConsumer implements ChannelConsumer {
           log.warn("failed on close, aborting...", e);
           out.abort();
           client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
-        } finally {
-          this.out = null;
         }
       } else {
         throw new KvdException("put has not been initialized yet");
+      }
+    } else if(PacketType.PUT_ABORT.equals(packet.getType())) {
+      if(out != null) {
+        try {
+          out.abort();
+        } catch(Exception e) {
+          log.warn("failed on abort", e);
+        }
       }
     } else {
       throw new KvdException("not a put packet " + packet.getType());

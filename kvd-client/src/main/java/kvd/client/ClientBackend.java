@@ -88,7 +88,7 @@ public class ClientBackend {
       while(run.get()) {
         // do the sleep first before the ping so the ping is sent after the initial hello packet
         for(int i=0;i<10;i++) {
-          if(isClosed()) {
+          if(!run.get()) {
             break;
           }
           Thread.sleep(100);
@@ -105,7 +105,6 @@ public class ClientBackend {
       log.warn("send ping failure", e);
     } finally {
       log.trace("ping loop exit");
-      run.set(false);
       onClose.run();
     }
   }
@@ -118,17 +117,12 @@ public class ClientBackend {
         Packet packet = sendQueue.poll(1, TimeUnit.SECONDS);
         if(packet != null) {
           packet.write(out);
-        } else {
-          if(closed.get()) {
-            break;
-          }
         }
       }
     } catch(Exception e) {
       log.warn("send loop failure", e);
     } finally {
       log.trace("send loop exit");
-      run.set(false);
       onClose.run();
     }
   }
@@ -156,9 +150,6 @@ public class ClientBackend {
             }
           }
         }
-        if(closed.get()) {
-          break;
-        }
         if(Utils.isTimeout(lastReceiveNs, 15)) {
           throw new KvdException("receive timeout");
         }
@@ -169,7 +160,6 @@ public class ClientBackend {
       log.warn("receive loop failure", e);
     } finally {
       log.trace("receive loop exit");
-      run.set(false);
       onClose.run();
     }
   }
