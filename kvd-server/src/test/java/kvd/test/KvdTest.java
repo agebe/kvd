@@ -273,4 +273,14 @@ public abstract class KvdTest {
     }
   }
 
+  @Test
+  public void containsTest() {
+    try(KvdClient client = client()) {
+      String key = "contains";
+      assertFalse(client.contains(key));
+      client.putString(key, "12345");
+      assertTrue(client.contains(key));
+    }
+  }
+
 }

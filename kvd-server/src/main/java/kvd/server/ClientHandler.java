@@ -48,6 +48,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private ClientResponseHandler client;
 
+  private Thread clientThread;
+
   public ClientHandler(long clientId, Socket socket, StorageBackend storage) {
     this.clientId = clientId;
     this.socket = socket;
@@ -57,8 +59,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
   private synchronized void setupResponseHandler(DataOutputStream out) {
     if(client == null) {
       client = new ClientResponseHandler(out);
-      Thread t = new Thread(client, "client-resp-" + clientId);
-      t.start();
+      clientThread = new Thread(client, "client-resp-" + clientId);
+      clientThread.start();
     } else {
       log.warn("client response handler already setup");
     }
@@ -90,6 +92,13 @@ public class ClientHandler implements Runnable, AutoCloseable {
     } catch(Exception e) {
       log.error("client connection failed", e);
     } finally {
+      try {
+        client.close();
+        clientThread.join();
+        log.trace("client thread joined");
+      } catch(Exception clientCloseException) {
+        log.warn("close client sender failed", clientCloseException);
+      }
       Utils.closeQuietly(this);
       log.info("client id '{}' disconnect", clientId);
     }
@@ -101,6 +110,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
       client.sendAsync(new Packet(PacketType.PONG));
     } else if(PacketType.BYE.equals(packet.getType())) {
       log.debug("client '{}' close received", clientId);
+      client.sendAsync(new Packet(PacketType.BYE));
       closed.set(true);
     } else if(PacketType.PUT_INIT.equals(packet.getType())) {
       createChannel(packet, new PutConsumer(storage, client));

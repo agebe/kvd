@@ -44,15 +44,9 @@ public class ClientBackend {
 
   private Socket socket;
 
-  private DataOutputStream out;
-
-  private DataInputStream in;
-
   private BlockingQueue<Packet> sendQueue = new ArrayBlockingQueue<>(100);
 
   private Map<Integer, Consumer<Packet>> channelReceivers = new HashMap<>();
-
-  private AtomicBoolean run = new AtomicBoolean(true);
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -89,10 +83,10 @@ public class ClientBackend {
   private void pingLoop() {
     log.trace("starting ping loop");
     try {
-      while(run.get()) {
+      while(!isClosed()) {
         // do the sleep first before the ping so the ping is sent after the initial hello packet
         for(int i=0;i<10;i++) {
-          if(!run.get()) {
+          if(isClosed()) {
             break;
           }
           Thread.sleep(100);
@@ -115,12 +109,13 @@ public class ClientBackend {
 
   private void sendLoop() {
     log.trace("starting send loop");
-    try {
-      out = new DataOutputStream(socket.getOutputStream());
-      while(run.get()) {
+    try(DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
+      while(true) {
         Packet packet = sendQueue.poll(1, TimeUnit.SECONDS);
         if(packet != null) {
           packet.write(out);
+        } else if(isClosed()) {
+          break;
         }
       }
     } catch(Exception e) {
@@ -133,18 +128,20 @@ public class ClientBackend {
 
   private void receiveLoop() {
     log.trace("starting receive loop");
-    try {
-      in = new DataInputStream(socket.getInputStream());
+    try(DataInputStream in = new DataInputStream(socket.getInputStream())) {
       Utils.receiveHello(in);
       helloReceivedFuture.complete(true);
       log.trace("received hello packet");
       long lastReceiveNs = System.nanoTime();
-      while(run.get()) {
+      while(true) {
         Packet packet = Packet.readNext(in);
         if(packet != null) {
           lastReceiveNs = System.nanoTime();
           if(PacketType.PONG.equals(packet.getType())) {
             log.trace("received pong");
+          } else if(PacketType.BYE.equals(packet.getType())) {
+            log.trace("received bye");
+            break;
           } else {
             int channelId = packet.getChannel();
             Consumer<Packet> channel = getChannel(channelId);
@@ -173,7 +170,7 @@ public class ClientBackend {
     // TODO maybe we need a fair lock here? sending ping packets is required to receive pong packets otherwise
     // the client disconnects on not receiving any packets which might happen on large value uploads.
     while(true) {
-      if(!closed.get() && run.get()) {
+      if(!closed.get()) {
         if(sendQueue.offer(packet, 1, TimeUnit.SECONDS)) {
           break;
         }
