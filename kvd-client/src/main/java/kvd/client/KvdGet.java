@@ -1,12 +1,8 @@
 package kvd.client;
 
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,50 +12,71 @@ import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
 
-public class KvdGet extends KvdRunnable {
+public class KvdGet implements Abortable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdGet.class);
 
+  private ClientBackend backend;
+
   private String key;
 
-  private CompletableFuture<InputStream> future;
+  private CompletableFuture<InputStream> future = new CompletableFuture<>();
 
-  public KvdGet(AtomicBoolean run, ClientBackend backend, String key, CompletableFuture<InputStream> future) {
-    super(run, backend);
+  private int channelId;
+
+  private Consumer<Abortable> closeListener;
+
+  private KvdGetInputStream stream = new KvdGetInputStream();
+
+  public KvdGet(ClientBackend backend, String key, Consumer<Abortable> closeListener) {
+    this.backend = backend;
     this.key = key;
-    this.future = future;
+    this.closeListener = closeListener;
+  }
+
+  public void start() {
+    channelId = backend.createChannel(this::receive);
+    try {
+      backend.sendAsync(new Packet(PacketType.GET_INIT, channelId, Utils.toUTF8(key)));
+    } catch(Exception e) {
+      try {
+        close();
+      } catch(Exception e2) {
+        // ignore
+      }
+      throw new KvdException("get failed", e);
+    }
   }
 
   @Override
-  public void run() {
-    int channelId = 0;
-    try(PipedOutputStream src = new PipedOutputStream()) {
-      channelId = backend.createChannel();
-      backend.sendAsync(new Packet(PacketType.GET_INIT, channelId, Utils.toUTF8(key)));
-      BlockingQueue<Packet> queue = backend.getReceiveChannel(channelId);
-      while(isRun()) {
-        Packet packet = queue.poll(1, TimeUnit.SECONDS);
-        if(packet != null) {
-          if(PacketType.GET_DATA.equals(packet.getType())) {
-            if(!future.isDone()) {
-              future.complete(new PipedInputStream(src, 64 * 1024));
-            }
-            src.write(packet.getBody());
-          } else if(PacketType.GET_FINISH.equals(packet.getType())) {
-            break;
-          } else {
-            throw new KvdException("received unexpected packet " + packet.getType());
-          }
-        }
-      }
-    } catch(Exception e) {
-      log.warn("get failure", e);
-    } finally {
-      if(!future.isDone()) {
-        future.complete(null);
-      }
-      backend.closeChannel(channelId);
+  public void abort() {
+    future.completeExceptionally(new KvdException("aborted"));
+    stream.abort();
+    close();
+  }
+
+  private void close() {
+    stream.close();
+    backend.closeChannel(channelId);
+    this.closeListener.accept(this);
+  }
+
+  public void receive(Packet packet) {
+    if(PacketType.GET_DATA.equals(packet.getType())) {
+      future.complete(stream);
+      stream.fill(packet.getBody());
+    } else if(PacketType.GET_FINISH.equals(packet.getType())) {
+      future.complete(null);
+      close();
+    } else {
+      log.error("received unexpected packet " + packet.getType());
+      future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
+      abort();
     }
+  }
+
+  public CompletableFuture<InputStream> getFuture() {
+    return future;
   }
 
 }

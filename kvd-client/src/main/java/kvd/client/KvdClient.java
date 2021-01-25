@@ -21,7 +21,6 @@ import java.net.Socket;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,13 +57,9 @@ public class KvdClient implements AutoCloseable {
 
   private ClientBackend backend;
 
-  private Set<AutoCloseable> closeables = new HashSet<>();
-
   private Set<Abortable> abortables = Collections.synchronizedSet(new HashSet<>());
 
   private AtomicBoolean closed = new AtomicBoolean(false);
-
-  private AtomicBoolean run = new AtomicBoolean(true);
 
   /**
    * Establishes the connection to the server.
@@ -96,14 +91,6 @@ public class KvdClient implements AutoCloseable {
     } catch(Exception e) {
       throw new KvdException(String.format("failed to connect to '%s'", serverAddress), e);
     }
-  }
-
-  private synchronized void addCloseable(AutoCloseable c) {
-    closeables.add(c);
-  }
-
-  private synchronized void removeCloseable(AutoCloseable c) {
-    closeables.remove(c);
   }
 
   private void checkClosed() {
@@ -139,19 +126,10 @@ public class KvdClient implements AutoCloseable {
   public Future<InputStream> getAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    final CompletableFuture<InputStream> future = new CompletableFuture<>();
-    ThreadCloseable tc = new ThreadCloseable();
-    Thread t = new Thread(() -> {
-      try {
-        new KvdGet(run, backend, key, future).run();
-      } finally {
-        ForkJoinPool.commonPool().execute(() -> removeCloseable(tc));
-      }
-    }, "kvd-get-" + backend.getClientId());
-    tc.setThread(t);
-    addCloseable(tc);
-    t.start();
-    return future;
+    KvdGet get = new KvdGet(backend, key, abortables::remove);
+    abortables.add(get);
+    get.start();
+    return get.getFuture();
   }
 
   /**
@@ -232,19 +210,10 @@ public class KvdClient implements AutoCloseable {
   public Future<Boolean> containsAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    final CompletableFuture<Boolean> future = new CompletableFuture<>();
-    FutureCloseable c = new FutureCloseable(future);
-    Thread t = new Thread(() -> {
-      try {
-        new KvdContains(run, backend, key, future).run();
-      } finally {
-        ForkJoinPool.commonPool().execute(() -> removeCloseable(c));
-      }
-    }, "kvd-contains-" + backend.getClientId());
-    c.setThread(t);
-    addCloseable(c);
-    t.start();
-    return future;
+    KvdContains contains = new KvdContains(backend, key, abortables::remove);
+    abortables.add(contains);
+    contains.start();
+    return contains.getFuture();
   }
 
   /**
@@ -269,19 +238,10 @@ public class KvdClient implements AutoCloseable {
   public Future<Boolean> removeAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    final CompletableFuture<Boolean> future = new CompletableFuture<>();
-    FutureCloseable c = new FutureCloseable(future);
-    Thread t = new Thread(() -> {
-      try {
-        new KvdRemove(run, backend, key, future).run();
-      } finally {
-        ForkJoinPool.commonPool().execute(() -> removeCloseable(c));
-      }
-    }, "kvd-remove-" + backend.getClientId());
-    c.setThread(t);
-    addCloseable(c);
-    t.start();
-    return future;
+    KvdRemove remove = new KvdRemove(backend, key, abortables::remove);
+    abortables.add(remove);
+    remove.start();
+    return remove.getFuture();
   }
 
   /**
@@ -314,21 +274,16 @@ public class KvdClient implements AutoCloseable {
           // ignore
         }
       });
-      closeables.forEach(c -> {
-        try {
-          c.close();
-        } catch(Exception e) {
-          // ignore
-        }
-      });
-      closeables.clear();
       try {
         backend.sendAsync(new Packet(PacketType.BYE));
       } catch(Exception e) {
         // ignore
       }
+      int channels = backend.channels();
+      if(channels > 0) {
+        log.warn("client still has active channels '{}'", channels);
+      }
       backend.closeGracefully();
-      run.set(false);
     }
   }
 

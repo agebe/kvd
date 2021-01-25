@@ -53,10 +53,10 @@ public class GetConsumer implements ChannelConsumer {
       if(channel != packet.getChannel()) {
         throw new KvdException("channel mismatch");
       }
-      String key = Utils.fromUTF8(packet.getBody());
-      final InputStream in = storage.get(key);
       Thread t = new Thread(() -> {
         try {
+          String key = Utils.fromUTF8(packet.getBody());
+          InputStream in = storage.get(key);
           if(in != null) {
             // Send an empty packet so the client can distinguish between
             // non existing keys and keys with an empty value.

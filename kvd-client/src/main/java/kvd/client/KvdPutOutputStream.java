@@ -2,7 +2,7 @@ package kvd.client;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import kvd.common.ByteRingBuffer;
@@ -22,15 +22,14 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
 
   private Consumer<Abortable> closeListener;
 
-  private BlockingQueue<Packet> queue;
+  private AtomicBoolean closed = new AtomicBoolean();
 
-  private volatile boolean closed;
+  private AtomicBoolean aborted = new AtomicBoolean();
 
   public KvdPutOutputStream(ClientBackend backend, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.closeListener = closeListener;
-    channelId = backend.createChannel();
-    queue = backend.getReceiveChannel(channelId);
+    channelId = backend.createChannel(this::channelReceiver);
     try {
       backend.sendAsync(new Packet(PacketType.PUT_INIT, channelId, Utils.toUTF8(key)));
     } catch(Exception e) {
@@ -45,23 +44,20 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     write(buf);
   }
 
-  private void checkReceived() {
-    for(;;) {
-      Packet packet = queue.poll();
-      if(packet == null) {
-        break;
-      }
-      if(PacketType.PUT_ABORT.equals(packet.getType())) {
-        abort();
-      }
+  private void channelReceiver(Packet packet) {
+    if(PacketType.PUT_ABORT.equals(packet.getType())) {
+      aborted.set(true);
     }
   }
 
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
-    checkReceived();
-    if(closed) {
+    if(closed.get()) {
       throw new IOException("stream closed");
+    }
+    if(aborted.get()) {
+      abort();
+      throw new IOException("stream aborted");
     }
     IOStreamUtils.checkFromIndexSize(off, len, b.length);
     int written = 0;
@@ -116,7 +112,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   }
 
   private void closeInternal() {
-    closed = true;
+    closed.set(true);
     backend.closeChannel(channelId);
     this.closeListener.accept(this);
   }

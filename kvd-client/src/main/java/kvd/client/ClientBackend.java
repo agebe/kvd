@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +50,7 @@ public class ClientBackend {
 
   private BlockingQueue<Packet> sendQueue = new ArrayBlockingQueue<>(100);
 
-  private Map<Integer, BlockingQueue<Packet>> receiveChannels = new HashMap<>();
+  private Map<Integer, Consumer<Packet>> channelReceivers = new HashMap<>();
 
   private AtomicBoolean run = new AtomicBoolean(true);
 
@@ -145,12 +146,12 @@ public class ClientBackend {
           if(PacketType.PONG.equals(packet.getType())) {
             log.trace("received pong");
           } else {
-            int channel = packet.getChannel();
-            BlockingQueue<Packet> q = getReceiveChannel(channel);
-            if(q != null) {
-              q.put(packet);
+            int channelId = packet.getChannel();
+            Consumer<Packet> channel = getChannel(channelId);
+            if(channel != null) {
+              channel.accept(packet);
             } else {
-              log.debug("ignore packet, no channel '{}' does not exist", channel);
+              log.debug("ignore packet, channel '{}' does not exist", channel);
             }
           }
         }
@@ -186,9 +187,9 @@ public class ClientBackend {
     closed.set(true);
   }
 
-  public synchronized int createChannel() {
+  public synchronized int createChannel(Consumer<Packet> channelReceiver) {
     int channelId = channelIds.getAndIncrement();
-    receiveChannels.put(channelId, new ArrayBlockingQueue<>(100));
+    channelReceivers.put(channelId, channelReceiver);
     return channelId;
   }
 
@@ -198,15 +199,16 @@ public class ClientBackend {
     } catch(InterruptedException e) {
       // ignore
     }
-    BlockingQueue<Packet> q = receiveChannels.remove(channelId);
-    if(q == null) {
-      log.warn("close receive channel '{}' but channel does not exist", channelId);
-    }
+    channelReceivers.remove(channelId);
     this.notifyAll();
   }
 
-  public synchronized BlockingQueue<Packet> getReceiveChannel(int channelId) {
-    return receiveChannels.get(channelId);
+  private synchronized Consumer<Packet> getChannel(int channelId) {
+    return channelReceivers.get(channelId);
+  }
+
+  public synchronized  int channels() {
+    return channelReceivers.size();
   }
 
   public String getClientId() {
