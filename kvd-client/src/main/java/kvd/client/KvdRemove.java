@@ -59,25 +59,31 @@ public class KvdRemove implements Abortable {
 
   private void receive(Packet packet) {
     try {
-      if(PacketType.REMOVE_RESPONSE.equals(packet.getType())) {
-        byte[] buf = packet.getBody();
-        if((buf != null) && (buf.length >= 1)) {
-          future.complete((buf[0] == 1));
-        } else {
-          log.error("invalid response");
-          future.completeExceptionally(new KvdException("invalid response"));
-        }
-      } else {
-        log.error("received unexpected packet " + packet.getType());
-        future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
-      }
-    } finally {
       close();
+    } catch(Exception e) {
+      log.error("remove close failed", e);
+    }
+    if(PacketType.REMOVE_RESPONSE.equals(packet.getType())) {
+      byte[] buf = packet.getBody();
+      if((buf != null) && (buf.length >= 1)) {
+        future.complete((buf[0] == 1));
+      } else {
+        log.error("invalid response");
+        future.completeExceptionally(new KvdException("invalid response"));
+      }
+    } else {
+      log.error("received unexpected packet " + packet.getType());
+      future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
     }
   }
 
   public CompletableFuture<Boolean> getFuture() {
     return future;
+  }
+
+  @Override
+  public String toString() {
+    return "REMOVE " + key;
   }
 
 }

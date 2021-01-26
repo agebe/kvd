@@ -79,7 +79,9 @@ public class GetConsumer implements ChannelConsumer {
               }
             }
           }
-          client.sendAsync(new Packet(PacketType.GET_FINISH, channel));
+          if(!closed.get()) {
+            client.sendAsync(new Packet(PacketType.GET_FINISH, channel));
+          }
         } catch(Exception e) {
           log.error("get failed", e);
         } finally {

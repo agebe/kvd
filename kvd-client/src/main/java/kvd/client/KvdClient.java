@@ -18,7 +18,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
@@ -57,7 +56,7 @@ public class KvdClient implements AutoCloseable {
 
   private ClientBackend backend;
 
-  private Set<Abortable> abortables = Collections.synchronizedSet(new HashSet<>());
+  private Set<Abortable> abortables = new HashSet<>();
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -93,6 +92,10 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
+  private synchronized void removeAbortable(Abortable a) {
+    this.abortables.remove(a);
+  }
+
   private void checkClosed() {
     if(isClosed()) {
       throw new KvdException("closed");
@@ -105,11 +108,11 @@ public class KvdClient implements AutoCloseable {
    * @return {@code OutputStream} to be used to stream the value in.
    *         Close the {@code OutputStream} to signal that the value is complete.
    */
-  public OutputStream put(String key) {
+  public synchronized OutputStream put(String key) {
     checkClosed();
     Utils.checkKey(key);
     try {
-      KvdPutOutputStream out = new KvdPutOutputStream(backend, key, abortables::remove);
+      KvdPutOutputStream out = new KvdPutOutputStream(backend, key, this::removeAbortable);
       abortables.add(out);
       return out;
     } catch(Exception e) {
@@ -123,10 +126,10 @@ public class KvdClient implements AutoCloseable {
    * @return {@code Future} that evaluates either to an {@code InputStream} for keys that exist
    *         or {@code null} for keys that don't exist on the server.
    */
-  public Future<InputStream> getAsync(String key) {
+  public synchronized Future<InputStream> getAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    KvdGet get = new KvdGet(backend, key, abortables::remove);
+    KvdGet get = new KvdGet(backend, key, this::removeAbortable);
     abortables.add(get);
     get.start();
     return get.getFuture();
@@ -207,10 +210,10 @@ public class KvdClient implements AutoCloseable {
    * @param key The key whose presence is to be tested
    * @return {@code Future} evaluates to {@code true} if the key exists on the server, {@code false} otherwise
    */
-  public Future<Boolean> containsAsync(String key) {
+  public synchronized Future<Boolean> containsAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    KvdContains contains = new KvdContains(backend, key, abortables::remove);
+    KvdContains contains = new KvdContains(backend, key, this::removeAbortable);
     abortables.add(contains);
     contains.start();
     return contains.getFuture();
@@ -235,10 +238,10 @@ public class KvdClient implements AutoCloseable {
    * @return {@code Future} which evaluates to {@code true} if the key/value was removed from the server,
    *         @{code false} otherwise.
    */
-  public Future<Boolean> removeAsync(String key) {
+  public synchronized Future<Boolean> removeAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    KvdRemove remove = new KvdRemove(backend, key, abortables::remove);
+    KvdRemove remove = new KvdRemove(backend, key, this::removeAbortable);
     abortables.add(remove);
     remove.start();
     return remove.getFuture();
@@ -265,24 +268,21 @@ public class KvdClient implements AutoCloseable {
   public synchronized void close() {
     if(!closed.get()) {
       closed.set(true);
-      Set<Abortable> set = new HashSet<>(abortables);
-      abortables.clear();
-      set.forEach(a -> {
+      abortables.forEach(a -> {
         try {
+          log.warn("aborting '{}'", a);
           a.abort();
         } catch(Exception e) {
           // ignore
         }
       });
+      abortables.clear();
       try {
         backend.sendAsync(new Packet(PacketType.BYE));
       } catch(Exception e) {
         // ignore
       }
-      int channels = backend.channels();
-      if(channels > 0) {
-        log.warn("client still has active channels '{}'", channels);
-      }
+      backend.warnOnOpenChannels();
       backend.closeGracefully();
     }
   }

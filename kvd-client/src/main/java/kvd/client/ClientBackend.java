@@ -204,8 +204,10 @@ public class ClientBackend {
     return channelReceivers.get(channelId);
   }
 
-  public synchronized  int channels() {
-    return channelReceivers.size();
+  public synchronized void warnOnOpenChannels() {
+    if(channelReceivers.size() > 0) {
+      log.warn("client still has '{}' active channel(s)", channelReceivers.size());
+    }
   }
 
   public String getClientId() {

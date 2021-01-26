@@ -58,25 +58,31 @@ public class KvdContains implements Abortable {
 
   public void receive(Packet packet) {
     try {
-      if(PacketType.CONTAINS_RESPONSE.equals(packet.getType())) {
-        byte[] buf = packet.getBody();
-        if((buf != null) && (buf.length >= 1)) {
-          future.complete((buf[0] == 1));
-        } else {
-          log.error("invalid server response");
-          future.completeExceptionally(new KvdException("invalid server response"));
-        }
-      } else {
-        log.error("received unexpected packet '{}'", packet.getType());
-        future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
-      }
-    } finally {
       close();
+    } catch(Exception e) {
+      log.error("contains close failed", e);
+    }
+    if(PacketType.CONTAINS_RESPONSE.equals(packet.getType())) {
+      byte[] buf = packet.getBody();
+      if((buf != null) && (buf.length >= 1)) {
+        future.complete((buf[0] == 1));
+      } else {
+        log.error("invalid server response");
+        future.completeExceptionally(new KvdException("invalid server response"));
+      }
+    } else {
+      log.error("received unexpected packet '{}'", packet.getType());
+      future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
     }
   }
 
   public CompletableFuture<Boolean> getFuture() {
     return future;
+  }
+
+  @Override
+  public String toString() {
+    return "CONTAINS " + key;
   }
 
 }

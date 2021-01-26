@@ -2,6 +2,7 @@ package kvd.client;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -26,9 +27,14 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
 
   private AtomicBoolean aborted = new AtomicBoolean();
 
+  private CompletableFuture<Boolean> completed = new CompletableFuture<Boolean>();
+
+  private String key;
+
   public KvdPutOutputStream(ClientBackend backend, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.closeListener = closeListener;
+    this.key = key;
     channelId = backend.createChannel(this::channelReceiver);
     try {
       backend.sendAsync(new Packet(PacketType.PUT_INIT, channelId, Utils.toUTF8(key)));
@@ -47,6 +53,8 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   private void channelReceiver(Packet packet) {
     if(PacketType.PUT_ABORT.equals(packet.getType())) {
       aborted.set(true);
+    } else if(PacketType.PUT_COMPLETE.equals(packet.getType())) {
+      completed.complete(true);
     }
   }
 
@@ -93,6 +101,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     try {
       flush();
       backend.sendAsync(new Packet(PacketType.PUT_FINISH, channelId));
+      completed.get();
     } catch(Exception e) {
       throw new KvdException("close failed", e);
     } finally {
@@ -108,6 +117,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
       throw new KvdException("abort failed", e);
     } finally {
       closeInternal();
+      completed.completeExceptionally(new KvdException("aborted"));
     }
   }
 
@@ -115,6 +125,11 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     closed.set(true);
     backend.closeChannel(channelId);
     this.closeListener.accept(this);
+  }
+
+  @Override
+  public String toString() {
+    return "PUT " + key;
   }
 
 }

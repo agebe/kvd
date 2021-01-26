@@ -128,7 +128,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     } else if(PacketType.GET_INIT.equals(packet.getType())) {
       createChannel(packet, new GetConsumer(clientId, packet.getChannel(), storage, client));
     } else if(PacketType.CLOSE_CHANNEL.equals(packet.getType())) {
-      closeChannel(packet);
+      closeChannel(packet.getChannel());
     } else if(PacketType.CONTAINS_REQUEST.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
       boolean contains = storage.contains(key);
@@ -156,11 +156,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
-  private void closeChannel(Packet packet) {
-    if(channels.remove(packet.getChannel()) == null) {
-      log.trace("closed channel (did not exist) '{}'", packet.getChannel());
-    } else {
-      log.trace("closed channel '{}'", packet.getChannel());
+  private void closeChannel(int channel) {
+    ChannelConsumer c = channels.remove(channel);
+    if(c != null) {
+      try {
+        c.close();
+      } catch(Exception e) {
+        log.debug("failed to close channel", e);
+      }
     }
   }
 

@@ -2,6 +2,7 @@ package kvd.client;
 
 import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -26,12 +27,15 @@ public class KvdGet implements Abortable {
 
   private Consumer<Abortable> closeListener;
 
-  private KvdGetInputStream stream = new KvdGetInputStream();
+  private KvdGetInputStream stream;
+
+  private AtomicBoolean closed = new AtomicBoolean();
 
   public KvdGet(ClientBackend backend, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.key = key;
     this.closeListener = closeListener;
+    stream = new KvdGetInputStream(this::closeInternal);
   }
 
   public void start() {
@@ -56,9 +60,16 @@ public class KvdGet implements Abortable {
   }
 
   private void close() {
+    closeInternal();
     stream.close();
-    backend.closeChannel(channelId);
-    this.closeListener.accept(this);
+  }
+
+  private void closeInternal() {
+    if(!closed.getAndSet(true)) {
+      this.closeListener.accept(this);
+      future.complete(null);
+      backend.closeChannel(channelId);
+    }
   }
 
   public void receive(Packet packet) {
@@ -66,7 +77,6 @@ public class KvdGet implements Abortable {
       future.complete(stream);
       stream.fill(packet.getBody());
     } else if(PacketType.GET_FINISH.equals(packet.getType())) {
-      future.complete(null);
       close();
     } else {
       log.error("received unexpected packet " + packet.getType());
@@ -77,6 +87,11 @@ public class KvdGet implements Abortable {
 
   public CompletableFuture<InputStream> getFuture() {
     return future;
+  }
+
+  @Override
+  public String toString() {
+    return "GET " + key;
   }
 
 }

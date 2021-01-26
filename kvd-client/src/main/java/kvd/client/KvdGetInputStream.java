@@ -16,6 +16,12 @@ public class KvdGetInputStream extends InputStream implements Abortable {
 
   private AtomicBoolean aborted = new AtomicBoolean();
 
+  private Runnable closeListener;
+
+  public KvdGetInputStream(Runnable closeListener) {
+    this.closeListener = closeListener;
+  }
+
   @Override
   public synchronized int read() throws IOException {
     byte[] buf = new byte[1];
@@ -54,6 +60,12 @@ public class KvdGetInputStream extends InputStream implements Abortable {
     }
     try {
       while(ring.getFree() < buf.length) {
+        if(aborted.get()) {
+          return;
+        }
+        if(closed.get()) {
+          return;
+        }
         this.wait(1000);
       }
     } catch(InterruptedException e) {
@@ -77,8 +89,10 @@ public class KvdGetInputStream extends InputStream implements Abortable {
     return ring.getUsed();
   }
 
+  @Override
   public synchronized void close() {
     closed.set(true);
+    closeListener.run();
     notifyAll();
   }
 

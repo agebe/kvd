@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.common.Packet;
-import kvd.common.PacketType;
 import kvd.common.Utils;
 
 public class ClientResponseHandler implements Runnable, AutoCloseable {
@@ -54,11 +53,7 @@ public class ClientResponseHandler implements Runnable, AutoCloseable {
           try {
             packet.write(out);
           } catch(Exception e) {
-            if(packet.getType().equals(PacketType.PUT_COMPLETE)) {
-              // the client does not wait anymore for this packet so just ignore this error
-            } else {
-              throw new KvdException("failed to write packet, " + packet.getType());
-            }
+            throw new KvdException("failed to write packet, " + packet.getType());
           }
         }
       }

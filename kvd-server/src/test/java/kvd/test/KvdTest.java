@@ -34,12 +34,16 @@ import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import kvd.client.KvdClient;
 import kvd.common.KvdException;
 import kvd.server.Kvd;
 
 public abstract class KvdTest {
+
+  private static final Logger log = LoggerFactory.getLogger(KvdTest.class);
 
   protected static Kvd server;
 
@@ -49,6 +53,7 @@ public abstract class KvdTest {
 
   @Test
   public void charsetTest() {
+    log.info("charsetTest");
     try(KvdClient client = client()) {
       client.putString("string", "test", "UTF-16");
       assertEquals("test", client.getString("string", "UTF-16"));
@@ -57,6 +62,7 @@ public abstract class KvdTest {
 
   @Test
   public void getTest() {
+    log.info("getTest");
     final String key = "getTEST";
     final String val = "my string value";
     try(KvdClient client = client()) {
@@ -67,6 +73,7 @@ public abstract class KvdTest {
 
   @Test
   public void testEmpty() {
+    log.info("testEmpty");
     try(KvdClient client = client()) {
       assertFalse(client.contains("empty"), "contains key 'empty'");
       client.putString("empty", "");
@@ -80,6 +87,7 @@ public abstract class KvdTest {
 
   @Test
   public void testEmptyStream() throws Exception {
+    log.info("testEmptyStream");
     try(KvdClient client = client()) {
       String key = "empty-stream";
       assertFalse(client.contains(key), "contains key '"+key+"'");
@@ -101,6 +109,7 @@ public abstract class KvdTest {
 
   @Test
   public void testNull() {
+    log.info("testNull");
     try(KvdClient client = client()) {
       assertFalse(client.contains("null"), "contains key 'null'");
       assertNull(client.get("null"));
@@ -110,6 +119,7 @@ public abstract class KvdTest {
 
   @Test
   public void testRemoveNonExist() {
+    log.info("testRemoveNonExist");
     try(KvdClient client = client()) {
       String key = "not-existing";
       assertFalse(client.contains(key), "contains key '"+key+"'");
@@ -120,6 +130,7 @@ public abstract class KvdTest {
 
   @Test
   public void getStringTest() {
+    log.info("getStringTest");
     try(KvdClient client = client()) {
       String key = "string-key-not-existing";
       assertNull(client.getString(key));
@@ -127,7 +138,8 @@ public abstract class KvdTest {
   }
 
   @Test
-  public void streaming() throws Exception {
+  public void streamingTest() throws Exception {
+    log.info("streamingTest");
     String key = "streaming";
     String chars = "abcdefghijklmnopqrstuvwxyz1234567890";
     try(KvdClient client = client()) {
@@ -169,6 +181,7 @@ public abstract class KvdTest {
 
   @Test
   public void simpleStreamWriteTest() throws Exception {
+    log.info("simpleStreamWriteTest");
     try(KvdClient client = client()) {
       try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
         out.writeLong(42);
@@ -178,7 +191,12 @@ public abstract class KvdTest {
 
   @Test
   public void simpleStreamReadTest() throws Exception {
-    simpleStreamWriteTest();
+    log.info("simpleStreamWriteTest");
+    try(KvdClient client = client()) {
+      try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
+        out.writeLong(42);
+      }
+    }
     try(KvdClient client = client()) {
       InputStream i = client.get("simplestream");
       if(i != null) {
@@ -194,17 +212,22 @@ public abstract class KvdTest {
   private void testRunner(KvdClient client, int threadId) {
     Random r = new Random(threadId);
     byte[] buf = new byte[(threadId+1)*10];
-    IntStream.range(0,100).forEachOrdered(i -> {
+    IntStream.range(0,50).forEachOrdered(i -> {
       r.nextBytes(buf);
       String key = "multithreadedtest_threadid_" + threadId + "_" + i;
       String val = TestUtils.bytesToHex(buf);
+      assertFalse(client.contains(key));
       client.putString(key, val);
+      assertTrue(client.contains(key));
       assertEquals(val, client.getString(key));
+      assertTrue(client.remove(key));
+      assertFalse(client.contains(key));
     });
   }
 
   @Test
   public void multiThreadedTest() {
+    log.info("multiThreadedTest");
     try(KvdClient client = client()) {
       List<Thread> threads = IntStream.range(0, 10).mapToObj(i -> {
         Thread t = new Thread(() -> testRunner(client, i), "kvd-testrunner-"+i);
@@ -223,6 +246,7 @@ public abstract class KvdTest {
 
   @Test
   public void largeStringTest() {
+    log.info("largeStringTest");
     try(KvdClient client = client()) {
       String key = "largestring";
       String val = StringUtils.repeat("0123456789", 10000);
@@ -239,6 +263,7 @@ public abstract class KvdTest {
 
   @Test
   public void clobberTest() throws Exception {
+    log.info("clobberTest");
     try(KvdClient client = client()) {
       String key = "clobber";
       DataOutputStream stream1 = new DataOutputStream(client.put(key));
@@ -254,6 +279,7 @@ public abstract class KvdTest {
 
   @Test
   public void abortTest() throws Exception {
+    log.info("abortTest");
     String key1 = "abort1";
     String key2 = "abort2";
     try {
@@ -275,6 +301,7 @@ public abstract class KvdTest {
 
   @Test
   public void containsTest() {
+    log.info("containsTest");
     try(KvdClient client = client()) {
       String key = "contains";
       assertFalse(client.contains(key));
