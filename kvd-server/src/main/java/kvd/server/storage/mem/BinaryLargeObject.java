@@ -15,7 +15,6 @@ package kvd.server.storage.mem;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 import kvd.common.IOStreamUtils;
 
@@ -66,7 +65,7 @@ public class BinaryLargeObject {
   }
 
   public void read(long index, byte[] buf, int off, int len) {
-    Objects.checkFromIndexSize(off, len, buf.length);
+    IOStreamUtils.checkFromIndexSize(buf, off, len);
     if((index < 0) || ((index+len) > size)) {
       throw new IndexOutOfBoundsException(Long.toString(index+len));
     }
