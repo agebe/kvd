@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import kvd.common.IOStreamUtils;
+
 public class BinaryLargeObject {
 
   private int blockSize;
@@ -38,7 +40,7 @@ public class BinaryLargeObject {
   }
 
   public void append(byte[] buf, int off, int len) {
-    Objects.checkFromIndexSize(off, len, buf.length);
+    IOStreamUtils.checkFromIndexSize(buf, off, len);
     int copied = 0;
     while(copied < len) {
       long blockIndex = size / blockSize;
