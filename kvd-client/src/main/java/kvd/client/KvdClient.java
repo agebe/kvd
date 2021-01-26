@@ -20,7 +20,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -73,16 +72,12 @@ public class KvdClient implements AutoCloseable {
       Socket socket = new Socket(InetAddress.getByName(hp.getHost()), hp.getPort());
       socket.setSoTimeout(1000);
       backend = new ClientBackend(socket, () -> {
-        // close the client when the server connection closes
-        // FIXME is ForkJoinPool.commonPool() really required here?
-        ForkJoinPool.commonPool().execute(() -> {
-          try {
-            log.trace("close client");
-            close();
-          } catch(Exception e) {
-            // ignore
-          }
-        });
+        try {
+          log.debug("client backend close notification");
+          close();
+        } catch(Exception e) {
+          // ignore
+        }
       });
       backend.start();
       backend.sendAsync(new HelloPacket());
@@ -266,8 +261,7 @@ public class KvdClient implements AutoCloseable {
    */
   @Override
   public synchronized void close() {
-    if(!closed.get()) {
-      closed.set(true);
+    if(!closed.getAndSet(true)) {
       abortables.forEach(a -> {
         try {
           log.warn("aborting '{}'", a);
