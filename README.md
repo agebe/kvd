@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/agebe/kvd.svg?branch=main)](https://travis-ci.com/agebe/kvd)
+
 # kvd
 
 kvd is a simple key value database that follows a client/server model. kvd uses Java IO streams to stream values in/out which enables it to support large values, tested with values up to 8GiB. It only supports following operations:
