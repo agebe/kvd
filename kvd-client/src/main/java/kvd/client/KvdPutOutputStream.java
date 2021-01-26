@@ -67,7 +67,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
       abort();
       throw new IOException("stream aborted");
     }
-    IOStreamUtils.checkFromIndexSize(off, len, b.length);
+    IOStreamUtils.checkFromIndexSize(b, off, len);
     int written = 0;
     for(;;) {
       written += ring.write(b, off+written, len-written);

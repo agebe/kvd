@@ -15,7 +15,8 @@ package kvd.server.storage.mem;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Objects;
+
+import kvd.common.IOStreamUtils;
 
 public class BinaryLargeObjectInputStream extends InputStream {
 
@@ -36,7 +37,7 @@ public class BinaryLargeObjectInputStream extends InputStream {
 
   @Override
   public int read(byte[] buf, int off, int len) throws IOException {
-    Objects.checkFromIndexSize(off, len, buf.length);
+    IOStreamUtils.checkFromIndexSize(buf, off, len);
     if(index >= b.size()) {
       return -1;
     }

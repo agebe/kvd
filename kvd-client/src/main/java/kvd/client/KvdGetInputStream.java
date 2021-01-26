@@ -35,7 +35,7 @@ public class KvdGetInputStream extends InputStream implements Abortable {
 
   @Override
   public synchronized int read(byte[] b, int off, int len) throws IOException {
-    IOStreamUtils.checkFromIndexSize(off, len, b.length);
+    IOStreamUtils.checkFromIndexSize(b, off, len);
     try {
       while(ring.getUsed() == 0) {
         if(aborted.get()) {

@@ -15,7 +15,8 @@ package kvd.server.storage.mem;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Objects;
+
+import kvd.common.IOStreamUtils;
 
 public class BinaryLargeObjectOutputStream extends OutputStream {
 
@@ -38,7 +39,7 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
-    Objects.checkFromIndexSize(off, len, b.length);
+    IOStreamUtils.checkFromIndexSize(b, off, len);
     a.append(b, off, len);
   }
 
