@@ -82,7 +82,11 @@ public class LargeDataTest {
         if(read == -1) {
           break;
         }
-        if(!Arrays.equals(expectedBuf, 0, read, buf, 0, read)) {
+        // FIXME
+        if(read < buf.length) {
+          throw new RuntimeException("must read to buf size");
+        }
+        if(!Arrays.equals(expectedBuf, buf)) {
           throw new KvdException("read verification failed");
         }
       }
