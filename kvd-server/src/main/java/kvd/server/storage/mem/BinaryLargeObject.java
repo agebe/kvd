@@ -20,9 +20,12 @@ import kvd.common.IOStreamUtils;
 
 public class BinaryLargeObject {
 
+  // TODO arbitrary threshold, should be passed in rather than hard-coded.
+  private static final double WASTE_RATIO_THRESHOLD = 0.001;
+
   private int blockSize;
 
-  List<byte[]> blocks;
+  private List<byte[]> blocks;
 
   private long size;
 
@@ -86,6 +89,9 @@ public class BinaryLargeObject {
     read(index, buf, 0, buf.length);
   }
 
+  /**
+   * @return number of bytes written into this {@code BinaryLargeObject}
+   */
   public long size() {
     return size;
   }
@@ -94,10 +100,51 @@ public class BinaryLargeObject {
     return size() == 0;
   }
 
+  /**
+   * @return number of blocks multiplied by block size
+   */
+  public long byteSize() {
+    return blocks.size() * blockSize;
+  }
+
+  // amount of wasted bytes (partially filled last block)
+  private int waste() {
+    int blockStart = (int)(size % blockSize);
+    return blockStart==0?0:blockSize-blockStart;
+  }
+
+  /**
+   * Compact internal data structures.
+   */
   public void compact() {
-    // TODO compact internal data structures. e.g. write all into single byte array if it fits or find optimal 
-    // block size and reorganize
-    // meant to be called after all writing to the blob has finished
+    if(isEmpty()) {
+      return;
+    }
+    // TODO simple implementation meant to shrink to large blocks into a single block of exact size
+    // to reduce wasted memory to 0 but only do it if we are above the threshold.
+    // More could be done here i think but good enough for now.
+    // Meant to be called after all writing to the blob has finished.
+    int waste = waste();
+    double wasteRatio = (double)waste/(double)size;
+//    System.out.println(String.format("size '%s', block-size '%s', waste '%s', ratio '%.6f'",
+//        size, blockSize, waste, wasteRatio));
+    if(wasteRatio > WASTE_RATIO_THRESHOLD) {
+      if(size < (Integer.MAX_VALUE - 1024)) {
+        byte[] newBuf = new byte[(int)size];
+        for(int i=0;i<blocks.size();i++) {
+          System.arraycopy(blocks.get(i), 0, newBuf, i*blockSize, (int)Math.min(blockSize, size-i*blockSize));
+        }
+        blocks.clear();
+        blocks.add(newBuf);
+        blockSize = newBuf.length;
+//        int wasteAfter = waste();
+//        double wasteRatioAfter = (double)wasteAfter/(double)size;
+//        System.out.println(String.format("after compact, size '%s', block-size '%s', waste '%s', ratio '%.6f'",
+//            size, blockSize, wasteAfter, wasteRatioAfter));
+      } else {
+        // TODO not sure if this case is relevant
+      }
+    }
   }
 
 }

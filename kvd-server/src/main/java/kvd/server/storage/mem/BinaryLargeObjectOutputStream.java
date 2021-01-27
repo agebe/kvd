@@ -22,12 +22,19 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   private BinaryLargeObject a;
 
+  private boolean compact;
+
   public BinaryLargeObjectOutputStream() {
-    this(new BinaryLargeObject());
+    this(new BinaryLargeObject(), true);
   }
 
   public BinaryLargeObjectOutputStream(BinaryLargeObject blob) {
+    this(blob, true);
+  }
+
+  public BinaryLargeObjectOutputStream(BinaryLargeObject blob, boolean compact) {
     a = blob;
+    this.compact = compact;
   }
 
   @Override
@@ -45,6 +52,13 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   public BinaryLargeObject toBinaryLargeObject() {
     return a;
+  }
+
+  @Override
+  public void close() {
+    if(compact) {
+      a.compact();
+    }
   }
 
 }

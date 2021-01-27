@@ -16,6 +16,8 @@ package kvd.server.storage.mem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -81,5 +83,46 @@ public class BinaryLargeObjectStreamTest {
       }
     }
   }
+
+  @Test
+  public void compactTest() throws Exception {
+    BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream();
+    try(DataOutputStream out = new DataOutputStream(blobStream)) {
+      out.writeLong(42);
+    }
+    BinaryLargeObject blob = blobStream.toBinaryLargeObject();
+    assertEquals(8, blob.size());
+    assertEquals(8, blob.byteSize());
+  }
+
+  @Test
+  public void compactTest2() throws Exception {
+    BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream(new BinaryLargeObject(), false);
+    try(DataOutputStream out = new DataOutputStream(blobStream)) {
+      out.writeLong(42);
+    }
+    BinaryLargeObject blob = blobStream.toBinaryLargeObject();
+    assertEquals(8, blob.size());
+    assertEquals(1024, blob.byteSize());
+  }
+
+  @Test
+  public void compactTest3() throws Exception {
+    BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream(new BinaryLargeObject(), true);
+    try(DataOutputStream out = new DataOutputStream(blobStream)) {
+      for(int i=0;i<1500;i++) {
+        out.writeInt(i);
+      }
+    }
+    BinaryLargeObject blob = blobStream.toBinaryLargeObject();
+    assertEquals(1500*4, blob.size());
+    assertEquals(1500*4, blob.byteSize());
+    try(DataInputStream in = new DataInputStream(new BinaryLargeObjectInputStream(blob))) {
+      for(int i=0;i<1500;i++) {
+        assertEquals(i, in.readInt());
+      }
+    }
+  }
+
 
 }
