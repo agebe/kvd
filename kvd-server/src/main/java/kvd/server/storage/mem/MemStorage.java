@@ -44,7 +44,7 @@ public class MemStorage implements StorageBackend {
     wlock.lock();
     try {
       String txId = UUID.randomUUID().toString();
-      BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream();
+      BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream(new BinaryLargeObject(64*1024), false);
       AbortableOutputStream out = new AbortableOutputStream(
           blobStream,
           txId,
