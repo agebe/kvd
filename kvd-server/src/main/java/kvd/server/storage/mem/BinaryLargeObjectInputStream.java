@@ -31,8 +31,8 @@ public class BinaryLargeObjectInputStream extends InputStream {
   @Override
   public int read() throws IOException {
     byte[] buf = new byte[1];
-    read(buf);
-    return buf[0];
+    int read = read(buf);
+    return read==-1?-1:(int)(buf[0] & 0xff);
   }
 
   @Override
