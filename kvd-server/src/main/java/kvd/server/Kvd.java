@@ -26,6 +26,7 @@ import com.beust.jcommander.Parameter;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
+import kvd.client.KvdClient;
 import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.common.Version;
@@ -85,8 +86,16 @@ public class Kvd {
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);
   }
 
-  public SimpleSocketServer getSocketServer() {
+  private SimpleSocketServer getSocketServer() {
     return socketServer;
+  }
+
+  public void shutdown() {
+    getSocketServer().stop();
+  }
+
+  public KvdClient newLocalClient() {
+    return new KvdClient("localhost:"+getSocketServer().getLocalPort());
   }
 
   private Version getVersion() {

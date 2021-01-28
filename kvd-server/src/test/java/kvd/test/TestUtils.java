@@ -13,6 +13,12 @@
  */
 package kvd.test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import kvd.server.Kvd;
+
 public class TestUtils {
 
   // from https://stackoverflow.com/a/9855338
@@ -26,6 +32,27 @@ public class TestUtils {
       hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
     }
     return new String(hexChars);
+  }
+
+  public static Kvd startFileServer() throws IOException {
+    Kvd.KvdOptions options = new Kvd.KvdOptions();
+    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
+    options.port = 0;
+    options.storage = "file:"+tempDirWithPrefix.toFile().getAbsolutePath();
+    options.logLevel = "warn";
+    Kvd server = new Kvd();
+    server.run(options);
+    return server;
+  }
+
+  public static Kvd startMemServer() {
+    Kvd.KvdOptions options = new Kvd.KvdOptions();
+    options.port = 0;
+    options.storage = "mem:";
+    options.logLevel = "warn";
+    Kvd server = new Kvd();
+    server.run(options);
+    return server;
   }
 
 }

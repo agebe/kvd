@@ -48,7 +48,7 @@ public abstract class KvdTest {
   protected static Kvd server;
 
   private KvdClient client() {
-    return new KvdClient("localhost:"+server.getSocketServer().getLocalPort());
+    return server.newLocalClient();
   }
 
   @Test
