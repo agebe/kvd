@@ -2,7 +2,7 @@
 
 # kvd
 
-kvd is a simple key value database that follows a client/server model. kvd uses Java IO streams to stream values in/out which enables it to support large values, tested with values up to 8GiB. It only supports following operations:
+kvd is a simple streaming key value database that follows a client/server model. kvd supports following operations:
 
 * **put**, add/replace a key/value pair
 * **get**, get a value
@@ -11,15 +11,13 @@ kvd is a simple key value database that follows a client/server model. kvd uses 
 
 See example code below.
 
-kvd does not bring its own serialization support but put- and get-operations are based on Java IO streams so integration with your serialization system should be easy.
-
-TODO: add link to gson example
+A key feature of kvd is that values are streamed into and out of the data store with support for large values (tested with single value up to 8GiB).
 
 kvd client and server are written in Java.
 
-Note: I've only tested kvd on linux/x86_64. It might work on other OS/arch combinations.
-
 I've written kvd to cache calculation results that take quite some time to compute. The results are sometimes large (> 1GB) and it seems key value databases struggle with large values and this is why I've decided to roll my own.
+
+**Note: I've only tested kvd on linux/x86_64. It might work on other OS/arch combinations.**
 
 ## Server setup
 
@@ -94,6 +92,8 @@ The examples below show how to use the client API to access the database
       }
     }
 ```
+
+kvd does not bring its own serialization support but put- and get-operations are based on Java IO streams so integration with your serialization system should be easy ([json example](https://github.com/agebe/kvd/blob/main/kvd-server/src/test/java/kvd/test/JsonTest.java))
 
 [KvdClient API Javadoc](https://javadoc.io/doc/io.github.agebe/kvd-client/latest/kvd/client/KvdClient.html)
 
