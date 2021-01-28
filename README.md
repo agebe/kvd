@@ -15,7 +15,7 @@ A key feature of kvd is that values are streamed into and out of the data store 
 
 kvd client and server are written in Java.
 
-I've written kvd to cache calculation results that take quite some time to compute. The results are sometimes large (> 1GB) and it seems key value databases struggle with large values and this is why I've decided to roll my own.
+I've written kvd to cache calculation results that take quite some time to compute. The results are sometimes large (> 1GB) and it seems key value databases struggle with large values so I've rolled my own.
 
 **Note: I've only tested kvd on linux/x86_64. It might work on other OS/arch combinations.**
 
@@ -29,12 +29,12 @@ The server listens by default on TCP port 3030 and writes to $HOME/.kvd
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.1.3
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.2.0
 ```
 
 Otherwise you might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.1.3 --storage /storage --log-level debug
+$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.2.0 --storage file:/storage --log-level debug
 ```
 
 ### Running the server from source
@@ -55,7 +55,7 @@ For the example below to work you need to add the kvd-client library as a depend
 Gradle:
 ```gradle
 dependencies {
-  implementation 'io.github.agebe:kvd-client:0.1.3'
+  implementation 'io.github.agebe:kvd-client:0.2.0'
 }
 ```
 
@@ -64,7 +64,7 @@ Maven:
 <dependency>
   <groupId>io.github.agebe</groupId>
   <artifactId>kvd-client</artifactId>
-  <version>0.1.3</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
@@ -100,8 +100,10 @@ kvd does not bring its own serialization support but put- and get-operations are
 [![javadoc](https://javadoc.io/badge2/io.github.agebe/kvd-client/javadoc.svg)](https://javadoc.io/doc/io.github.agebe/kvd-client)
 
 ## Storage Backend
+kvd currently brings 2 storage backends. One is file based and survives server restarts and the other storage backend is memory based, great for nice to haves caches.
 
-Kvd has a quite simple filesystem based storage backend. Each key/value pair is stored into a separate file with the key being the filename and the value the content of the file. Since filesystems have restrictions on filenames only lowercase letters, digits and underscores are used as is. If keys contain other characters, only the hash of the key is used as a filename (and the original key is discarded). The key is also hashed if it contains more than 200 characters.
+### File Storage Backend
+kvd has a quite simple filesystem based storage backend. Each key/value pair is stored into a separate file with the key being the filename and the value the content of the file. Since filesystems have restrictions on filenames only lowercase letters, digits and underscores are used as is. If keys contain other characters, only the hash of the key is used as a filename (and the original key is discarded). The key is also hashed if it contains more than 200 characters.
 
 All files are stored in a single directory and this can work quite nicely depending on your filesystem support for large directories. I've tested this on an ext4 filesystem and put/get/contains/remove operations remain fast even with millions of entries. The feature that makes this work on the ext3/ext4 filesystem is dir_index (man ext4):
 
@@ -118,10 +120,24 @@ Also consider that files are stored in blocks so they consume more space on disk
 
 > inline_data - Allow data to be stored in the inode and extended attribute area.
 
+The File Storage Backend is the default in kvd. The storage directory can be passed in via command line options on server startup like so:
+```bash
+$ ... --storage file:/my/storage/directory
+```
+
+### Memory Storage Backend
+All key/value pairs are stored in JVM memory inside a HashMap. Values are stored as binary large objects which grow as needed and above the 2 GiB limit of java byte arrays. Make sure you start the server with enough heap space to support your in memory data store size (e.g. -Xmx8g or -XX:MaxRAMPercentage=80.0), check like so:
+```bash
+$ java -XX:+UseContainerSupport -XX:InitialRAMPercentage=40.0 -XX:MinRAMPercentage=20.0 -XX:MaxRAMPercentage=80.0 -XX:+PrintFlagsFinal -XshowSettings:vm -version
+```
+
+To enable the memory storage backend start with this option:
+```bash
+$ ... --storage mem:
+```
 
 ## Future work
-* support custom storage backends
-* let the server cleanup (delete) values that come with expiry information
+* let the server cleanup (delete) values that come with expiry information (TTL)
 * configurable max size for single values
 * configurable max size for database. This might automatically drop values to make room for new values (LRU)
 * client/server network transport encryption
