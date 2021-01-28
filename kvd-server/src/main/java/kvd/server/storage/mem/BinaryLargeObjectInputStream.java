@@ -14,11 +14,11 @@
 package kvd.server.storage.mem;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import kvd.common.IOStreamUtils;
+import kvd.common.KvdInputStream;
 
-public class BinaryLargeObjectInputStream extends InputStream {
+public class BinaryLargeObjectInputStream extends KvdInputStream {
 
   private BinaryLargeObject b;
 
@@ -26,13 +26,6 @@ public class BinaryLargeObjectInputStream extends InputStream {
 
   public BinaryLargeObjectInputStream(BinaryLargeObject b) {
     this.b = b;
-  }
-
-  @Override
-  public int read() throws IOException {
-    byte[] buf = new byte[1];
-    int read = read(buf);
-    return read==-1?-1:(int)(buf[0] & 0xff);
   }
 
   @Override

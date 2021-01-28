@@ -1,14 +1,14 @@
 package kvd.client;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import kvd.common.ByteRingBuffer;
 import kvd.common.IOStreamUtils;
 import kvd.common.KvdException;
+import kvd.common.KvdInputStream;
 
-public class KvdGetInputStream extends InputStream implements Abortable {
+public class KvdGetInputStream extends KvdInputStream implements Abortable {
 
   private ByteRingBuffer ring = new ByteRingBuffer(64*1024);
 
@@ -20,17 +20,6 @@ public class KvdGetInputStream extends InputStream implements Abortable {
 
   public KvdGetInputStream(Runnable closeListener) {
     this.closeListener = closeListener;
-  }
-
-  @Override
-  public synchronized int read() throws IOException {
-    byte[] buf = new byte[1];
-    int read = read(buf);
-    if(read == -1) {
-      return -1;
-    } else {
-      return buf[0];
-    }
   }
 
   @Override
