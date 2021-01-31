@@ -56,6 +56,10 @@ public class GetConsumer implements ChannelConsumer {
       Thread t = new Thread(() -> {
         try {
           String key = Utils.fromUTF8(packet.getBody());
+          if(Keys.isInternalKey(key)) {
+            client.sendAsync(new Packet(PacketType.GET_ABORT, channel));
+            return;
+          }
           InputStream in = storage.get(key);
           if(in != null) {
             // Send an empty packet so the client can distinguish between

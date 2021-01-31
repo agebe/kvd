@@ -36,6 +36,8 @@ public class PutConsumer implements ChannelConsumer {
 
   private ClientResponseHandler client;
 
+  private boolean aborted;
+
   public PutConsumer(StorageBackend storage, ClientResponseHandler client) {
     super();
     this.storage = storage;
@@ -45,13 +47,21 @@ public class PutConsumer implements ChannelConsumer {
   @Override
   public void accept(Packet packet) {
     log.trace("receive packet '{}'", packet.getType());
+    if(aborted) {
+      return;
+    }
     if(PacketType.PUT_INIT.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
       if(StringUtils.isNotBlank(this.keyShort)) {
         throw new KvdException("put already initialized for key " + keyShort);
       }
-      this.keyShort = StringUtils.substring(key, 0, 200);
-      out = this.storage.put(key);
+      if(Keys.isInternalKey(key)) {
+        aborted = true;
+        client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
+      } else {
+        this.keyShort = StringUtils.substring(key, 0, 200);
+        out = this.storage.put(key);
+      }
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {
         try {

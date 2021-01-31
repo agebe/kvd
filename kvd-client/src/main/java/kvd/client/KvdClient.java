@@ -139,7 +139,7 @@ public class KvdClient implements AutoCloseable {
     try {
       return getAsync(key).get();
     } catch(Exception e) {
-      throw new KvdException("get failed");
+      throw new KvdException("get failed", e);
     }
   }
 

@@ -78,6 +78,8 @@ public class KvdGet implements Abortable {
       stream.fill(packet.getBody());
     } else if(PacketType.GET_FINISH.equals(packet.getType())) {
       close();
+    } else if(PacketType.GET_ABORT.equals(packet.getType())) {
+      abort();
     } else {
       log.error("received unexpected packet " + packet.getType());
       future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));

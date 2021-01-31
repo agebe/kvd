@@ -310,4 +310,44 @@ public abstract class KvdTest {
     }
   }
 
+  @Test
+  public void serverAbortTest() {
+    // test server abort on close
+    log.info("serverAbortTest");
+    try(KvdClient client = client()) {
+      String key = "__kvd_test";
+      assertThrows(KvdException.class, () -> {
+        client.contains(key);
+      });
+      assertThrows(KvdException.class, () -> {
+        client.putString(key, "12345");
+      });
+      assertThrows(KvdException.class, () -> {
+        client.getString(key);
+      });
+      assertThrows(KvdException.class, () -> {
+        client.remove(key);
+      });
+    }
+  }
+
+  @Test
+  public void serverAbortTest2() {
+    // test server abort on upload
+    log.info("serverAbortTest2");
+    try(KvdClient client = client()) {
+      String key = "__kvd_test2";
+      assertThrows(KvdException.class, () -> {
+        client.contains(key);
+      });
+      assertThrows(KvdException.class, () -> {
+        OutputStream out = client.put(key);
+        byte[] b = new byte[1024];
+        for(int i=0;i<10_000;i++) {
+          out.write(b);
+        }
+      });
+    }
+  }
+
 }

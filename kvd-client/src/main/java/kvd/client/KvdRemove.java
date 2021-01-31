@@ -71,6 +71,8 @@ public class KvdRemove implements Abortable {
         log.error("invalid response");
         future.completeExceptionally(new KvdException("invalid response"));
       }
+    } else if(PacketType.REMOVE_ABORT.equals(packet.getType())) {
+      future.completeExceptionally(new KvdException("server abort"));
     } else {
       log.error("received unexpected packet " + packet.getType());
       future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));

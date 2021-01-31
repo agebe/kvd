@@ -131,14 +131,22 @@ public class ClientHandler implements Runnable, AutoCloseable {
       closeChannel(packet.getChannel());
     } else if(PacketType.CONTAINS_REQUEST.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
-      boolean contains = storage.contains(key);
-      client.sendAsync(new Packet(PacketType.CONTAINS_RESPONSE,
-          packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
+      if(Keys.isInternalKey(key)) {
+        client.sendAsync(new Packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
+      } else {
+        boolean contains = storage.contains(key);
+        client.sendAsync(new Packet(PacketType.CONTAINS_RESPONSE,
+            packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
+      }
     } else if(PacketType.REMOVE_REQUEST.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
-      boolean removed = storage.remove(key);
-      client.sendAsync(new Packet(PacketType.REMOVE_RESPONSE,
-          packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
+      if(Keys.isInternalKey(key)) {
+        client.sendAsync(new Packet(PacketType.REMOVE_ABORT, packet.getChannel()));
+      } else {
+        boolean removed = storage.remove(key);
+        client.sendAsync(new Packet(PacketType.REMOVE_RESPONSE,
+            packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
+      }
     } else {
       log.error("can't handle packet type '{}' (not implemented)", packet.getType());
       throw new KvdException("server error, can't handle packet type " + packet.getType());

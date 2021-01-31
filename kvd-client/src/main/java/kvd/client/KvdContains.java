@@ -70,6 +70,8 @@ public class KvdContains implements Abortable {
         log.error("invalid server response");
         future.completeExceptionally(new KvdException("invalid server response"));
       }
+    } else if(PacketType.CONTAINS_ABORT.equals(packet.getType())) {
+      future.completeExceptionally(new KvdException("server abort"));
     } else {
       log.error("received unexpected packet '{}'", packet.getType());
       future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));

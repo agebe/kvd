@@ -22,7 +22,7 @@ public enum PacketType {
   CONTAINS_REQUEST, CONTAINS_RESPONSE,
   REMOVE_REQUEST, REMOVE_RESPONSE,
   CLOSE_CHANNEL,
-  PUT_ABORT,
+  PUT_ABORT, GET_ABORT, CONTAINS_ABORT, REMOVE_ABORT
   ;
 
   public static PacketType ofOrdinal(int ordinal) {

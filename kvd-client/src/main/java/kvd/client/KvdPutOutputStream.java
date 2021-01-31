@@ -53,6 +53,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   private void channelReceiver(Packet packet) {
     if(PacketType.PUT_ABORT.equals(packet.getType())) {
       aborted.set(true);
+      completed.completeExceptionally(new KvdException("server aborted"));
     } else if(PacketType.PUT_COMPLETE.equals(packet.getType())) {
       completed.complete(true);
     }
@@ -61,11 +62,11 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
     if(closed.get()) {
-      throw new IOException("stream closed");
+      throw new KvdException("stream closed");
     }
     if(aborted.get()) {
       abort();
-      throw new IOException("stream aborted");
+      throw new KvdException("stream aborted");
     }
     IOStreamUtils.checkFromIndexSize(b, off, len);
     int written = 0;
