@@ -59,6 +59,7 @@ public class AbortableOutputStream extends FilterOutputStream {
         abort();
         throw new IOException("aborted due to exception on close", e);
       } finally {
+        closed = true;
         commit.accept(id);
       }
     }
