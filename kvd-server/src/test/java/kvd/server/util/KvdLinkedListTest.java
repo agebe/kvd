@@ -20,8 +20,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -49,8 +51,17 @@ public class KvdLinkedListTest {
   }
 
   @Test
-  public void test1() {
+  public void testKvdLinkedList() {
     List<String> l = new KvdLinkedList<>(storage, "test1", Utils::toUTF8, Utils::fromUTF8);
+    listTest(l);
+  }
+
+  @Test
+  public void testTheTest() {
+    listTest(new ArrayList<String>());
+  }
+
+  public void listTest(List<String> l) {
     assertFalse(l.iterator().hasNext());
     assertThrows(NoSuchElementException.class, () -> l.iterator().next());
     assertEquals(0, l.size());
@@ -84,6 +95,42 @@ public class KvdLinkedListTest {
     assertThrows(IndexOutOfBoundsException.class, () -> {
       l.get(4);
     });
+    {
+      ListIterator<String> iter = l.listIterator();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      assertEquals("s1", iter.next());
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      assertEquals("s2", iter.next());
+      assertEquals(2, iter.nextIndex());
+      assertEquals(1, iter.previousIndex());
+      assertEquals("s3", iter.next());
+      assertEquals(3, iter.nextIndex());
+      assertEquals(2, iter.previousIndex());
+    }
+    l.add("s4");
+    l.add("s5");
+    {
+      ListIterator<String> iter = l.listIterator(3);
+      assertEquals("s4", iter.next());
+      assertEquals("s4", iter.previous());
+      assertEquals("s4", iter.next());
+      assertEquals(4, iter.nextIndex());
+      assertEquals(3, iter.previousIndex());
+    }
+    {
+      ListIterator<String> iter = l.listIterator(3);
+      assertEquals("s3", iter.previous());
+      assertEquals("s2", iter.previous());
+      assertEquals("s1", iter.previous());
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      assertThrows(NoSuchElementException.class, () -> {
+        iter.previous();
+      });
+      assertEquals("s1", iter.next());
+    }
   }
 
 }

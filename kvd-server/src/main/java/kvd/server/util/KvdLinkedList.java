@@ -13,39 +13,53 @@
  */
 package kvd.server.util;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Collection;
+import java.util.AbstractSequentialList;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 
-import kvd.common.KvdException;
-import kvd.common.Utils;
 import kvd.server.storage.StorageBackend;
 
-public class KvdLinkedList<E> implements List<E> {
+/**
+ * LinkedList implementation backed by the key/value store.
+ */
+// AbstractSequentialList is bases on ListIterator which is bound by positive int range (about 2 billion entries).
+// This list implementation uses long size to get around the limitation on basic operations (e.g. add) but
+// not all operations are working on large lists (> int range)
+public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<E>, Queue<E>, Deque<E> {
 
   private StorageBackend storage;
 
-  private String first;
-
-  private String last;
+  private String name;
 
   private Function<E, byte[]> serializer;
 
   private Function<byte[], E> deserializer;
 
+  private Function<E, String> keyFunction;
+
   public KvdLinkedList(StorageBackend storage,
       String name,
       Function<E, byte[]> serializer,
       Function<byte[], E> deserializer) {
+    this(storage,
+        name,
+        serializer,
+        deserializer,
+        element -> StringUtils.replaceChars(StringUtils.lowerCase(UUID.randomUUID().toString()), '-', '_'));
+  }
+
+  public KvdLinkedList(StorageBackend storage,
+      String name,
+      Function<E, byte[]> serializer,
+      Function<byte[], E> deserializer,
+      Function<E, String> keyFunction) {
     super();
     if(storage == null) {
       throw new NullPointerException("storage is null");
@@ -59,242 +73,192 @@ public class KvdLinkedList<E> implements List<E> {
     if(deserializer == null) {
       throw new NullPointerException("deserializer is null");
     }
+    if(keyFunction == null) {
+      throw new NullPointerException("key function is null");
+    }
     this.storage = storage;
-    this.first = "__kvd_list_" + name;
+    this.name = name;
     this.serializer = serializer;
     this.deserializer = deserializer;
-    last = first + "_last";
+    this.keyFunction = keyFunction;
   }
 
-  private ListNode getNode(String key) {
-    try(InputStream in = storage.get(key)) {
-      return ListNode.deserialize(in);
-    } catch(IOException e) {
-      throw new KvdException(String.format("list get node failed for '%s'", key), e);
-    }
-  }
-
-  private void putNode(String key, ListNode node) {
-    try(OutputStream out = storage.put(key)) {
-      node.serialize(out);
-    } catch(IOException e) {
-      throw new KvdException(String.format("list put node failed for '%s'", key), e);
-    }
-  }
-
-  private String newKey() {
-    return first + '_' + StringUtils.replaceChars(StringUtils.lowerCase(UUID.randomUUID().toString()), '-', '_');
-  }
-
-  private void setListPointer(String key, String nodeKey) {
-    if(StringUtils.isBlank(nodeKey)) {
-      storage.remove(key);
-    } else {
-      storage.putBytes(key, Utils.toUTF8(nodeKey));
-    }
-  }
-
-  private void setFirstPointer(String nodeKey) {
-    setListPointer(first, nodeKey);
-  }
-
-  private void setLastPointer(String nodeKey) {
-    setListPointer(last, nodeKey);
-  }
-
-  private String getListPointer(String key) {
-    byte[] b = storage.getBytes(key);
-    return b!=null?Utils.fromUTF8(b):null;
-  }
-
-  private String getFirstPointer() {
-    return getListPointer(first);
-  }
-
-  private String getLastPointer() {
-    return getListPointer(last);
-  }
-
-  @Override
-  public int size() {
-    int size = 0;
-    Iterator<E> iter = iterator();
-    while(iter.hasNext()) {
-      size++;
-      iter.next();
-    }
-    return size;
-  }
-
-  @Override
-  public boolean isEmpty() {
-    return !storage.contains(first);
-  }
-
-  @Override
-  public boolean contains(Object o) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public Iterator<E> iterator() {
-    return new Iterator<>() {
-      private ListNode current = null;
-
-      @Override
-      public boolean hasNext() {
-        if(current == null) {
-          return !isEmpty();
-        } else {
-          return StringUtils.isNotBlank(current.getNext());
-        }
-      }
-
-      @Override
-      public E next() {
-        if(current == null) {
-          if(isEmpty()) {
-            throw new NoSuchElementException();
-          } else {
-            current = getNode(getFirstPointer());
-            return deserializer.apply(current.getData());
-          }
-        } else {
-          String next = current.getNext();
-          if(StringUtils.isBlank(next)) {
-            throw new NoSuchElementException();
-          } else {
-            current = getNode(next);
-            return deserializer.apply(current.getData());
-          }
-        }
-      }};
-  }
-
-  @Override
-  public Object[] toArray() {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public <T> T[] toArray(T[] a) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public boolean add(E e) {
-    if(e == null) {
-      throw new KvdException("null element not supported");
-    }
-    byte[] b = serializer.apply(e);
-    String nodeKey = newKey();
-    if(isEmpty()) {
-      ListNode node = new ListNode("", "", b);
-      putNode(nodeKey, node);
-      setFirstPointer(nodeKey);
-      setLastPointer(nodeKey);
-    } else {
-      String prevLastKey = getLastPointer();
-      ListNode newNode = new ListNode(prevLastKey, "", b);
-      putNode(nodeKey, newNode);
-      setLastPointer(nodeKey);
-      ListNode prevLast = getNode(prevLastKey);
-      prevLast.setNext(nodeKey);
-      putNode(prevLastKey, prevLast);
-    }
-    return true;
-  }
-
-  @Override
-  public boolean remove(Object o) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public boolean containsAll(Collection<?> c) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public boolean addAll(Collection<? extends E> c) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public boolean addAll(int index, Collection<? extends E> c) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public boolean removeAll(Collection<?> c) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public boolean retainAll(Collection<?> c) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public void clear() {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public E get(int index) {
-    if(index < 0) {
-      throw new IndexOutOfBoundsException();
-    }
-    int i = 0;
-    Iterator<E> iter = iterator();
-    while(iter.hasNext()) {
-      E current = iter.next();
-      if(i == index) {
-        return current;
-      }
-      i++;
-    }
-    throw new IndexOutOfBoundsException();
-  }
-
-  @Override
-  public E set(int index, E element) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public void add(int index, E element) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public E remove(int index) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public int indexOf(Object o) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public int lastIndexOf(Object o) {
-    throw new KvdException("not supported");
-  }
-
-  @Override
-  public ListIterator<E> listIterator() {
-    throw new KvdException("not supported");
+  private KvdLinkedListIterator<E> listIterator(long index) {
+    return new KvdLinkedListIterator<>(
+        storage,
+        name,
+        serializer,
+        deserializer,
+        keyFunction,
+        index);
   }
 
   @Override
   public ListIterator<E> listIterator(int index) {
-    throw new KvdException("not supported");
+    return listIterator((long)index);
   }
 
   @Override
-  public List<E> subList(int fromIndex, int toIndex) {
-    throw new KvdException("not supported");
+  public boolean add(E e) {
+    listIterator(longSize()).add(e);
+    return true;
+  }
+
+  @Override
+  public void clear() {
+    // TODO write a version that is not limited by int range?
+    super.clear();
+  }
+
+  @Override
+  public boolean offer(E e) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public E remove() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E poll() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E element() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E peek() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public void addFirst(E e) {
+    // TODO Auto-generated method stub
+    
+  }
+
+  @Override
+  public void addLast(E e) {
+    // TODO Auto-generated method stub
+    
+  }
+
+  @Override
+  public boolean offerFirst(E e) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean offerLast(E e) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public E removeFirst() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E removeLast() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E pollFirst() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E pollLast() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E getFirst() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E getLast() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E peekFirst() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public E peekLast() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public boolean removeFirstOccurrence(Object o) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean removeLastOccurrence(Object o) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public void push(E e) {
+    // TODO Auto-generated method stub
+    
+  }
+
+  @Override
+  public E pop() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public Iterator<E> descendingIterator() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  public E remove(String key) {
+    // TODO lookup element by key, remove and return it (null if not found)
+    return null;
+  }
+
+  public E get(String key) {
+    // TODO lookup element by key and return it, null if not found
+    return null;
+  }
+
+  @Override
+  public int size() {
+    return (int)Math.min(longSize(), Integer.MAX_VALUE);
+  }
+
+  public long longSize() {
+    return listIterator(0l).size();
   }
 
 }
