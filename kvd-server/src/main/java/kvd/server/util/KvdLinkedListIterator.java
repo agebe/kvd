@@ -117,12 +117,62 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
 
   @Override
   public void remove() {
-    throw new UnsupportedOperationException();
+    if(current == null) {
+      throw new IllegalStateException();
+    }
+    // if the last move was next then fix the index
+    if(current == prev) {
+      index = Math.max(index-1, 0);
+    }
+    if(current.isFirst() && current.isLast()) {
+      if(size != 1) {
+        throw new IllegalStateException("expected size to be 1 but was " + size);
+      }
+      setFirstPointer(null);
+      setLastPointer(null);
+      prev = null;
+      next = null;
+      index = 0;
+    } else if(current.isFirst()) {
+      ListNode n2 = getNode(current.getNext());
+      n2.setPrev("");
+      putNode(current.getNext(), n2);
+      setFirstPointer(current.getNext());
+      prev = null;
+      next = n2;
+    } else if(current.isLast()) {
+      ListNode n2 = getNode(current.getPrev());
+      n2.setNext("");
+      putNode(current.getPrev(), n2);
+      setLastPointer(current.getPrev());
+      prev = n2;
+      next = null;
+    } else {
+      ListNode p = getNode(current.getPrev());
+      ListNode n = getNode(current.getNext());
+      p.setNext(current.getNext());
+      n.setPrev(current.getPrev());
+      putNode(current.getPrev(), p);
+      putNode(current.getNext(), n);
+      prev = p;
+      next = n;
+    }
+    removeNode(current.getKey());
+    current = null;
+    decSize();
   }
 
   @Override
   public void set(E e) {
-    throw new UnsupportedOperationException();
+    if(current == null) {
+      throw new IllegalStateException();
+    }
+    if(e == null) {
+      throw new NullPointerException("null element not supported");
+    }
+    byte[] b = serializer.apply(e);
+    current.setData(b);
+    putNode(current.getKey(), current);
   }
 
   @Override
@@ -132,23 +182,30 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     }
     byte[] b = serializer.apply(e);
     String nodeKey = newNodeKey(e);
-    // TODO blow up if the key already exists in the store!
+    if(storage.contains(nodeKey)) {
+      throw new KvdException(String.format("key '%s' already in store"));
+    }
     if(isEmpty()) {
-      ListNode node = new ListNode("", "", b);
+      ListNode node = new ListNode(nodeKey, "", "", b);
       putNode(nodeKey, node);
       setFirstPointer(nodeKey);
       setLastPointer(nodeKey);
       prev = node;
     } else if((next != null) && (prev != null)) {
-        // add to middle
-      throw new UnsupportedOperationException("add to middle");
+      next.setPrev(nodeKey);
+      prev.setNext(nodeKey);
+      ListNode node = new ListNode(nodeKey, prev.getKey(), next.getKey(), b);
+      putNode(next.getKey(), next);
+      putNode(prev.getKey(), prev);
+      putNode(nodeKey, node);
+      prev = node;
     } else if(next != null) {
       // add to front
       String first = getFirstPointer();
       next.setPrev(nodeKey);
       putNode(first, next);
       setFirstPointer(nodeKey);
-      ListNode node = new ListNode("", first, b);
+      ListNode node = new ListNode(nodeKey, "", first, b);
       putNode(nodeKey, node);
     } else if(prev != null) {
       // add to end
@@ -156,11 +213,12 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
       prev.setNext(nodeKey);
       putNode(last, prev);
       setLastPointer(nodeKey);
-      ListNode node = new ListNode(last, "", b);
+      ListNode node = new ListNode(nodeKey, last, "", b);
       putNode(nodeKey, node);
     } else {
       throw new KvdException("unexpected case");
     }
+    current = null;
     index++;
     incSize();
   }
@@ -207,6 +265,10 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     } catch(IOException e) {
       throw new KvdException(String.format("list put node failed for '%s'", key), e);
     }
+  }
+
+  private void removeNode(String key) {
+    storage.remove(key);
   }
 
   private void setListPointer(String key, String value) {
@@ -304,6 +366,11 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
 
   private void incSize() {
     size++;
+    setListPointer(sizeKey(), Long.toString(size));
+  }
+
+  private void decSize() {
+    size--;
     setListPointer(sizeKey(), Long.toString(size));
   }
 

@@ -13,6 +13,7 @@
  */
 package kvd.server.util;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
@@ -57,9 +59,15 @@ public class KvdLinkedListTest {
   }
 
   @Test
-  public void testTheTest() {
+  public void testTheListTestArrayList() {
     listTest(new ArrayList<String>());
   }
+
+  @Test
+  public void testTheListTestLinkedList() {
+    listTest(new LinkedList<String>());
+  }
+
 
   public void listTest(List<String> l) {
     assertFalse(l.iterator().hasNext());
@@ -130,6 +138,95 @@ public class KvdLinkedListTest {
         iter.previous();
       });
       assertEquals("s1", iter.next());
+    }
+    assertEquals("s1", l.remove(0));
+    l.set(0, "set2");
+    assertEquals("set2", l.remove(0));
+    assertArrayEquals(new String[] {"s3", "s4", "s5"}, l.toArray(new String[0]));
+    {
+      ListIterator<String> iter = l.listIterator();
+      assertThrows(IllegalStateException.class, () -> {
+        iter.set("foo");
+      });
+      assertEquals("s3", iter.next());
+      iter.remove();
+      assertThrows(IllegalStateException.class, () -> {
+        iter.remove();
+      });
+      iter.next();
+      iter.add("foo");
+      assertThrows(IllegalStateException.class, () -> {
+        iter.remove();
+      });
+      assertEquals("foo", iter.previous());
+      iter.set("bar");
+      iter.set("s45");
+      iter.remove();
+    }
+    assertArrayEquals(new String[] {"s4", "s5"}, l.toArray(new String[0]));
+    {
+      ListIterator<String> iter = l.listIterator(2);
+      assertEquals(2, iter.nextIndex());
+      assertEquals(1, iter.previousIndex());
+      iter.previous();
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      iter.remove();
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      iter.previous();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      iter.remove();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      assertTrue(l.isEmpty());
+      assertArrayEquals(new String[] {}, l.toArray(new String[0]));
+    }
+    l.add("0");
+    l.add("1");
+    assertFalse(l.isEmpty());
+    assertEquals(2, l.size());
+    {
+      ListIterator<String> iter = l.listIterator();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      iter.next();
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      iter.remove();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      iter.next();
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      iter.remove();
+      assertTrue(l.isEmpty());
+      assertArrayEquals(new String[] {}, l.toArray(new String[0]));
+    }
+    l.add("0");
+    l.add("1");
+    {
+      ListIterator<String> iter = l.listIterator();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      iter.next();
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      iter.previous();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      iter.remove();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      iter.next();
+      assertEquals(1, iter.nextIndex());
+      assertEquals(0, iter.previousIndex());
+      iter.remove();
+      assertEquals(0, iter.nextIndex());
+      assertEquals(-1, iter.previousIndex());
+      assertTrue(l.isEmpty());
+      assertArrayEquals(new String[] {}, l.toArray(new String[0]));
     }
   }
 

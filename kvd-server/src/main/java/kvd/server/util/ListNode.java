@@ -18,9 +18,13 @@ import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.apache.commons.lang3.StringUtils;
+
 import kvd.common.KvdException;
 
 public class ListNode {
+
+  private String key;
 
   private String prev;
 
@@ -28,11 +32,16 @@ public class ListNode {
 
   private byte[] data;
 
-  public ListNode(String prev, String next, byte[] data) {
+  public ListNode(String key, String prev, String next, byte[] data) {
     super();
+    this.key = key;
     this.prev = prev;
     this.next = next;
     this.data = data;
+  }
+
+  public String getKey() {
+    return key;
   }
 
   public String getPrev() {
@@ -59,8 +68,17 @@ public class ListNode {
     this.data = data;
   }
 
+  public boolean isFirst() {
+    return StringUtils.isBlank(prev);
+  }
+
+  public boolean isLast() {
+    return StringUtils.isBlank(next);
+  }
+
   public void serialize(OutputStream out) {
     try(DataOutputStream d = new DataOutputStream(out)) {
+      d.writeUTF(key);
       d.writeUTF(prev);
       d.writeUTF(next);
       d.writeInt(data.length);
@@ -72,12 +90,13 @@ public class ListNode {
 
   public static ListNode deserialize(InputStream in) {
     try(DataInputStream d = new DataInputStream(in)) {
+      String key = d.readUTF();
       String prev = d.readUTF();
       String next = d.readUTF();
       int length = d.readInt();
       byte[] data = new byte[length];
       d.read(data);
-      return new ListNode(prev, next, data);
+      return new ListNode(key, prev, next, data);
     } catch(Exception e) {
       throw new KvdException("failed to deserialize list node", e);
     }
