@@ -16,17 +16,20 @@ package kvd.server.util;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -228,6 +231,38 @@ public class KvdLinkedListTest {
       assertTrue(l.isEmpty());
       assertArrayEquals(new String[] {}, l.toArray(new String[0]));
     }
+  }
+
+  @Test
+  public void testQueueTest() {
+    testQueue(new ArrayDeque<String>());
+  }
+
+  @Test
+  public void testKvdLinkedListQueue() {
+    Queue<String> q = new KvdLinkedList<>(storage, "queue1", Utils::toUTF8, Utils::fromUTF8);
+    testQueue(q);
+  }
+
+  public void testQueue(Queue<String> q) {
+    assertTrue(q.isEmpty());
+    assertEquals(0, q.size());
+    q.offer("0");
+    q.offer("1");
+    q.offer("2");
+    q.add("3");
+    assertFalse(q.isEmpty());
+    assertEquals(4, q.size());
+    assertEquals("0", q.peek());
+    assertEquals("0", q.poll());
+    assertEquals("1", q.element());
+    assertEquals("1", q.remove());
+    assertEquals("2", q.poll());
+    assertEquals("3", q.poll());
+    assertNull(q.peek());
+    assertNull(q.poll());
+    assertThrows(NoSuchElementException.class, () -> q.element());
+    assertThrows(NoSuchElementException.class, () -> q.remove());
   }
 
 }

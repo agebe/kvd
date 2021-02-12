@@ -18,6 +18,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.function.Function;
@@ -112,32 +113,45 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
 
   @Override
   public boolean offer(E e) {
-    // TODO Auto-generated method stub
-    return false;
+    return add(e);
   }
 
   @Override
   public E remove() {
-    // TODO Auto-generated method stub
-    return null;
+    E e = poll();
+    if(e != null) {
+      return e;
+    } else {
+      throw new NoSuchElementException();
+    }
   }
 
   @Override
   public E poll() {
-    // TODO Auto-generated method stub
-    return null;
+    Iterator<E> i = iterator();
+    if(i.hasNext()) {
+      E head = i.next();
+      i.remove();
+      return head;
+    } else {
+      return null;
+    }
   }
 
   @Override
   public E element() {
-    // TODO Auto-generated method stub
-    return null;
+    E e = peek();
+    if(e != null) {
+      return e;
+    } else {
+      throw new NoSuchElementException();
+    }
   }
 
   @Override
   public E peek() {
-    // TODO Auto-generated method stub
-    return null;
+    Iterator<E> i = iterator();
+    return i.hasNext()?i.next():null;
   }
 
   @Override
