@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.function.Function;
@@ -156,112 +157,142 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
 
   @Override
   public void addFirst(E e) {
-    // TODO Auto-generated method stub
-    
+    add(0, e);
   }
 
   @Override
   public void addLast(E e) {
-    // TODO Auto-generated method stub
-    
+    add(e);
   }
 
   @Override
   public boolean offerFirst(E e) {
-    // TODO Auto-generated method stub
-    return false;
+    add(0, e);
+    return true;
   }
 
   @Override
   public boolean offerLast(E e) {
-    // TODO Auto-generated method stub
-    return false;
+    addLast(e);
+    return true;
   }
 
   @Override
   public E removeFirst() {
-    // TODO Auto-generated method stub
-    return null;
+    return remove();
   }
 
   @Override
   public E removeLast() {
-    // TODO Auto-generated method stub
-    return null;
+    E e = pollLast();
+    if(e != null) {
+      return e;
+    } else {
+      throw new NoSuchElementException();
+    }
   }
 
   @Override
   public E pollFirst() {
-    // TODO Auto-generated method stub
-    return null;
+    return poll();
   }
 
   @Override
   public E pollLast() {
-    // TODO Auto-generated method stub
-    return null;
+    ListIterator<E> i = listIterator(longSize());
+    if(i.hasPrevious()) {
+      E e = i.previous();
+      i.remove();
+      return e;
+    } else {
+      return null;
+    }
   }
 
   @Override
   public E getFirst() {
-    // TODO Auto-generated method stub
-    return null;
+    return element();
   }
 
   @Override
   public E getLast() {
-    // TODO Auto-generated method stub
-    return null;
+    E e = peekLast();
+    if(e != null) {
+      return e;
+    } else {
+      throw new NoSuchElementException();
+    }
   }
 
   @Override
   public E peekFirst() {
-    // TODO Auto-generated method stub
-    return null;
+    return peek();
   }
 
   @Override
   public E peekLast() {
-    // TODO Auto-generated method stub
-    return null;
+    ListIterator<E> i = listIterator(longSize());
+    return i.hasPrevious()?i.previous():null;
   }
 
   @Override
   public boolean removeFirstOccurrence(Object o) {
-    // TODO Auto-generated method stub
-    return false;
+    return removeFirstIteratorOccurrence(iterator(), o);
   }
 
   @Override
   public boolean removeLastOccurrence(Object o) {
-    // TODO Auto-generated method stub
+    return removeFirstIteratorOccurrence(descendingIterator(), o);
+  }
+
+  private boolean removeFirstIteratorOccurrence(Iterator<E> iter, Object o) {
+    while(iter.hasNext()) {
+      E e = iter.next();
+      if(Objects.equals(o, e)) {
+        iter.remove();
+        return true;
+      }
+    }
     return false;
   }
 
   @Override
   public void push(E e) {
-    // TODO Auto-generated method stub
-    
+    addFirst(e);
   }
 
   @Override
   public E pop() {
-    // TODO Auto-generated method stub
-    return null;
+    return removeFirst();
   }
 
   @Override
   public Iterator<E> descendingIterator() {
-    // TODO Auto-generated method stub
-    return null;
+    ListIterator<E> i = listIterator(longSize());
+    return new Iterator<E>() {
+      @Override
+      public boolean hasNext() {
+        return i.hasPrevious();
+      }
+
+      @Override
+      public E next() {
+        return i.previous();
+      }
+
+      @Override
+      public void remove() {
+        i.remove();
+      }
+    };
   }
 
-  public E remove(String key) {
+  public E lookupRemove(String key) {
     // TODO lookup element by key, remove and return it (null if not found)
     return null;
   }
 
-  public E get(String key) {
+  public E lookup(String key) {
     // TODO lookup element by key and return it, null if not found
     return null;
   }

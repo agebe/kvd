@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,6 +37,8 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.ImmutableList;
 
 import kvd.common.Utils;
 import kvd.server.storage.StorageBackend;
@@ -251,6 +254,7 @@ public class KvdLinkedListTest {
     q.offer("1");
     q.offer("2");
     q.add("3");
+    assertArrayEquals(new String[] {"0", "1", "2", "3"}, q.toArray(new String[0]));
     assertFalse(q.isEmpty());
     assertEquals(4, q.size());
     assertEquals("0", q.peek());
@@ -263,6 +267,79 @@ public class KvdLinkedListTest {
     assertNull(q.poll());
     assertThrows(NoSuchElementException.class, () -> q.element());
     assertThrows(NoSuchElementException.class, () -> q.remove());
+  }
+
+  @Test
+  public void testDequeTest() {
+    testDeque(new ArrayDeque<String>());
+  }
+
+  @Test
+  public void testKvdLinkedListDeque() {
+    Deque<String> q = new KvdLinkedList<>(storage, "deque1", Utils::toUTF8, Utils::fromUTF8);
+    testDeque(q);
+  }
+
+  public void testDeque(Deque<String> q) {
+    assertTrue(q.isEmpty());
+    assertEquals(0, q.size());
+    q.addFirst("0");
+    q.offerFirst("1");
+    q.addFirst("2");
+    q.addLast("4");
+    q.offerLast("5");
+    assertArrayEquals(new String[] {"2", "1", "0", "4", "5"}, q.toArray(new String[0]));
+    assertEquals("2", q.removeFirst());
+    assertEquals("1", q.pollFirst());
+    assertEquals("0", q.getFirst());
+    assertEquals("0", q.peekFirst());
+    assertEquals("5", q.getLast());
+    assertEquals("5", q.peekLast());
+    assertEquals("5", q.removeLast());
+    assertEquals("4", q.pollLast());
+    assertEquals(1, q.size());
+    q.push("6");
+    assertEquals("6", q.peek());
+    assertEquals("6", q.pop());
+    assertEquals("0", q.pop());
+    assertTrue(q.isEmpty());
+    assertEquals(0, q.size());
+    assertThrows(NoSuchElementException.class, () -> q.pop());
+    assertThrows(NoSuchElementException.class, () -> q.removeFirst());
+    assertThrows(NoSuchElementException.class, () -> q.removeLast());
+    assertThrows(NoSuchElementException.class, () -> q.getFirst());
+    assertThrows(NoSuchElementException.class, () -> q.getLast());
+    assertNull(q.pollFirst());
+    assertNull(q.pollLast());
+    assertNull(q.peekFirst());
+    assertNull(q.peekLast());
+    q.addAll(ImmutableList.of("0", "1", "2"));
+    assertArrayEquals(new String[] {"0", "1", "2"}, q.toArray(new String[0]));
+    Iterator<String> iter = q.descendingIterator();
+    assertTrue(iter.hasNext());
+    assertEquals("2", iter.next());
+    iter.remove();
+    assertTrue(iter.hasNext());
+    assertEquals("1", iter.next());
+    assertTrue(iter.hasNext());
+    assertEquals("0", iter.next());
+    assertFalse(iter.hasNext());
+    assertThrows(NoSuchElementException.class, () -> iter.next());
+    assertArrayEquals(new String[] {"0", "1"}, q.toArray(new String[0]));
+    q.addLast("0");
+    assertArrayEquals(new String[] {"0", "1", "0"}, q.toArray(new String[0]));
+    assertFalse(q.removeFirstOccurrence("2"));
+    assertFalse(q.removeLastOccurrence("2"));
+    assertTrue(q.removeFirstOccurrence("0"));
+    assertArrayEquals(new String[] {"1", "0"}, q.toArray(new String[0]));
+    q.addFirst("0");
+    assertArrayEquals(new String[] {"0", "1", "0"}, q.toArray(new String[0]));
+    assertTrue(q.removeLastOccurrence("0"));
+    assertArrayEquals(new String[] {"0", "1"}, q.toArray(new String[0]));
+    assertTrue(q.removeLastOccurrence("0"));
+    assertArrayEquals(new String[] {"1"}, q.toArray(new String[0]));
+    q.push("7");
+    assertArrayEquals(new String[] {"7", "1"}, q.toArray(new String[0]));
   }
 
 }
