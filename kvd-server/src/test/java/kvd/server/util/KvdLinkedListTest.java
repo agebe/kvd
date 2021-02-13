@@ -34,6 +34,7 @@ import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -340,6 +341,31 @@ public class KvdLinkedListTest {
     assertArrayEquals(new String[] {"1"}, q.toArray(new String[0]));
     q.push("7");
     assertArrayEquals(new String[] {"7", "1"}, q.toArray(new String[0]));
+  }
+
+  @Test
+  public void testLookup() {
+    KvdLinkedList<String> l = new KvdLinkedList<>(storage,
+        "lookup1",
+        Utils::toUTF8,
+        Utils::fromUTF8,
+        s -> StringUtils.substring(s, 0, 1));
+    assertTrue(l.isEmpty());
+    assertEquals(0, l.size());
+    l.add("00");
+    assertThrows(DuplicateKeyException.class, () -> l.add("01"));
+    l.add("11");
+    l.add("22");
+    l.add("33");
+    assertFalse(l.isEmpty());
+    assertEquals(4, l.size());
+    assertEquals("11", l.lookup("1"));
+    assertNull(l.lookup("does not exist"));
+    assertEquals("22", l.lookupRemove("2"));
+    assertArrayEquals(new String[] {"00", "11", "33"}, l.toArray(new String[0]));
+    assertEquals("00", l.lookupRemove("0"));
+    assertEquals("33", l.lookupRemove("3"));
+    assertArrayEquals(new String[] {"11"}, l.toArray(new String[0]));
   }
 
 }

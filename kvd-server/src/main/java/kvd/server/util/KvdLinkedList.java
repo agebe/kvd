@@ -287,14 +287,12 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
     };
   }
 
-  public E lookupRemove(String key) {
-    // TODO lookup element by key, remove and return it (null if not found)
-    return null;
+  public E lookup(String key) {
+    return listIterator(0l).lookup(key);
   }
 
-  public E lookup(String key) {
-    // TODO lookup element by key and return it, null if not found
-    return null;
+  public E lookupRemove(String key) {
+    return listIterator(0l).lookupRemove(key);
   }
 
   @Override
