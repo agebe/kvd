@@ -28,6 +28,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -226,21 +228,18 @@ public abstract class KvdTest {
   }
 
   @Test
-  public void multiThreadedTest() {
+  public void multiThreadedTest() throws Exception {
     log.info("multiThreadedTest");
     try(KvdClient client = client()) {
-      List<Thread> threads = IntStream.range(0, 10).mapToObj(i -> {
-        Thread t = new Thread(() -> testRunner(client, i), "kvd-testrunner-"+i);
-        t.start();
-        return t;
-      }).collect(Collectors.toList());
-      threads.forEach(t -> {
-        try {
-          t.join();
-        } catch (InterruptedException e) {
-          throw new RuntimeException("interrupted", e);
-        }
-      });
+      ExecutorService exec = Executors.newFixedThreadPool(10);
+      List<Future<Boolean>> futures = IntStream.range(0, 10).mapToObj(i -> exec.submit(() -> {
+        testRunner(client, i);
+        return true;
+      })).collect(Collectors.toList());
+      for(Future<Boolean> f : futures) {
+        f.get();
+      }
+      exec.shutdown();
     }
   }
 
