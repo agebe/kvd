@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -43,7 +41,7 @@ import com.google.common.collect.ImmutableList;
 
 import kvd.common.Utils;
 import kvd.server.storage.StorageBackend;
-import kvd.server.storage.fs.FileStorage;
+import kvd.server.storage.mem.MemStorageBackend;
 
 public class KvdLinkedListTest {
 
@@ -51,8 +49,9 @@ public class KvdLinkedListTest {
 
   @BeforeAll
   public static void setup() throws Exception {
-    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-    storage = new FileStorage(tempDirWithPrefix.toFile());
+//    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
+//    storage = new FileStorage(tempDirWithPrefix.toFile());
+    storage = new MemStorageBackend();
   }
 
   @AfterAll

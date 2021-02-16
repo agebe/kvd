@@ -22,24 +22,28 @@ import kvd.common.Utils;
 
 public interface StorageBackend {
 
-  AbortableOutputStream put(String key);
+  Transaction begin();
 
-  InputStream get(String key);
+//  Transaction getTransaction(int handle);
 
-  boolean contains(String key);
+  AbortableOutputStream put(Transaction tx, String key);
 
-  boolean remove(String key);
+  InputStream get(Transaction tx, String key);
 
-  default void putBytes(String key, byte[] bytes) {
-    try(OutputStream out = put(key)) {
+  boolean contains(Transaction tx, String key);
+
+  boolean remove(Transaction tx, String key);
+
+  default void putBytes(Transaction tx, String key, byte[] bytes) {
+    try(OutputStream out = put(tx, key)) {
       out.write(bytes);
     } catch(IOException e) {
       throw new KvdException("put bytes failed", e);
     }
   }
 
-  default byte[] getBytes(String key) {
-    try(InputStream in = get(key)) {
+  default byte[] getBytes(Transaction tx, String key) {
+    try(InputStream in = get(tx, key)) {
       if(in != null) {
         return Utils.toByteArray(in);
       } else {
@@ -47,6 +51,25 @@ public interface StorageBackend {
       }
     } catch(IOException e) {
       throw new KvdException("get bytes failed", e);
+    }
+  }
+
+  default void withTransactionVoid(VoidWork work) {
+    try(Transaction tx = begin()) {
+      work.run(tx);
+      tx.commit();
+    } catch(Throwable t) {
+      throw new TransactionFailedException(t);
+    }
+  }
+
+  default <E> E withTransaction(Work<E> work) {
+    try(Transaction tx = begin()) {
+      E e = work.run(tx);
+      tx.commit();
+      return e;
+    } catch(Throwable t) {
+      throw new TransactionFailedException(t);
     }
   }
 

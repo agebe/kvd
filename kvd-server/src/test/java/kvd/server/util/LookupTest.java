@@ -13,21 +13,20 @@
  */
 package kvd.server.util;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import kvd.common.Utils;
 import kvd.server.storage.StorageBackend;
-import kvd.server.storage.fs.FileStorage;
+import kvd.server.storage.mem.MemStorageBackend;
 
 public class LookupTest {
 
   public static void main(String[] args) throws Exception {
     StorageBackend storage;
-    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-    storage = new FileStorage(tempDirWithPrefix.toFile());
+//    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
+//    storage = new FileStorage(tempDirWithPrefix.toFile());
+    storage = new MemStorageBackend();
     KvdLinkedList<String> l = new KvdLinkedList<>(storage,
         "lookup2",
         Utils::toUTF8,

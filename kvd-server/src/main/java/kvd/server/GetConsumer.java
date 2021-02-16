@@ -24,6 +24,7 @@ import kvd.common.Packet;
 import kvd.common.PacketType;
 import kvd.common.Utils;
 import kvd.server.storage.StorageBackend;
+import kvd.server.storage.Transaction;
 
 public class GetConsumer implements ChannelConsumer {
 
@@ -54,13 +55,14 @@ public class GetConsumer implements ChannelConsumer {
         throw new KvdException("channel mismatch");
       }
       Thread t = new Thread(() -> {
-        try {
+        // FIXME transaction needs to be passed in on object creation
+        try(Transaction tx = storage.begin()) {
           String key = Utils.fromUTF8(packet.getBody());
           if(Keys.isInternalKey(key)) {
             client.sendAsync(new Packet(PacketType.GET_ABORT, channel));
             return;
           }
-          InputStream in = storage.get(key);
+          InputStream in = storage.get(tx, key);
           if(in != null) {
             // Send an empty packet so the client can distinguish between
             // non existing keys and keys with an empty value.
@@ -86,6 +88,7 @@ public class GetConsumer implements ChannelConsumer {
           if(!closed.get()) {
             client.sendAsync(new Packet(PacketType.GET_FINISH, channel));
           }
+          tx.commit();
         } catch(Exception e) {
           log.error("get failed", e);
         } finally {

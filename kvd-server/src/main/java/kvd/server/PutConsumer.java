@@ -23,6 +23,7 @@ import kvd.common.PacketType;
 import kvd.common.Utils;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.StorageBackend;
+import kvd.server.storage.Transaction;
 
 public class PutConsumer implements ChannelConsumer {
 
@@ -60,7 +61,11 @@ public class PutConsumer implements ChannelConsumer {
         client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
-        out = this.storage.put(key);
+        // FIXME i think the transaction needs to be passed into this object on creation time
+        try(Transaction tx = storage.begin()) {
+          out = this.storage.put(tx, key);
+          tx.commit();
+        }
       }
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {

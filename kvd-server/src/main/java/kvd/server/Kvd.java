@@ -31,8 +31,7 @@ import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.common.Version;
 import kvd.server.storage.StorageBackend;
-import kvd.server.storage.fs.FileStorage;
-import kvd.server.storage.mem.MemStorage;
+import kvd.server.storage.mem.MemStorageBackend;
 
 public class Kvd {
 
@@ -65,10 +64,12 @@ public class Kvd {
     if(StringUtils.startsWith(options.storage, "file:")) {
       String directory = StringUtils.removeStart(options.storage, "file:");
       log.info("using file storage backend at directory '{}'", directory);
-      return new FileStorage(new File(directory));
+//      return new FileStorage(new File(directory));
+      // FIXME
+      throw new KvdException("file storage currently not available");
     } else if(StringUtils.startsWith(options.storage, "mem:")) {
       log.info("using mem storage backend");
-      return new MemStorage();
+      return new MemStorageBackend();
     } else {
       throw new KvdException("unknown storage backend: "+ options.storage);
     }
