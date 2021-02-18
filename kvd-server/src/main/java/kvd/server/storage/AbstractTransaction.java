@@ -57,8 +57,8 @@ public abstract class AbstractTransaction implements Transaction {
     return closed.get();
   }
 
-  abstract void commitInternal();
+  protected abstract void commitInternal();
 
-  abstract void rollbackInternal();
+  protected abstract void rollbackInternal();
 
 }

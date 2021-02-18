@@ -48,7 +48,7 @@ class OptimisticLockTransaction extends AbstractTransaction {
   }
 
   @Override
-  void commitInternal() {
+  protected void commitInternal() {
     try {
       backendTx.commit();
     } finally {
@@ -57,7 +57,7 @@ class OptimisticLockTransaction extends AbstractTransaction {
   }
 
   @Override
-  void rollbackInternal() {
+  protected void rollbackInternal() {
     try {
       backendTx.rollback();
     } finally {

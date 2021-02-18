@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -28,20 +27,16 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.storage.AbortableOutputStream;
-import kvd.server.storage.Transaction;
+import kvd.server.storage.AbstractTransaction;
 import kvd.server.storage.TransactionClosedException;
 
-class MemTx implements Transaction {
+class MemTx extends AbstractTransaction {
 
   private static final Logger log = LoggerFactory.getLogger(MemTx.class);
-
-  private int handle;
 
   private MemStorage store;
 
   private Runnable closeListener;
-
-  private AtomicBoolean closed = new AtomicBoolean();
 
   private Map<String, Staging> staging = new HashMap<>();
 
@@ -52,18 +47,16 @@ class MemTx implements Transaction {
   private Lock wlock = rwlock.writeLock();
 
   public MemTx(int handle, MemStorage store, Runnable closeListener) {
-    super();
-    this.handle = handle;
+    super(handle);
     this.store = store;
     this.closeListener = closeListener;
   }
 
   @Override
-  public void commit() {
+  protected void commitInternal() {
     wlock.lock();
     try {
-      if(!closed.get()) {
-        closed.set(true);
+      if(!isClosed()) {
         closeListener.run();
         store.commit(txStore);
         abortUnfinishedPuts();
@@ -76,11 +69,10 @@ class MemTx implements Transaction {
   }
 
   @Override
-  public void rollback() {
+  protected void rollbackInternal() {
     wlock.lock();
     try {
-      if(!closed.get()) {
-        closed.set(true);
+      if(!isClosed()) {
         closeListener.run();
         abortUnfinishedPuts();
       }
@@ -89,13 +81,8 @@ class MemTx implements Transaction {
     }
   }
 
-  @Override
-  public int handle() {
-    return handle;
-  }
-
   private void checkClosed() {
-    if(closed.get()) {
+    if(isClosed()) {
       throw new TransactionClosedException();
     }
   }
