@@ -15,5 +15,5 @@ package kvd.server.storage;
 
 @FunctionalInterface
 public interface VoidWork {
-  void run(Transaction tx) throws Throwable;
+  void run(Transaction tx);
 }

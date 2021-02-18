@@ -14,5 +14,5 @@
 package kvd.server.storage;
 
 public interface Work<E> {
-  E run(Transaction tx) throws Throwable;
+  E run(Transaction tx);
 }

@@ -58,8 +58,6 @@ public interface StorageBackend {
     try(Transaction tx = begin()) {
       work.run(tx);
       tx.commit();
-    } catch(Throwable t) {
-      throw new TransactionFailedException(t);
     }
   }
 
@@ -68,8 +66,6 @@ public interface StorageBackend {
       E e = work.run(tx);
       tx.commit();
       return e;
-    } catch(Throwable t) {
-      throw new TransactionFailedException(t);
     }
   }
 
