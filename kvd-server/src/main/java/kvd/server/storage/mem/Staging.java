@@ -13,15 +13,20 @@
  */
 package kvd.server.storage.mem;
 
+import kvd.server.storage.AbortableOutputStream;
+
 public class Staging {
 
   private String key;
 
   private BinaryLargeObjectOutputStream blobStream;
 
-  public Staging(String key, BinaryLargeObjectOutputStream blobStream) {
+  private AbortableOutputStream out;
+
+  public Staging(String key, BinaryLargeObjectOutputStream blobStream, AbortableOutputStream out) {
     this.key = key;
     this.blobStream = blobStream;
+    this.out = out;
   }
 
   public String getKey() {
@@ -30,6 +35,10 @@ public class Staging {
 
   public BinaryLargeObjectOutputStream getBlobStream() {
     return blobStream;
+  }
+
+  public void abort() {
+    out.abort();
   }
 
 }

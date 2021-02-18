@@ -39,6 +39,8 @@ public class PutConsumer implements ChannelConsumer {
 
   private boolean aborted;
 
+  private Transaction tx;
+
   public PutConsumer(StorageBackend storage, ClientResponseHandler client) {
     super();
     this.storage = storage;
@@ -62,10 +64,8 @@ public class PutConsumer implements ChannelConsumer {
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
         // FIXME i think the transaction needs to be passed into this object on creation time
-        try(Transaction tx = storage.begin()) {
-          out = this.storage.put(tx, key);
-          tx.commit();
-        }
+        tx = storage.begin();
+        out = this.storage.put(tx, key);
       }
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {
@@ -86,10 +86,12 @@ public class PutConsumer implements ChannelConsumer {
       if(out != null) {
         try {
           out.close();
+          tx.commit();
           client.sendAsync(new Packet(PacketType.PUT_COMPLETE, packet.getChannel()));
         } catch(Exception e) {
           log.warn("failed on close, aborting...", e);
           out.abort();
+          tx.rollback();
           client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
         }
       } else {
@@ -99,6 +101,7 @@ public class PutConsumer implements ChannelConsumer {
       if(out != null) {
         try {
           out.abort();
+          tx.rollback();
         } catch(Exception e) {
           log.warn("failed on abort", e);
         }
@@ -112,6 +115,9 @@ public class PutConsumer implements ChannelConsumer {
   public void close() throws Exception {
     if(out != null) {
       out.abort();
+    }
+    if(tx != null) {
+      tx.close();
     }
   }
 

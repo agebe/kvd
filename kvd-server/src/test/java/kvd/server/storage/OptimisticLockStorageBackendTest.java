@@ -19,6 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.OutputStream;
+
 import org.junit.jupiter.api.Test;
 
 import kvd.server.storage.mem.MemStorageBackend;
@@ -172,6 +175,20 @@ public class OptimisticLockStorageBackendTest {
     t3.commit();
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
+  }
+
+  @Test
+  public void test5() throws IOException {
+    OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
+        OptimisticLockStorageBackend.Mode.WRITEONLY);
+    Transaction t1 = backend.begin();
+    OutputStream out = backend.put(t1, "key1");
+    out.write("foo".getBytes());
+    t1.commit();
+    assertThrows(IOException.class, () -> out.write("bar".getBytes()));
+    Transaction t2 = backend.begin();
+    assertFalse(backend.contains(t2, "key1"));
+    t2.commit();
   }
 
 }

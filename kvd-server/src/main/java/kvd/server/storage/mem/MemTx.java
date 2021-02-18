@@ -14,6 +14,7 @@
 package kvd.server.storage.mem;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -41,7 +42,6 @@ class MemTx implements Transaction {
   private Runnable closeListener;
 
   private AtomicBoolean closed = new AtomicBoolean();
-  private AtomicBoolean rollback = new AtomicBoolean();
 
   private Map<String, Staging> staging = new HashMap<>();
 
@@ -60,21 +60,32 @@ class MemTx implements Transaction {
 
   @Override
   public void commit() {
-    if(!closed.get()) {
-      closed.set(true);
-      closeListener.run();
-      commitInternal();
-    } else {
-      log.warn("commit ignored, already closed");
+    wlock.lock();
+    try {
+      if(!closed.get()) {
+        closed.set(true);
+        closeListener.run();
+        store.commit(txStore);
+        abortUnfinishedPuts();
+      } else {
+        log.warn("commit ignored, already closed");
+      }
+    } finally {
+      wlock.unlock();
     }
   }
 
   @Override
-  public synchronized void rollback() {
-    if(!closed.get()) {
-      closed.set(true);
-      rollback.set(true);
-      closeListener.run();
+  public void rollback() {
+    wlock.lock();
+    try {
+      if(!closed.get()) {
+        closed.set(true);
+        closeListener.run();
+        abortUnfinishedPuts();
+      }
+    } finally {
+      wlock.unlock();
     }
   }
 
@@ -89,16 +100,12 @@ class MemTx implements Transaction {
     }
   }
 
-  private void commitInternal() {
-    // FIXME not to happy about the delayed commit, come up with something better!
-    wlock.lock();
-    try {
-      if(closed.get() && staging.isEmpty() && !rollback.get()) {
-        store.commit(txStore);
-      }
-    } finally {
-      wlock.unlock();
-    }
+  private void abortUnfinishedPuts() {
+    new ArrayList<Staging>(staging.values()).forEach(staging -> {
+      log.warn("aborting unfinished put '{}'", staging.getKey());
+      staging.abort();
+    });
+    staging.clear();
   }
 
   AbortableOutputStream put(String key) {
@@ -112,7 +119,7 @@ class MemTx implements Transaction {
           txId,
           this::putCommit,
           this::putRollback);
-      Staging staging = new Staging(key, blobStream);
+      Staging staging = new Staging(key, blobStream, out);
       this.staging.put(txId, staging);
       log.debug("starting put, key '{}', tx '{}'", StringUtils.substring(key, 0, 200), txId);
       return out;
@@ -129,7 +136,6 @@ class MemTx implements Transaction {
         BinaryLargeObject blob = s.getBlobStream().toBinaryLargeObject();
         blob.compact();
         txStore.put(s.getKey(), blob);
-        commitInternal();
       } else {
         log.warn("unknown tx '{}'", txId);
       }
@@ -142,7 +148,6 @@ class MemTx implements Transaction {
     wlock.lock();
     try {
       staging.remove(txId);
-      commitInternal();
     } finally {
       wlock.unlock();
     }
