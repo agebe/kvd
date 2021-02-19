@@ -13,7 +13,6 @@
  */
 package kvd.client;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -49,7 +48,7 @@ import kvd.common.Utils;
  *
  * <p>Note: {@code KvdClient} is thread-safe.
  */
-public class KvdClient implements AutoCloseable {
+public class KvdClient implements KvdOperations, AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdClient.class);
 
@@ -97,12 +96,8 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
-  /**
-   * Put a new value or replace an existing.
-   * @param key key with which the specified value is to be associated
-   * @return {@code OutputStream} to be used to stream the value in.
-   *         Close the {@code OutputStream} to signal that the value is complete.
-   */
+
+  @Override
   public synchronized OutputStream put(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -115,12 +110,7 @@ public class KvdClient implements AutoCloseable {
     }
   }
 
-  /**
-   * Returns the value to which the specified key is mapped
-   * @param key the key whose associated value is to be returned
-   * @return {@code Future} that evaluates either to an {@code InputStream} for keys that exist
-   *         or {@code null} for keys that don't exist on the server.
-   */
+  @Override
   public synchronized Future<InputStream> getAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -130,81 +120,7 @@ public class KvdClient implements AutoCloseable {
     return get.getFuture();
   }
 
-  /**
-   * Convenience method that calls {@getAsync} and waits for the {@code Future} to complete.
-   * @param key key the key whose associated value is to be returned
-   * @return the {@code InputStream} for keys that exist or {@code null} for keys that don't exist on the server.
-   */
-  public InputStream get(String key) {
-    try {
-      return getAsync(key).get();
-    } catch(Exception e) {
-      throw new KvdException("get failed", e);
-    }
-  }
-
-  /**
-   * Convenience method that puts a {@code String} value.
-   * @param key key with which the specified value is to be associated
-   * @param value value to be associated with the specified key. {@code null} values are not supported
-   * @param charsetName the name of the requested charset, {@code null} means platform default
-   */
-  public void putString(String key, String value, String charsetName) {
-    if(value == null) {
-      throw new KvdException("null value not supported");
-    }
-    try(OutputStream out = put(key)) {
-      out.write(value.getBytes(Utils.toCharset(charsetName)));
-    } catch(IOException e) {
-      throw new KvdException("put string failed", e);
-    }
-  }
-
-  /**
-   * Convenience method that puts a {@code String} value. Uses platform default charset
-   * @param key key with which the specified value is to be associated
-   * @param value value to be associated with the specified key. {@code null} values are not supported
-   **/
-  public void putString(String key, String value) {
-    putString(key, value, null);
-  }
-
-  /**
-   * Convenience method that gets a {@code String} value.
-   * @param key the key whose associated value is to be returned
-   * @param charsetName the name of the requested charset, {@code null} means platform default
-   * @return {@code String} value that is associated with the key or {@code null}
-   *         if the key does not exist on the server.
-   */
-  public String getString(String key, String charsetName) {
-    InputStream i = get(key);
-    if(i != null) {
-      try {
-        byte[] buf = Utils.toByteArray(i);
-        return new String(buf, Utils.toCharset(charsetName));
-      } catch(IOException e) {
-        throw new KvdException("getString failed", e);
-      }
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * Convenience method that gets a {@code String} value.
-   * @param key the key whose associated value is to be returned
-   * @return {@code String} value that is associated with the key or {@code null}. Uses platform default charset
-   *         if the key does not exist on the server.
-   */
-  public String getString(String key) {
-    return getString(key, null);
-  }
-
-  /**
-   * The returned {@code Future} evaluates to true if the key exists on the server, false otherwise
-   * @param key The key whose presence is to be tested
-   * @return {@code Future} evaluates to {@code true} if the key exists on the server, {@code false} otherwise
-   */
+  @Override
   public synchronized Future<Boolean> containsAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -214,25 +130,7 @@ public class KvdClient implements AutoCloseable {
     return contains.getFuture();
   }
 
-  /**
-   * Returns true if a mapping for the specified key exists on the server.
-   * @param key the key whose presence is to be tested
-   * @return {@code true} if the key exists on the server, {@code false} otherwise.
-   */
-  public boolean contains(String key) {
-    try {
-      return containsAsync(key).get();
-    } catch(Exception e) {
-      throw new KvdException("contains failed", e);
-    }
-  }
-
-  /**
-   * Removes the mapping for the specified key from the server.
-   * @param key key whose mapping is to be removed
-   * @return {@code Future} which evaluates to {@code true} if the key/value was removed from the server,
-   *         @{code false} otherwise.
-   */
+  @Override
   public synchronized Future<Boolean> removeAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
@@ -240,19 +138,6 @@ public class KvdClient implements AutoCloseable {
     abortables.add(remove);
     remove.start();
     return remove.getFuture();
-  }
-
-  /**
-   * Removes the mapping for the specified key from the server.
-   * @param key key key whose mapping is to be removed
-   * @return {@code true} if the key/value was removed from the server, {@code false} otherwise.
-   */
-  public boolean remove(String key) {
-    try {
-      return removeAsync(key).get();
-    } catch(Exception e) {
-      throw new KvdException("remove failed", e);
-    }
   }
 
   /**
