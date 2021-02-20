@@ -26,9 +26,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.common.TransactionClosedException;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
-import kvd.server.storage.TransactionClosedException;
 
 class MemTx extends AbstractTransaction {
 

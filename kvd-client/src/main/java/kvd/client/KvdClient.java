@@ -174,4 +174,9 @@ public class KvdClient implements KvdOperations, AutoCloseable {
     return closed.get();
   }
 
+  public KvdTransaction beginTransaction() {
+    // TODO
+    return null;
+  }
+
 }
