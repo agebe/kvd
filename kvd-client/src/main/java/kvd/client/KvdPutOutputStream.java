@@ -22,9 +22,10 @@ import java.util.function.Consumer;
 import kvd.common.ByteRingBuffer;
 import kvd.common.IOStreamUtils;
 import kvd.common.KvdException;
-import kvd.common.Packet;
-import kvd.common.PacketType;
-import kvd.common.Utils;
+import kvd.common.packet.GenericOpPacket;
+import kvd.common.packet.Packet;
+import kvd.common.packet.PacketType;
+import kvd.common.packet.PutInitPacket;
 
 public class KvdPutOutputStream extends OutputStream implements Abortable {
 
@@ -50,7 +51,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     this.key = key;
     channelId = backend.createChannel(this::channelReceiver);
     try {
-      backend.sendAsync(new Packet(PacketType.PUT_INIT, channelId, Utils.toUTF8(key)));
+      backend.sendAsync(new PutInitPacket(channelId, key));
     } catch(Exception e) {
       throw new KvdException("kvd put failed", e);
     }
@@ -103,7 +104,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
         throw new KvdException(String.format("internal error, read (%s) != used (%s)", read, used));
       }
       try {
-        backend.sendAsync(new Packet(PacketType.PUT_DATA, channelId, buf));
+        backend.sendAsync(new GenericOpPacket(PacketType.PUT_DATA, channelId, buf));
       } catch(Exception e) {
         throw new KvdException("flush failed", e);
       }
@@ -114,7 +115,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   public void close() throws IOException {
     try {
       flush();
-      backend.sendAsync(new Packet(PacketType.PUT_FINISH, channelId));
+      backend.sendAsync(new GenericOpPacket(PacketType.PUT_FINISH, channelId));
       completed.get();
     } catch(Exception e) {
       throw new KvdException("close failed", e);
@@ -126,7 +127,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   @Override
   public void abort() {
     try {
-      backend.sendAsync(new Packet(PacketType.PUT_ABORT, channelId));
+      backend.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, channelId));
     } catch(Exception e) {
       throw new KvdException("abort failed", e);
     } finally {

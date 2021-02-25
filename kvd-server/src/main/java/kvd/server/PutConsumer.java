@@ -18,9 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Packet;
-import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.common.packet.GenericOpPacket;
+import kvd.common.packet.OpPacket;
+import kvd.common.packet.Packet;
+import kvd.common.packet.PacketType;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
@@ -60,7 +62,7 @@ public class PutConsumer implements ChannelConsumer {
       }
       if(Keys.isInternalKey(key)) {
         aborted = true;
-        client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
+        client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, ((OpPacket)packet).getChannel()));
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
         // FIXME i think the transaction needs to be passed into this object on creation time
@@ -87,12 +89,12 @@ public class PutConsumer implements ChannelConsumer {
         try {
           out.close();
           tx.commit();
-          client.sendAsync(new Packet(PacketType.PUT_COMPLETE, packet.getChannel()));
+          client.sendAsync(new GenericOpPacket(PacketType.PUT_COMPLETE, ((OpPacket)packet).getChannel()));
         } catch(Exception e) {
           log.warn("failed on close, aborting...", e);
           out.abort();
           tx.rollback();
-          client.sendAsync(new Packet(PacketType.PUT_ABORT, packet.getChannel()));
+          client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, ((OpPacket)packet).getChannel()));
         }
       } else {
         throw new KvdException("put has not been initialized yet");

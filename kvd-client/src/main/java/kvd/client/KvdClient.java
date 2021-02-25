@@ -25,12 +25,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import kvd.common.HelloPacket;
 import kvd.common.HostAndPort;
 import kvd.common.KvdException;
-import kvd.common.Packet;
-import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.common.packet.ByePacket;
+import kvd.common.packet.HelloPacket;
 
 /**
  * {@code KvdClient} is the public API that clients should use to interact with the server.
@@ -157,7 +156,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
       });
       abortables.clear();
       try {
-        backend.sendAsync(new Packet(PacketType.BYE));
+        backend.sendAsync(new ByePacket());
       } catch(Exception e) {
         // ignore
       }

@@ -23,11 +23,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import kvd.common.HelloPacket;
 import kvd.common.KvdException;
-import kvd.common.Packet;
-import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.common.packet.ByePacket;
+import kvd.common.packet.GenericOpPacket;
+import kvd.common.packet.HelloPacket;
+import kvd.common.packet.OpPacket;
+import kvd.common.packet.Packet;
+import kvd.common.packet.PacketType;
+import kvd.common.packet.PongPacket;
 import kvd.server.storage.StorageBackend;
 
 public class ClientHandler implements Runnable, AutoCloseable {
@@ -77,7 +81,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
       client.sendAsync(new HelloPacket());
       long lastReceiveNs = System.nanoTime();
       while(!closed.get()) {
-        Packet packet = Packet.readNext(in);
+        Packet packet = Packet.readNextPacket(in);
         if(packet != null) {
           lastReceiveNs = System.nanoTime();
           log.trace("received packet " + packet.getType());
@@ -107,10 +111,10 @@ public class ClientHandler implements Runnable, AutoCloseable {
   @SuppressWarnings("resource")
   private void handlePacket(Packet packet) {
     if(PacketType.PING.equals(packet.getType())) {
-      client.sendAsync(new Packet(PacketType.PONG));
+      client.sendAsync(new PongPacket());
     } else if(PacketType.BYE.equals(packet.getType())) {
       log.debug("client '{}' close received", clientId);
-      client.sendAsync(new Packet(PacketType.BYE));
+      client.sendAsync(new ByePacket());
       closed.set(true);
     } else if(PacketType.PUT_INIT.equals(packet.getType())) {
       createChannel(packet, new PutConsumer(storage, client));
@@ -118,7 +122,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
         PacketType.PUT_DATA.equals(packet.getType()) ||
         PacketType.PUT_FINISH.equals(packet.getType()) ||
         PacketType.PUT_ABORT.equals(packet.getType())) {
-      int channel = packet.getChannel();
+      int channel = getChannel(packet);
       ChannelConsumer c = channels.get(channel);
       if(c != null) {
         c.accept(packet);
@@ -126,29 +130,29 @@ public class ClientHandler implements Runnable, AutoCloseable {
         throw new KvdException("channel does not exist " + channel);
       }
     } else if(PacketType.GET_INIT.equals(packet.getType())) {
-      createChannel(packet, new GetConsumer(clientId, packet.getChannel(), storage, client));
+      createChannel(packet, new GetConsumer(clientId, getChannel(packet), storage, client));
     } else if(PacketType.CLOSE_CHANNEL.equals(packet.getType())) {
-      closeChannel(packet.getChannel());
+      closeChannel(getChannel(packet));
     } else if(PacketType.CONTAINS_REQUEST.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
       if(Keys.isInternalKey(key)) {
-        client.sendAsync(new Packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
+        client.sendAsync(new GenericOpPacket(PacketType.CONTAINS_ABORT, getChannel(packet)));
       } else {
         storage.withTransactionVoid(tx -> {
           boolean contains = storage.contains(tx, key);
-          client.sendAsync(new Packet(PacketType.CONTAINS_RESPONSE,
-              packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
+          client.sendAsync(new GenericOpPacket(PacketType.CONTAINS_RESPONSE,
+              getChannel(packet), new byte[] {(contains?(byte)1:(byte)0)}));
         });
       }
     } else if(PacketType.REMOVE_REQUEST.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
       if(Keys.isInternalKey(key)) {
-        client.sendAsync(new Packet(PacketType.REMOVE_ABORT, packet.getChannel()));
+        client.sendAsync(new GenericOpPacket(PacketType.REMOVE_ABORT, getChannel(packet)));
       } else {
         storage.withTransactionVoid(tx -> {
           boolean removed = storage.remove(tx, key);
-          client.sendAsync(new Packet(PacketType.REMOVE_RESPONSE,
-              packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
+          client.sendAsync(new GenericOpPacket(PacketType.REMOVE_RESPONSE,
+              getChannel(packet), new byte[] {(removed?(byte)1:(byte)0)}));
         });
       }
     } else {
@@ -158,7 +162,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
   }
 
   private void createChannel(Packet packet, ChannelConsumer c) {
-    int channel = packet.getChannel();
+    int channel = getChannel(packet);
     if(!channels.containsKey(channel)) {
       log.trace("channel opened '{}'", channel);
       channels.put(channel, c);
@@ -177,6 +181,10 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.debug("failed to close channel", e);
       }
     }
+  }
+
+  private int getChannel(Packet p) {
+    return ((OpPacket)p).getChannel();
   }
 
   public long getClientId() {

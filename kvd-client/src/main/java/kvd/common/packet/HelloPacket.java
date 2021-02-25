@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Andre Gebers
+ * Copyright 2021 Andre Gebers
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -11,26 +11,24 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.common;
+package kvd.common.packet;
 
-public enum PacketType {
+import java.util.Arrays;
 
-  HELLO, BYE,
-  PING, PONG,
-  PUT_INIT, PUT_DATA, PUT_FINISH, PUT_COMPLETE,
-  GET_INIT, GET_DATA, GET_FINISH,
-  CONTAINS_REQUEST, CONTAINS_RESPONSE,
-  REMOVE_REQUEST, REMOVE_RESPONSE,
-  CLOSE_CHANNEL,
-  PUT_ABORT, GET_ABORT, CONTAINS_ABORT, REMOVE_ABORT
-  ;
+public class HelloPacket extends Packet {
 
-  public static PacketType ofOrdinal(int ordinal) {
-    try {
-      return PacketType.values()[ordinal];
-    } catch(Exception e) {
-      throw new KvdException("packet type does not exist, " + ordinal);
-    }
+  private static final byte[] HELLO = new byte[] {'K', 'v', 'd','H','e','l','l','o', '1'};
+
+  public HelloPacket() {
+    super(HELLO);
+  }
+
+  public PacketType getType() {
+    return PacketType.HELLO;
+  }
+
+  public static boolean isHello(Packet p) {
+    return (p instanceof HelloPacket) && Arrays.equals(HELLO, p.getBody());
   }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Andre Gebers
+ * Copyright 2021 Andre Gebers
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -11,20 +11,17 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.common;
+package kvd.common.packet;
 
-import java.util.Arrays;
+public class ByePacket extends Packet {
 
-public class HelloPacket extends Packet {
-
-  private static final byte[] HELLO = new byte[] {'K', 'v', 'd','H','e','l','l','o'};
-
-  public HelloPacket() {
-    super(PacketType.HELLO, 0, HELLO);
+  public ByePacket() {
+    super();
   }
 
-  public static boolean isHello(Packet p) {
-    return PacketType.HELLO.equals(p.getType()) && Arrays.equals(HELLO, p.getBody());
+  @Override
+  public PacketType getType() {
+    return PacketType.BYE;
   }
 
 }

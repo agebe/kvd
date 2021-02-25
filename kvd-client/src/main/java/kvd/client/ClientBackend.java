@@ -32,9 +32,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Packet;
-import kvd.common.PacketType;
 import kvd.common.Utils;
+import kvd.common.packet.GenericOpPacket;
+import kvd.common.packet.OpPacket;
+import kvd.common.packet.Packet;
+import kvd.common.packet.PacketType;
+import kvd.common.packet.PingPacket;
 
 public class ClientBackend {
 
@@ -92,7 +95,7 @@ public class ClientBackend {
           Thread.sleep(100);
         }
         try {
-          sendAsync(new Packet(PacketType.PING));
+          sendAsync(new PingPacket());
         } catch(Exception e) {
           if(!isClosed()) {
             log.warn("send ping failed", e);
@@ -134,7 +137,7 @@ public class ClientBackend {
       log.trace("received hello packet");
       long lastReceiveNs = System.nanoTime();
       while(true) {
-        Packet packet = Packet.readNext(in);
+        Packet packet = Packet.readNextPacket(in);
         if(packet != null) {
           lastReceiveNs = System.nanoTime();
           if(PacketType.PONG.equals(packet.getType())) {
@@ -143,7 +146,7 @@ public class ClientBackend {
             log.trace("received bye");
             break;
           } else {
-            int channelId = packet.getChannel();
+            int channelId = ((OpPacket)packet).getChannel();
             Consumer<Packet> channel = getChannel(channelId);
             if(channel != null) {
               channel.accept(packet);
@@ -185,6 +188,7 @@ public class ClientBackend {
   }
 
   public synchronized int createChannel(Consumer<Packet> channelReceiver) {
+    channelIds.compareAndSet(Integer.MAX_VALUE, 1);
     int channelId = channelIds.getAndIncrement();
     channelReceivers.put(channelId, channelReceiver);
     return channelId;
@@ -192,7 +196,7 @@ public class ClientBackend {
 
   public synchronized void closeChannel(int channelId) {
     try {
-      sendAsync(new Packet(PacketType.CLOSE_CHANNEL, channelId));
+      sendAsync(new GenericOpPacket(PacketType.CLOSE_CHANNEL, channelId));
     } catch(InterruptedException e) {
       // ignore
     }

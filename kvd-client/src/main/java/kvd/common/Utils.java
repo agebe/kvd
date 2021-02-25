@@ -24,6 +24,9 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.time.Duration;
 
+import kvd.common.packet.HelloPacket;
+import kvd.common.packet.Packet;
+
 public class Utils {
 
   public static final int EOF = -1;
@@ -45,7 +48,7 @@ public class Utils {
     while(true) {
       Packet p;
       try {
-        p = Packet.readNext(in);
+        p = Packet.readNextPacket(in);
       } catch (EOFException e) {
         throw new KvdException("eof on hello");
       }
