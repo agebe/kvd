@@ -43,10 +43,15 @@ public class PutConsumer implements ChannelConsumer {
 
   private Transaction tx;
 
-  public PutConsumer(StorageBackend storage, ClientResponseHandler client) {
+  private boolean txOwner;
+
+  public PutConsumer(StorageBackend storage, ClientResponseHandler client, Transaction tx) {
     super();
     this.storage = storage;
     this.client = client;
+ // if no transaction has been passed in this put will create a transaction but also needs to commit it on 'PUT_FINISH'
+    txOwner = (tx==null);
+    this.tx = txOwner?storage.begin():tx;
   }
 
   @Override
@@ -65,8 +70,6 @@ public class PutConsumer implements ChannelConsumer {
         client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, ((OpPacket)packet).getChannel()));
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
-        // FIXME i think the transaction needs to be passed into this object on creation time
-        tx = storage.begin();
         out = this.storage.put(tx, key);
       }
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
@@ -88,12 +91,16 @@ public class PutConsumer implements ChannelConsumer {
       if(out != null) {
         try {
           out.close();
-          tx.commit();
+          if(txOwner) {
+            tx.commit();
+          }
           client.sendAsync(new GenericOpPacket(PacketType.PUT_COMPLETE, ((OpPacket)packet).getChannel()));
         } catch(Exception e) {
           log.warn("failed on close, aborting...", e);
           out.abort();
-          tx.rollback();
+          if(txOwner) {
+            tx.rollback();
+          }
           client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, ((OpPacket)packet).getChannel()));
         }
       } else {
@@ -103,7 +110,9 @@ public class PutConsumer implements ChannelConsumer {
       if(out != null) {
         try {
           out.abort();
-          tx.rollback();
+          if(txOwner) {
+            tx.rollback();
+          }
         } catch(Exception e) {
           log.warn("failed on abort", e);
         }
@@ -118,7 +127,7 @@ public class PutConsumer implements ChannelConsumer {
     if(out != null) {
       out.abort();
     }
-    if(tx != null) {
+    if(txOwner && (tx != null)) {
       tx.close();
     }
   }

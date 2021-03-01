@@ -57,6 +57,7 @@ public class SocketConnectHandler implements Consumer<Socket> {
         Thread t = new Thread(() -> {
           try {
             client.run();
+            log.debug("client handler '{}' run exit", clientId);
           } finally {
             try {
               client.close();

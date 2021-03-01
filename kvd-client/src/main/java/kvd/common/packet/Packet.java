@@ -25,6 +25,7 @@ import java.util.Objects;
 import kvd.common.Crc8;
 import kvd.common.KvdException;
 
+// TODO rewrite this packet stuff again using google protobuf (faster than json and more flexible than this implementation)
 public abstract class Packet {
 
   private byte[] body;
@@ -72,6 +73,10 @@ public abstract class Packet {
 
   public byte[] getBody() {
     return body;
+  }
+
+  public void setBody(byte[] body) {
+    this.body = body;
   }
 
   public void write(OutputStream o) {

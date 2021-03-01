@@ -13,16 +13,23 @@
  */
 package kvd.common.packet;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
 import kvd.common.Utils;
 
 public class PutInitPacket extends OpPacket {
+
+  private int txId;
 
   protected PutInitPacket() {
     super();
   }
 
-  public PutInitPacket(int channelId, String key) {
+  public PutInitPacket(int channelId, int txId, String key) {
     super(channelId, Utils.toUTF8(key));
+    this.txId = txId;
   }
 
   @Override
@@ -30,8 +37,24 @@ public class PutInitPacket extends OpPacket {
     return PacketType.PUT_INIT;
   }
 
+  @Override
+  protected void readHeaders(DataInputStream in) throws IOException {
+    super.readHeaders(in);
+    txId = in.readInt();
+  }
+
+  @Override
+  protected void writeHeader(DataOutputStream out) throws IOException {
+    super.writeHeader(out);
+    out.writeInt(txId);
+  }
+
   public String getKey() {
     return Utils.fromUTF8(getBody());
+  }
+
+  public int getTxId() {
+    return txId;
   }
 
 }

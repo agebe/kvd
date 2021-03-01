@@ -46,10 +46,14 @@ public class TestUtils {
   }
 
   public static Kvd startMemServer() {
+    return startMemServer("warn");
+  }
+
+  public static Kvd startMemServer(String loglevel) {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
     options.port = 0;
     options.storage = "mem:";
-    options.logLevel = "warn";
+    options.logLevel = loglevel;
     Kvd server = new Kvd();
     server.run(options);
     return server;

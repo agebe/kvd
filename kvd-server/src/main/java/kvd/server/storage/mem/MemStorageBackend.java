@@ -25,7 +25,7 @@ import kvd.server.storage.Transaction;
 
 public class MemStorageBackend implements StorageBackend {
 
-  private AtomicInteger txCounter = new AtomicInteger();
+  private AtomicInteger txCounter = new AtomicInteger(1);
 
   private Map<Integer, MemTx> transactions = Collections.synchronizedMap(new HashMap<>());
 

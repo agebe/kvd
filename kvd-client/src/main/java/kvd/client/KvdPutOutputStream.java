@@ -45,13 +45,13 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
 
   private String key;
 
-  public KvdPutOutputStream(ClientBackend backend, String key, Consumer<Abortable> closeListener) {
+  public KvdPutOutputStream(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.closeListener = closeListener;
     this.key = key;
     channelId = backend.createChannel(this::channelReceiver);
     try {
-      backend.sendAsync(new PutInitPacket(channelId, key));
+      backend.sendAsync(new PutInitPacket(channelId, txId, key));
     } catch(Exception e) {
       throw new KvdException("kvd put failed", e);
     }

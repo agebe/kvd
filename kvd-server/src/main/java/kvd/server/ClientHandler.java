@@ -32,7 +32,14 @@ import kvd.common.packet.OpPacket;
 import kvd.common.packet.Packet;
 import kvd.common.packet.PacketType;
 import kvd.common.packet.PongPacket;
+import kvd.common.packet.PutInitPacket;
+import kvd.common.packet.TxAbortPacket;
+import kvd.common.packet.TxBeginPacket;
+import kvd.common.packet.TxClosedPacket;
+import kvd.common.packet.TxCommitPacket;
+import kvd.common.packet.TxRollbackPacket;
 import kvd.server.storage.StorageBackend;
+import kvd.server.storage.Transaction;
 
 public class ClientHandler implements Runnable, AutoCloseable {
 
@@ -47,6 +54,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
   private AtomicBoolean closed = new AtomicBoolean(false);
 
   private Map<Integer, ChannelConsumer> channels = new HashMap<>();
+
+  private Map<Integer, Transaction> transactions = new HashMap<>();
 
   private StorageBackend storage;
 
@@ -114,10 +123,22 @@ public class ClientHandler implements Runnable, AutoCloseable {
       client.sendAsync(new PongPacket());
     } else if(PacketType.BYE.equals(packet.getType())) {
       log.debug("client '{}' close received", clientId);
+      closeAllChannels();
+      rollbackAllTransactions();
       client.sendAsync(new ByePacket());
       closed.set(true);
     } else if(PacketType.PUT_INIT.equals(packet.getType())) {
-      createChannel(packet, new PutConsumer(storage, client));
+      PutInitPacket p = (PutInitPacket)packet;
+      int txId = p.getTxId();
+      Transaction tx = transactions.get(txId);
+      log.debug("put init, txId '{}', tx '{}'", txId, tx);
+      if((txId!=0) && (tx==null)) {
+        log.warn("received put init for tx '{}' but transaction does not exit", txId);
+        client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT,
+            getChannel(packet)));
+      } else {
+        createChannel(packet, new PutConsumer(storage, client, tx));
+      }
     } else if(
         PacketType.PUT_DATA.equals(packet.getType()) ||
         PacketType.PUT_FINISH.equals(packet.getType()) ||
@@ -130,7 +151,17 @@ public class ClientHandler implements Runnable, AutoCloseable {
         throw new KvdException("channel does not exist " + channel);
       }
     } else if(PacketType.GET_INIT.equals(packet.getType())) {
-      createChannel(packet, new GetConsumer(clientId, getChannel(packet), storage, client));
+      GenericOpPacket p = (GenericOpPacket)packet;
+      int txId = p.getTxId();
+      Transaction tx = transactions.get(txId);
+      log.debug("get req, txId '{}', tx '{}'", txId, tx);
+      if((txId!=0) && (tx==null)) {
+        log.warn("received get init for tx '{}' but transaction does not exit", txId);
+        client.sendAsync(new GenericOpPacket(PacketType.GET_ABORT,
+            getChannel(packet)));
+      } else {
+        createChannel(packet, new GetConsumer(clientId, getChannel(packet), storage, client, tx));
+      }
     } else if(PacketType.CLOSE_CHANNEL.equals(packet.getType())) {
       closeChannel(getChannel(packet));
     } else if(PacketType.CONTAINS_REQUEST.equals(packet.getType())) {
@@ -138,22 +169,101 @@ public class ClientHandler implements Runnable, AutoCloseable {
       if(Keys.isInternalKey(key)) {
         client.sendAsync(new GenericOpPacket(PacketType.CONTAINS_ABORT, getChannel(packet)));
       } else {
-        storage.withTransactionVoid(tx -> {
+        GenericOpPacket p = (GenericOpPacket)packet;
+        int txId = p.getTxId();
+        Transaction tx = transactions.get(txId);
+        log.debug("contains req, txId '{}', tx '{}'", txId, tx);
+        if((txId!=0) && (tx==null)) {
+          log.warn("received contains request for tx '{}' but transaction does not exit", txId);
+          client.sendAsync(new GenericOpPacket(PacketType.CONTAINS_ABORT,
+              getChannel(packet)));
+        } else if(tx == null) {
+          storage.withTransactionVoid(newTx -> {
+            boolean contains = storage.contains(newTx, key);
+            client.sendAsync(new GenericOpPacket(PacketType.CONTAINS_RESPONSE,
+                getChannel(packet), new byte[] {(contains?(byte)1:(byte)0)}));
+          });
+        } else {
           boolean contains = storage.contains(tx, key);
           client.sendAsync(new GenericOpPacket(PacketType.CONTAINS_RESPONSE,
               getChannel(packet), new byte[] {(contains?(byte)1:(byte)0)}));
-        });
+        }
       }
     } else if(PacketType.REMOVE_REQUEST.equals(packet.getType())) {
       String key = Utils.fromUTF8(packet.getBody());
       if(Keys.isInternalKey(key)) {
         client.sendAsync(new GenericOpPacket(PacketType.REMOVE_ABORT, getChannel(packet)));
       } else {
-        storage.withTransactionVoid(tx -> {
+        GenericOpPacket p = (GenericOpPacket)packet;
+        int txId = p.getTxId();
+        Transaction tx = transactions.get(txId);
+        log.debug("contains req, txId '{}', tx '{}'", txId, tx);
+        if((txId!=0) && (tx==null)) {
+          log.warn("received remove request for tx '{}' but transaction does not exit", txId);
+          client.sendAsync(new GenericOpPacket(PacketType.REMOVE_ABORT,
+              getChannel(packet)));
+        } else if(tx == null) {
+          storage.withTransactionVoid(Newtx -> {
+            boolean removed = storage.remove(Newtx, key);
+            client.sendAsync(new GenericOpPacket(PacketType.REMOVE_RESPONSE,
+                getChannel(packet), new byte[] {(removed?(byte)1:(byte)0)}));
+          });
+        } else {
           boolean removed = storage.remove(tx, key);
           client.sendAsync(new GenericOpPacket(PacketType.REMOVE_RESPONSE,
               getChannel(packet), new byte[] {(removed?(byte)1:(byte)0)}));
-        });
+        }
+      }
+    } else if(PacketType.TX_BEGIN.equals(packet.getType())) {
+      TxBeginPacket p = (TxBeginPacket)packet;
+      Transaction tx = storage.begin();
+      int txId = tx.handle();
+      if(txId >= 1) {
+        transactions.put(txId, tx);
+        client.sendAsync(new TxBeginPacket(getChannel(packet), txId, p.getTimeoutMs()));
+      } else {
+        log.error("wrong txId '{}', must be >= 1", txId);
+        client.sendAsync(new TxAbortPacket(getChannel(packet), txId));
+      }
+    } else if(PacketType.TX_COMMIT.equals(packet.getType())) {
+      TxCommitPacket p = (TxCommitPacket)packet;
+      int txId = p.getTxId();
+      Transaction tx = transactions.get(txId);
+      log.debug("tx commit, txId '{}', tx '{}'", txId, tx);
+      if((txId!=0) && (tx==null)) {
+        log.warn("received tx commit for txId '{}' but transaction does not exit", txId);
+      } else if(txId == 0) {
+        log.warn("received tx commit for txId 0 (NO_TX), ignore");
+      } else {
+        try {
+          tx.commit();
+        } finally {
+          try {
+            client.sendAsync(new TxClosedPacket(getChannel(packet), txId));
+          } finally {
+            transactions.remove(txId);
+          }
+        }
+      }
+    } else if(PacketType.TX_ROLLBACK.equals(packet.getType())) {
+      TxRollbackPacket p = (TxRollbackPacket)packet;
+      int txId = p.getTxId();
+      Transaction tx = transactions.get(txId);
+      log.debug("tx rollback, txId '{}', tx '{}'", txId, tx);
+      if((txId!=0) && (tx==null)) {
+        log.warn("received tx rollback for txId '{}' but transaction does not exit", txId);
+      } else if(txId == 0) {
+        log.warn("received tx rollback for txId 0 (NO_TX), ignore");
+      } else {
+        try {
+          tx.rollback();
+        } finally {
+          try {
+            client.sendAsync(new TxClosedPacket(getChannel(packet), txId));
+          } finally {
+            transactions.remove(txId);
+          }
+        }
       }
     } else {
       log.error("can't handle packet type '{}' (not implemented)", packet.getType());
@@ -191,12 +301,29 @@ public class ClientHandler implements Runnable, AutoCloseable {
     return clientId;
   }
 
-  @Override
-  public void close() throws Exception {
+  private void closeAllChannels() {
     channels.values().forEach(c -> {
       Utils.closeQuietly(c);
     });
     channels.clear();
+  }
+
+  private void rollbackAllTransactions() {
+    transactions.values().forEach(tx -> {
+      try {
+        log.debug("rollback unfinished transaction on close, tdIx '{}'", tx.handle());
+        tx.rollback();
+      } catch(Exception e) {
+        log.warn("tx rollback on close failed", e);
+      }
+    });
+    transactions.clear();
+  }
+
+  @Override
+  public void close() throws Exception {
+    closeAllChannels();
+    rollbackAllTransactions();
     Utils.closeQuietly(in);
     Utils.closeQuietly(client);
   }

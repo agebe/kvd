@@ -39,8 +39,11 @@ public class KvdContains implements Abortable {
 
   private Consumer<Abortable> closeListener;
 
-  public KvdContains(ClientBackend backend, String key, Consumer<Abortable> closeListener) {
+  private int txId;
+
+  public KvdContains(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
+    this.txId = txId;
     this.key = key;
     this.closeListener = closeListener;
   }
@@ -48,7 +51,7 @@ public class KvdContains implements Abortable {
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(new GenericOpPacket(PacketType.CONTAINS_REQUEST, channelId, Utils.toUTF8(key)));
+      backend.sendAsync(new GenericOpPacket(PacketType.CONTAINS_REQUEST, channelId, txId, Utils.toUTF8(key)));
     } catch(Exception e) {
       try {
         close();

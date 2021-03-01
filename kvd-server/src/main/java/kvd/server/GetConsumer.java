@@ -42,12 +42,18 @@ public class GetConsumer implements ChannelConsumer {
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
-  public GetConsumer(long clientId, int channel, StorageBackend storage, ClientResponseHandler client) {
+  private Transaction tx;
+
+  private boolean txOwner;
+
+  public GetConsumer(long clientId, int channel, StorageBackend storage, ClientResponseHandler client, Transaction tx) {
     super();
     this.clientId = clientId;
     this.channel = channel;
     this.storage = storage;
     this.client = client;
+    txOwner = (tx==null);
+    this.tx = txOwner?storage.begin():tx;
   }
 
   @Override
@@ -57,8 +63,7 @@ public class GetConsumer implements ChannelConsumer {
         throw new KvdException("channel mismatch");
       }
       Thread t = new Thread(() -> {
-        // FIXME transaction needs to be passed in on object creation
-        try(Transaction tx = storage.begin()) {
+        try {
           String key = Utils.fromUTF8(packet.getBody());
           if(Keys.isInternalKey(key)) {
             client.sendAsync(new GenericOpPacket(PacketType.GET_ABORT, channel));
@@ -90,7 +95,9 @@ public class GetConsumer implements ChannelConsumer {
           if(!closed.get()) {
             client.sendAsync(new GenericOpPacket(PacketType.GET_FINISH, channel));
           }
-          tx.commit();
+          if(txOwner) {
+            tx.commit();
+          }
         } catch(Exception e) {
           log.error("get failed", e);
         } finally {
@@ -107,6 +114,9 @@ public class GetConsumer implements ChannelConsumer {
   @Override
   public void close() throws Exception {
     closed.set(true);
+    if(txOwner) {
+      tx.close();
+    }
   }
 
 }

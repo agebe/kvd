@@ -52,7 +52,7 @@ public class OptimisticLockStorageBackend implements StorageBackend {
 
   private Map<String, Set<OptimisticLockTransaction>> locks = new HashMap<>();
 
-  private AtomicInteger handles = new AtomicInteger();
+  private AtomicInteger handles = new AtomicInteger(1);
 
   public OptimisticLockStorageBackend(StorageBackend backend, Mode mode) {
     super();

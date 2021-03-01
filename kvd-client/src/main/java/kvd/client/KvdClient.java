@@ -51,6 +51,8 @@ public class KvdClient implements KvdOperations, AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdClient.class);
 
+  private static final int NO_TX = 0;
+
   private ClientBackend backend;
 
   private Set<Abortable> abortables = new HashSet<>();
@@ -101,7 +103,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
     checkClosed();
     Utils.checkKey(key);
     try {
-      KvdPutOutputStream out = new KvdPutOutputStream(backend, key, this::removeAbortable);
+      KvdPutOutputStream out = new KvdPutOutputStream(backend, NO_TX, key, this::removeAbortable);
       abortables.add(out);
       return out;
     } catch(Exception e) {
@@ -113,7 +115,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   public synchronized Future<InputStream> getAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    KvdGet get = new KvdGet(backend, key, this::removeAbortable);
+    KvdGet get = new KvdGet(backend, NO_TX, key, this::removeAbortable);
     abortables.add(get);
     get.start();
     return get.getFuture();
@@ -123,7 +125,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   public synchronized Future<Boolean> containsAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    KvdContains contains = new KvdContains(backend, key, this::removeAbortable);
+    KvdContains contains = new KvdContains(backend, NO_TX, key, this::removeAbortable);
     abortables.add(contains);
     contains.start();
     return contains.getFuture();
@@ -133,7 +135,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   public synchronized Future<Boolean> removeAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    KvdRemove remove = new KvdRemove(backend, key, this::removeAbortable);
+    KvdRemove remove = new KvdRemove(backend, NO_TX, key, this::removeAbortable);
     abortables.add(remove);
     remove.start();
     return remove.getFuture();
@@ -173,9 +175,29 @@ public class KvdClient implements KvdOperations, AutoCloseable {
     return closed.get();
   }
 
+  /**
+   * begin a new transaction with the specified timeout.
+   * @param timeoutMs the timeout in milliseconds or 0 for no timeout
+   * @return {@code Future} that evaluates to a {@link KvdTransaction} when the server has created the transaction
+   */
+  public synchronized Future<KvdTransaction> beginTransactionAsync(long timeoutMs) {
+    checkClosed();
+    KvdBeginTransaction txBegin = new KvdBeginTransaction(backend, this::removeAbortable, timeoutMs);
+    abortables.add(txBegin);
+    txBegin.start();
+    return txBegin.getFuture();
+  }
+
+  public KvdTransaction beginTransaction(long timeoutMs) {
+    try {
+      return beginTransactionAsync(timeoutMs).get();
+    } catch (Exception e) {
+      throw new KvdException("begin transaction failed", e);
+    }
+  }
+
   public KvdTransaction beginTransaction() {
-    // TODO
-    return null;
+    return beginTransaction(0);
   }
 
 }

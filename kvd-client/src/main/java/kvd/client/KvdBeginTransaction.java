@@ -13,7 +13,6 @@
  */
 package kvd.client;
 
-import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -22,43 +21,41 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
 import kvd.common.packet.Packet;
 import kvd.common.packet.PacketType;
+import kvd.common.packet.TxBeginPacket;
 
-public class KvdGet implements Abortable {
+public class KvdBeginTransaction implements Abortable {
 
-  private static final Logger log = LoggerFactory.getLogger(KvdGet.class);
+  private static final Logger log = LoggerFactory.getLogger(KvdBeginTransaction.class);
 
   private ClientBackend backend;
 
-  private String key;
-
-  private CompletableFuture<InputStream> future = new CompletableFuture<>();
+  private CompletableFuture<KvdTransaction> future = new CompletableFuture<>();
 
   private int channelId;
 
   private Consumer<Abortable> closeListener;
 
-  private KvdGetInputStream stream;
-
   private AtomicBoolean closed = new AtomicBoolean();
 
-  private int txId;
+  private long timeoutMs;
 
-  public KvdGet(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
+  private KvdTransaction tx;
+
+  public KvdBeginTransaction(ClientBackend backend, Consumer<Abortable> closeListener, long timeoutMs) {
     this.backend = backend;
-    this.key = key;
     this.closeListener = closeListener;
-    stream = new KvdGetInputStream(this::closeInternal);
+    this.timeoutMs = timeoutMs;
+    future.whenComplete((t,e) -> close());
   }
 
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(new GenericOpPacket(PacketType.GET_INIT, channelId, txId, Utils.toUTF8(key)));
+      backend.sendAsync(new TxBeginPacket(channelId, timeoutMs));
     } catch(Exception e) {
+      log.warn("tx begin failed", e);
       try {
         close();
       } catch(Exception e2) {
@@ -71,45 +68,48 @@ public class KvdGet implements Abortable {
   @Override
   public void abort() {
     future.completeExceptionally(new KvdException("aborted"));
-    stream.abort();
     close();
+    if(tx != null) {
+      tx.rollback();
+    }
   }
 
   private void close() {
-    closeInternal();
-    stream.close();
-  }
-
-  private void closeInternal() {
     if(!closed.getAndSet(true)) {
       this.closeListener.accept(this);
       future.complete(null);
-      backend.closeChannel(channelId);
+      // do not close the channel here as it is passed on into the transaction
+      //backend.closeChannel(channelId);
     }
   }
 
   public void receive(Packet packet) {
-    if(PacketType.GET_DATA.equals(packet.getType())) {
-      future.complete(stream);
-      stream.fill(packet.getBody());
-    } else if(PacketType.GET_FINISH.equals(packet.getType())) {
-      close();
-    } else if(PacketType.GET_ABORT.equals(packet.getType())) {
-      abort();
+    if(tx != null) {
+      // pass packets on to transaction
+      tx.receive(packet);
     } else {
-      log.error("received unexpected packet " + packet.getType());
-      future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
-      abort();
+      if(PacketType.TX_BEGIN.equals(packet.getType())) {
+        TxBeginPacket p = (TxBeginPacket)packet;
+        log.debug("begin tx '{}'", p.getTxId());
+        tx = new KvdTransaction(backend, p.getTxId(), p.getChannel());
+        future.complete(tx);
+      } else if(PacketType.TX_ABORT.equals(packet.getType())) {
+        abort();
+      } else {
+        log.error("received unexpected packet " + packet.getType());
+        future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
+        abort();
+      }
     }
   }
 
-  public CompletableFuture<InputStream> getFuture() {
+  public CompletableFuture<KvdTransaction> getFuture() {
     return future;
   }
 
   @Override
   public String toString() {
-    return "GET " + key;
+    return "TX BEGIN";
   }
 
 }

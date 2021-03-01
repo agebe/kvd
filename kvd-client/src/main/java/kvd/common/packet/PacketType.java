@@ -26,7 +26,10 @@ public enum PacketType {
   REMOVE_REQUEST(GenericOpPacket::new), REMOVE_RESPONSE(GenericOpPacket::new),
   CLOSE_CHANNEL(GenericOpPacket::new),
   PUT_ABORT(GenericOpPacket::new), GET_ABORT(GenericOpPacket::new),
-  CONTAINS_ABORT(GenericOpPacket::new), REMOVE_ABORT(GenericOpPacket::new)
+  CONTAINS_ABORT(GenericOpPacket::new), REMOVE_ABORT(GenericOpPacket::new),
+  TX_BEGIN(TxBeginPacket::new), TX_COMMIT(TxCommitPacket::new),
+  TX_ROLLBACK(TxRollbackPacket::new), TX_ABORT(TxAbortPacket::new),
+  TX_CLOSED(TxClosedPacket::new)
   ;
 
   private final Supplier<Packet> supplier;

@@ -13,9 +13,15 @@
  */
 package kvd.common.packet;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
 public class GenericOpPacket extends OpPacket {
 
   private PacketType type;
+
+  private int txId;
 
   protected GenericOpPacket() {
     super();
@@ -30,6 +36,13 @@ public class GenericOpPacket extends OpPacket {
     this.type = type;
   }
 
+  public GenericOpPacket(PacketType type, int channelId, int txId, byte[] body) {
+    super(channelId, body);
+    this.type = type;
+    this.txId = txId;
+  }
+
+
   @Override
   public PacketType getType() {
     return type;
@@ -38,6 +51,22 @@ public class GenericOpPacket extends OpPacket {
   @Override
   protected void setType(PacketType type) {
     this.type = type;
+  }
+
+  @Override
+  protected void readHeaders(DataInputStream in) throws IOException {
+    super.readHeaders(in);
+    txId = in.readInt();
+  }
+
+  @Override
+  protected void writeHeader(DataOutputStream out) throws IOException {
+    super.writeHeader(out);
+    out.writeInt(txId);
+  }
+
+  public int getTxId() {
+    return txId;
   }
 
 }
