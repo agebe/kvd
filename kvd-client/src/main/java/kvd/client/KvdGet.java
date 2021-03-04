@@ -22,10 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 
 public class KvdGet implements Abortable {
 
@@ -57,7 +56,7 @@ public class KvdGet implements Abortable {
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(new GenericOpPacket(PacketType.GET_INIT, channelId, txId, Utils.toUTF8(key)));
+      backend.sendAsync(Packets.packet(PacketType.GET_INIT, channelId, txId, key));
     } catch(Exception e) {
       try {
         close();
@@ -91,7 +90,7 @@ public class KvdGet implements Abortable {
   public void receive(Packet packet) {
     if(PacketType.GET_DATA.equals(packet.getType())) {
       future.complete(stream);
-      stream.fill(packet.getBody());
+      stream.fill(packet.getByteBody().toByteArray());
     } else if(PacketType.GET_FINISH.equals(packet.getType())) {
       close();
     } else if(PacketType.GET_ABORT.equals(packet.getType())) {

@@ -13,7 +13,7 @@
  */
 package kvd.server;
 
-import kvd.common.packet.Packet;
+import kvd.common.packet.proto.Packet;
 
 public interface ChannelConsumer extends AutoCloseable {
   void accept(Packet packet);

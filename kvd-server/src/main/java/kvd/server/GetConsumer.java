@@ -20,11 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
-import kvd.common.packet.OpPacket;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
 
@@ -59,14 +57,14 @@ public class GetConsumer implements ChannelConsumer {
   @Override
   public void accept(Packet packet) {
     if(PacketType.GET_INIT.equals(packet.getType())) {
-      if(channel != ((OpPacket)packet).getChannel()) {
+      if(channel != packet.getChannel()) {
         throw new KvdException("channel mismatch");
       }
       Thread t = new Thread(() -> {
         try {
-          String key = Utils.fromUTF8(packet.getBody());
+          String key = packet.getStringBody().getStr();
           if(Keys.isInternalKey(key)) {
-            client.sendAsync(new GenericOpPacket(PacketType.GET_ABORT, channel));
+            client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
             return;
           }
           InputStream in = storage.get(tx, key);
@@ -75,7 +73,7 @@ public class GetConsumer implements ChannelConsumer {
             // non existing keys and keys with an empty value.
             // This is only required on empty values when no other GET_DATA packets are send
             // but to keep things simple here just send it first thing once before the loop.
-            client.sendAsync(new GenericOpPacket(PacketType.GET_DATA, channel, new byte[0]));
+            client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, new byte[0]));
             while(!closed.get()) {
               byte[] buf = new byte[16*1024];
               int read = in.read(buf);
@@ -83,17 +81,17 @@ public class GetConsumer implements ChannelConsumer {
                 break;
               } else if(read > 0) {
                 if(read == buf.length) {
-                  client.sendAsync(new GenericOpPacket(PacketType.GET_DATA, channel, buf));
+                  client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, buf));
                 } else {
                   byte[] send = new byte[read];
                   System.arraycopy(buf, 0, send, 0, read);
-                  client.sendAsync(new GenericOpPacket(PacketType.GET_DATA, channel, send));
+                  client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, send));
                 }
               }
             }
           }
           if(!closed.get()) {
-            client.sendAsync(new GenericOpPacket(PacketType.GET_FINISH, channel));
+            client.sendAsync(Packets.packet(PacketType.GET_FINISH, channel));
           }
           if(txOwner) {
             tx.commit();

@@ -20,10 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 
 public class KvdContains implements Abortable {
 
@@ -51,7 +50,7 @@ public class KvdContains implements Abortable {
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(new GenericOpPacket(PacketType.CONTAINS_REQUEST, channelId, txId, Utils.toUTF8(key)));
+      backend.sendAsync(Packets.packet(PacketType.CONTAINS_REQUEST, channelId, txId, key));
     } catch(Exception e) {
       try {
         close();
@@ -80,12 +79,12 @@ public class KvdContains implements Abortable {
       log.error("contains close failed", e);
     }
     if(PacketType.CONTAINS_RESPONSE.equals(packet.getType())) {
-      byte[] buf = packet.getBody();
+      byte[] buf = packet.getByteBody().toByteArray();
       if((buf != null) && (buf.length >= 1)) {
         future.complete((buf[0] == 1));
       } else {
-        log.error("invalid server response");
-        future.completeExceptionally(new KvdException("invalid server response"));
+        log.error("invalid response");
+        future.completeExceptionally(new KvdException("invalid response"));
       }
     } else if(PacketType.CONTAINS_ABORT.equals(packet.getType())) {
       future.completeExceptionally(new KvdException("server abort"));

@@ -1,3 +1,12 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.15'
+  }
+}
+
 plugins {
   id 'com.palantir.git-version' version '0.12.3'
   id  'name.remal.check-dependency-updates' version '1.2.2'
@@ -12,6 +21,7 @@ subprojects {
   apply plugin: "name.remal.check-dependency-updates"
   apply plugin: "maven-publish"
   apply plugin: 'signing'
+  apply plugin: 'com.google.protobuf'
 
   version = '0.2.0'
   group = 'io.github.agebe'
@@ -74,6 +84,7 @@ subprojects {
 
   dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.30'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
   }
 
   java {

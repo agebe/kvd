@@ -13,9 +13,9 @@
  */
 package kvd.client;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,11 +33,9 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
-import kvd.common.packet.OpPacket;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
-import kvd.common.packet.PingPacket;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 
 public class ClientBackend {
 
@@ -95,7 +93,7 @@ public class ClientBackend {
           Thread.sleep(100);
         }
         try {
-          sendAsync(new PingPacket());
+          sendAsync(Packet.newBuilder().setType(PacketType.PING).build());
         } catch(Exception e) {
           if(!isClosed()) {
             log.warn("send ping failed", e);
@@ -112,11 +110,11 @@ public class ClientBackend {
 
   private void sendLoop() {
     log.trace("starting send loop");
-    try(DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
-      while(true) {
+    try(OutputStream out = socket.getOutputStream()) {
+      for(;;) {
         Packet packet = sendQueue.poll(1, TimeUnit.SECONDS);
         if(packet != null) {
-          packet.write(out);
+          packet.writeDelimitedTo(out);
         } else if(isClosed()) {
           break;
         }
@@ -131,13 +129,13 @@ public class ClientBackend {
 
   private void receiveLoop() {
     log.trace("starting receive loop");
-    try(DataInputStream in = new DataInputStream(socket.getInputStream())) {
-      Utils.receiveHello(in);
+    try(InputStream in = socket.getInputStream()) {
+      Packets.receiveHello(in);
       helloReceivedFuture.complete(true);
       log.trace("received hello packet");
       long lastReceiveNs = System.nanoTime();
-      while(true) {
-        Packet packet = Packet.readNextPacket(in);
+      for(;;) {
+        Packet packet = Packet.parseDelimitedFrom(in);
         if(packet != null) {
           lastReceiveNs = System.nanoTime();
           if(PacketType.PONG.equals(packet.getType())) {
@@ -146,7 +144,7 @@ public class ClientBackend {
             log.trace("received bye");
             break;
           } else {
-            int channelId = ((OpPacket)packet).getChannel();
+            int channelId = packet.getChannel();
             Consumer<Packet> channel = getChannel(channelId);
             if(channel != null) {
               channel.accept(packet);
@@ -196,7 +194,7 @@ public class ClientBackend {
 
   public synchronized void closeChannel(int channelId) {
     try {
-      sendAsync(new GenericOpPacket(PacketType.CLOSE_CHANNEL, channelId));
+      sendAsync(Packets.packet(PacketType.CLOSE_CHANNEL, channelId));
     } catch(InterruptedException e) {
       // ignore
     }

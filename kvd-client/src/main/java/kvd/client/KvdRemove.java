@@ -20,10 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 
 public class KvdRemove implements Abortable {
 
@@ -51,7 +50,7 @@ public class KvdRemove implements Abortable {
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(new GenericOpPacket(PacketType.REMOVE_REQUEST, channelId, txId, Utils.toUTF8(key)));
+      backend.sendAsync(Packets.packet(PacketType.REMOVE_REQUEST, channelId, txId, key));
     } catch(Exception e) {
       try {
         close();
@@ -81,7 +80,7 @@ public class KvdRemove implements Abortable {
       log.error("remove close failed", e);
     }
     if(PacketType.REMOVE_RESPONSE.equals(packet.getType())) {
-      byte[] buf = packet.getBody();
+      byte[] buf = packet.getByteBody().toByteArray();
       if((buf != null) && (buf.length >= 1)) {
         future.complete((buf[0] == 1));
       } else {

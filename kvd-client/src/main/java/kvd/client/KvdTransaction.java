@@ -27,10 +27,9 @@ import org.slf4j.LoggerFactory;
 import kvd.common.KvdException;
 import kvd.common.TransactionClosedException;
 import kvd.common.Utils;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
-import kvd.common.packet.TxCommitPacket;
-import kvd.common.packet.TxRollbackPacket;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 
 public class KvdTransaction implements KvdOperations, AutoCloseable {
 
@@ -102,7 +101,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   public synchronized Future<Boolean> commitAsync() {
-    closeInternal(new TxCommitPacket(channel, txId));
+    closeInternal(Packets.packet(PacketType.TX_COMMIT, channel, txId));
     return txClosed;
   }
 
@@ -115,7 +114,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   public synchronized Future<Boolean> rollbackAsync() {
-    closeInternal(new TxRollbackPacket(channel, txId));
+    closeInternal(Packets.packet(PacketType.TX_ROLLBACK, channel, txId));
     return txClosed;
   }
 

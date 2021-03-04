@@ -14,8 +14,6 @@
 package kvd.common;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,9 +21,6 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.Charset;
 import java.time.Duration;
-
-import kvd.common.packet.HelloPacket;
-import kvd.common.packet.Packet;
 
 public class Utils {
 
@@ -40,28 +35,6 @@ public class Utils {
       c.close();
     } catch(Exception e) {
       // ignore
-    }
-  }
-
-  public static void receiveHello(DataInputStream in) {
-    long lastReceiveNs = System.nanoTime();
-    while(true) {
-      Packet p;
-      try {
-        p = Packet.readNextPacket(in);
-      } catch (EOFException e) {
-        throw new KvdException("eof on hello");
-      }
-      if(p != null) {
-        if(!HelloPacket.isHello(p)) {
-          throw new KvdException("hello mismatch");
-        } else {
-          break;
-        }
-      }
-      if(isTimeout(lastReceiveNs, 10)) {
-        throw new KvdException("timeout waiting for hello packet");
-      }
     }
   }
 

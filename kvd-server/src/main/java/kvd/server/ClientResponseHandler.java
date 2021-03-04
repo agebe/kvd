@@ -13,7 +13,7 @@
  */
 package kvd.server;
 
-import java.io.DataOutputStream;
+import java.io.OutputStream;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -24,19 +24,19 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.common.Utils;
-import kvd.common.packet.Packet;
+import kvd.common.packet.proto.Packet;
 
 public class ClientResponseHandler implements Runnable, AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(ClientResponseHandler.class);
 
-  private DataOutputStream out;
+  private OutputStream out;
 
   private BlockingQueue<Packet> sendQueue = new ArrayBlockingQueue<>(100);
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
-  public ClientResponseHandler(DataOutputStream out) {
+  public ClientResponseHandler(OutputStream out) {
     super();
     this.out = out;
   }
@@ -51,7 +51,7 @@ public class ClientResponseHandler implements Runnable, AutoCloseable {
         Packet packet = sendQueue.poll(1, TimeUnit.SECONDS);
         if(packet != null) {
           try {
-            packet.write(out);
+            packet.writeDelimitedTo(out);
           } catch(Exception e) {
             throw new KvdException("failed to write packet, " + packet.getType());
           }

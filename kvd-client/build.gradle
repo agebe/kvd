@@ -1,2 +1,11 @@
+sourceSets {
+  main {
+    java {
+      srcDirs += ["build/generated/source/proto/main/java"]
+    }
+  }
+}
+
 dependencies {
+  api 'com.google.protobuf:protobuf-java:3.15.3'
 }

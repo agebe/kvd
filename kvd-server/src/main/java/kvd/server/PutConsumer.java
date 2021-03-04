@@ -18,11 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
-import kvd.common.packet.GenericOpPacket;
-import kvd.common.packet.OpPacket;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
@@ -61,13 +59,13 @@ public class PutConsumer implements ChannelConsumer {
       return;
     }
     if(PacketType.PUT_INIT.equals(packet.getType())) {
-      String key = Utils.fromUTF8(packet.getBody());
+      String key = packet.getPutInit().getKey();
       if(StringUtils.isNotBlank(this.keyShort)) {
         throw new KvdException("put already initialized for key " + keyShort);
       }
       if(Keys.isInternalKey(key)) {
         aborted = true;
-        client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, ((OpPacket)packet).getChannel()));
+        client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
         out = this.storage.put(tx, key);
@@ -75,7 +73,8 @@ public class PutConsumer implements ChannelConsumer {
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {
         try {
-          out.write(packet.getBody());
+          // TODO maybe better to copy bytes
+          out.write(packet.getByteBody().toByteArray());
         } catch(Exception e) {
           try {
             out.abort();
@@ -94,14 +93,14 @@ public class PutConsumer implements ChannelConsumer {
           if(txOwner) {
             tx.commit();
           }
-          client.sendAsync(new GenericOpPacket(PacketType.PUT_COMPLETE, ((OpPacket)packet).getChannel()));
+          client.sendAsync(Packets.packet(PacketType.PUT_COMPLETE, packet.getChannel()));
         } catch(Exception e) {
           log.warn("failed on close, aborting...", e);
           out.abort();
           if(txOwner) {
             tx.rollback();
           }
-          client.sendAsync(new GenericOpPacket(PacketType.PUT_ABORT, ((OpPacket)packet).getChannel()));
+          client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
         }
       } else {
         throw new KvdException("put has not been initialized yet");

@@ -28,8 +28,8 @@ import org.slf4j.LoggerFactory;
 import kvd.common.HostAndPort;
 import kvd.common.KvdException;
 import kvd.common.Utils;
-import kvd.common.packet.ByePacket;
-import kvd.common.packet.HelloPacket;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.PacketType;
 
 /**
  * {@code KvdClient} is the public API that clients should use to interact with the server.
@@ -80,7 +80,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
         }
       });
       backend.start();
-      backend.sendAsync(new HelloPacket());
+      backend.sendAsync(Packets.hello());
       backend.waitForHelloReceived();
     } catch(Exception e) {
       throw new KvdException(String.format("failed to connect to '%s'", serverAddress), e);
@@ -158,7 +158,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
       });
       abortables.clear();
       try {
-        backend.sendAsync(new ByePacket());
+        backend.sendAsync(Packets.packet(PacketType.BYE));
       } catch(Exception e) {
         // ignore
       }

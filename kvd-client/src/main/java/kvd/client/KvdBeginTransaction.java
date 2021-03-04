@@ -21,9 +21,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.packet.Packet;
-import kvd.common.packet.PacketType;
-import kvd.common.packet.TxBeginPacket;
+import kvd.common.packet.Packets;
+import kvd.common.packet.proto.Packet;
+import kvd.common.packet.proto.PacketType;
+import kvd.common.packet.proto.TxBeginBody;
 
 public class KvdBeginTransaction implements Abortable {
 
@@ -53,7 +54,11 @@ public class KvdBeginTransaction implements Abortable {
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(new TxBeginPacket(channelId, timeoutMs));
+      backend.sendAsync(Packets.builder(PacketType.TX_BEGIN, channelId)
+          .setTxBegin(TxBeginBody.newBuilder()
+              .setTimeoutMs(timeoutMs)
+              .build())
+          .build());
     } catch(Exception e) {
       log.warn("tx begin failed", e);
       try {
@@ -89,9 +94,8 @@ public class KvdBeginTransaction implements Abortable {
       tx.receive(packet);
     } else {
       if(PacketType.TX_BEGIN.equals(packet.getType())) {
-        TxBeginPacket p = (TxBeginPacket)packet;
-        log.debug("begin tx '{}'", p.getTxId());
-        tx = new KvdTransaction(backend, p.getTxId(), p.getChannel());
+        log.debug("begin tx '{}'", packet.getTx());
+        tx = new KvdTransaction(backend, packet.getTx(), packet.getChannel());
         future.complete(tx);
       } else if(PacketType.TX_ABORT.equals(packet.getType())) {
         abort();
