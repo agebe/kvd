@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import kvd.client.KvdClient;
 import kvd.client.KvdTransaction;
-import kvd.common.TransactionClosedException;
+import kvd.common.KvdException;
 import kvd.server.Kvd;
 
 public class TxClientTest {
@@ -108,10 +108,13 @@ public class TxClientTest {
         tx.putString(key, "test");
         assertTrue(tx.contains(key));
         Thread.sleep(300);
-        assertThrows(TransactionClosedException.class, () -> {
+        assertThrows(KvdException.class, () -> {
           assertTrue(tx.contains(key));
         });
       }
+    }
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
     }
   }
 

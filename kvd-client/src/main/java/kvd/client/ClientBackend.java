@@ -149,7 +149,7 @@ public class ClientBackend {
             if(channel != null) {
               channel.accept(packet);
             } else {
-              log.debug("ignore packet, channel '{}' does not exist", channel);
+              log.debug("ignore packet '{}', channel '{}' does not exist", packet.getType(), channelId);
             }
           }
         }

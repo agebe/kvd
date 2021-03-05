@@ -122,7 +122,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
     try {
       rollbackAsync().get();
     } catch(Exception e) {
-      throw new KvdException("failed on rollback", e);
+      // ignore, might have already been aborted (timeout)
     }
   }
 
