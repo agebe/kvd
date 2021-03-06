@@ -26,10 +26,11 @@ public interface KvdOperations {
   /**
    * Put a new value or replace an existing.
    * @param key key with which the specified value is to be associated
-   * @return {@code OutputStream} to be used to stream the value in.
+   * @return {@code Future} that evaluates either to an {@code OutputStream} to be used to stream the value in.
+   *         or fails (e.g. on optimistic lock or deadlock).
    *         Close the {@code OutputStream} to signal that the value is complete.
    */
-  OutputStream put(String key);
+  Future<OutputStream> putAsync(String key);
 
   /**
    * Returns the value to which the specified key is mapped
@@ -53,6 +54,20 @@ public interface KvdOperations {
    *         @{code false} otherwise.
    */
   Future<Boolean> removeAsync(String key);
+
+  /**
+   * Put a new value or replace an existing.
+   * @param key key with which the specified value is to be associated
+   * @return {@code OutputStream} to be used to stream the value in.
+   *         Close the {@code OutputStream} to signal that the value is complete.
+   */
+  default OutputStream put(String key) {
+    try {
+      return putAsync(key).get();
+    } catch(Exception e) {
+      throw new KvdException("put failed", e);
+    }
+  }
 
   /**
    * Convenience method that calls {@getAsync} and waits for the {@code Future} to complete.

@@ -68,7 +68,14 @@ public class PutConsumer implements ChannelConsumer {
         client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
-        out = this.storage.put(tx, key);
+        try {
+          out = this.storage.put(tx, key);
+          // the client waits for a PUT_INIT or PUT_ABORT response before proceeding
+          // PUT_INIT means put init complete normal (no body required)
+          client.sendAsync(Packets.packet(PacketType.PUT_INIT, packet.getChannel()));
+        } catch(Exception e) {
+          client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
+        }
       }
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {

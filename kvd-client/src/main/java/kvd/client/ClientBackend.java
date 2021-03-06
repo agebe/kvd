@@ -37,7 +37,7 @@ import kvd.common.packet.Packets;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 
-public class ClientBackend {
+class ClientBackend {
 
   private static final Logger log = LoggerFactory.getLogger(ClientBackend.class);
 

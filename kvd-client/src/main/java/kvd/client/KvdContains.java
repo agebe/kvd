@@ -24,7 +24,7 @@ import kvd.common.packet.Packets;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 
-public class KvdContains implements Abortable {
+class KvdContains implements Abortable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdContains.class);
 

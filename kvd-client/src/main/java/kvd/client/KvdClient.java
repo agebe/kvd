@@ -99,16 +99,13 @@ public class KvdClient implements KvdOperations, AutoCloseable {
 
 
   @Override
-  public synchronized OutputStream put(String key) {
+  public synchronized Future<OutputStream> putAsync(String key) {
     checkClosed();
     Utils.checkKey(key);
-    try {
-      KvdPutOutputStream out = new KvdPutOutputStream(backend, NO_TX, key, this::removeAbortable);
-      abortables.add(out);
-      return out;
-    } catch(Exception e) {
-      throw new KvdException("put failed", e);
-    }
+    KvdPut put = new KvdPut(backend, NO_TX, key, this::removeAbortable);
+    abortables.add(put);
+    put.start();
+    return put.getFuture();
   }
 
   @Override

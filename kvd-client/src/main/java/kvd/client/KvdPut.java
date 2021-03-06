@@ -13,74 +13,69 @@
  */
 package kvd.client;
 
-import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.common.packet.Packets;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
+import kvd.common.packet.proto.PutInitBody;
 
-class KvdGet implements Abortable {
-
-  private static final Logger log = LoggerFactory.getLogger(KvdGet.class);
+class KvdPut implements Abortable {
 
   private ClientBackend backend;
 
   private String key;
 
-  private CompletableFuture<InputStream> future = new CompletableFuture<>();
+  private CompletableFuture<OutputStream> future = new CompletableFuture<>();
 
   private int channelId;
 
   private Consumer<Abortable> closeListener;
 
-  private KvdGetInputStream stream;
+  private KvdPutOutputStream stream;
 
   private AtomicBoolean closed = new AtomicBoolean();
 
   private int txId;
 
-  public KvdGet(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
+  public KvdPut(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
+    this.txId = txId;
     this.key = key;
     this.closeListener = closeListener;
-    stream = new KvdGetInputStream(this::closeInternal);
   }
 
   public void start() {
     channelId = backend.createChannel(this::receive);
     try {
-      backend.sendAsync(Packets.packet(PacketType.GET_INIT, channelId, txId, key));
+      backend.sendAsync(Packets.builder(PacketType.PUT_INIT, channelId, txId)
+          .setPutInit(PutInitBody.newBuilder()
+              .setKey(key)
+              .build())
+          .build());
     } catch(Exception e) {
-      try {
-        close();
-      } catch(Exception e2) {
-        // ignore
-      }
-      throw new KvdException("get failed", e);
+      throw new KvdException("kvd put failed", e);
     }
   }
 
   @Override
   public void abort() {
     future.completeExceptionally(new KvdException("aborted"));
-    stream.abort();
+    if(stream != null) {
+      stream.abort();
+    }
     close();
   }
 
   private void close() {
-    closeInternal();
-    stream.close();
-  }
-
-  private void closeInternal() {
     if(!closed.getAndSet(true)) {
+      if(stream != null) {
+        stream.close();
+      }
       this.closeListener.accept(this);
       future.complete(null);
       backend.closeChannel(channelId);
@@ -88,27 +83,24 @@ class KvdGet implements Abortable {
   }
 
   public void receive(Packet packet) {
-    if(PacketType.GET_DATA.equals(packet.getType())) {
+    if(stream != null) {
+      stream.channelReceiver(packet);
+    } else if(PacketType.PUT_INIT.equals(packet.getType())) {
+      stream = new KvdPutOutputStream(backend, channelId, s -> close());
       future.complete(stream);
-      stream.fill(packet.getByteBody().toByteArray());
-    } else if(PacketType.GET_FINISH.equals(packet.getType())) {
-      close();
-    } else if(PacketType.GET_ABORT.equals(packet.getType())) {
-      abort();
+    } else if(PacketType.PUT_ABORT.equals(packet.getType())) {
+      future.completeExceptionally(new KvdException("aborted"));
     } else {
-      log.error("received unexpected packet " + packet.getType());
-      future.completeExceptionally(new KvdException("received unexpected packet " + packet.getType()));
-      abort();
+      throw new KvdException(String.format("invalid server response '%s'", packet.getType()));
     }
   }
 
-  public CompletableFuture<InputStream> getFuture() {
+  public CompletableFuture<OutputStream> getFuture() {
     return future;
   }
 
   @Override
   public String toString() {
-    return "GET " + key;
+    return "PUT " + key;
   }
-
 }

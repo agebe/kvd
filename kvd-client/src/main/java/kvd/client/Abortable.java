@@ -14,6 +14,6 @@
 package kvd.client;
 
 @FunctionalInterface
-public interface Abortable {
+interface Abortable {
   void abort();
 }

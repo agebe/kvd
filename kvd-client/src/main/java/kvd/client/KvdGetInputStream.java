@@ -21,7 +21,7 @@ import kvd.common.IOStreamUtils;
 import kvd.common.KvdException;
 import kvd.common.KvdInputStream;
 
-public class KvdGetInputStream extends KvdInputStream implements Abortable {
+class KvdGetInputStream extends KvdInputStream implements Abortable {
 
   private ByteRingBuffer ring = new ByteRingBuffer(64*1024);
 

@@ -69,6 +69,8 @@ public class Kvd {
       throw new KvdException("file storage currently not available");
     } else if(StringUtils.startsWith(options.storage, "mem:")) {
       log.info("using mem storage backend");
+      // TODO how to setup optimistic, pessimistic or no locking? somehow through the options
+      //return new OptimisticLockStorageBackend(new MemStorageBackend(), OptimisticLockStorageBackend.Mode.WRITEONLY);
       return new MemStorageBackend();
     } else {
       throw new KvdException("unknown storage backend: "+ options.storage);

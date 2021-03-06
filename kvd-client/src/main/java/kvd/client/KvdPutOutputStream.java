@@ -25,9 +25,8 @@ import kvd.common.KvdException;
 import kvd.common.packet.Packets;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
-import kvd.common.packet.proto.PutInitBody;
 
-public class KvdPutOutputStream extends OutputStream implements Abortable {
+class KvdPutOutputStream extends OutputStream implements Abortable {
 
   private ClientBackend backend;
 
@@ -43,22 +42,10 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
 
   private CompletableFuture<Boolean> completed = new CompletableFuture<Boolean>();
 
-  private String key;
-
-  public KvdPutOutputStream(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
+  public KvdPutOutputStream(ClientBackend backend, int channelId, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.closeListener = closeListener;
-    this.key = key;
-    channelId = backend.createChannel(this::channelReceiver);
-    try {
-      backend.sendAsync(Packets.builder(PacketType.PUT_INIT, channelId, txId)
-          .setPutInit(PutInitBody.newBuilder()
-              .setKey(key)
-              .build())
-          .build());
-    } catch(Exception e) {
-      throw new KvdException("kvd put failed", e);
-    }
+    this.channelId = channelId;
   }
 
   @Override
@@ -68,7 +55,7 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
     write(buf);
   }
 
-  private void channelReceiver(Packet packet) {
+  void channelReceiver(Packet packet) {
     if(PacketType.PUT_ABORT.equals(packet.getType())) {
       aborted.set(true);
       completed.completeExceptionally(new KvdException("server aborted"));
@@ -116,39 +103,37 @@ public class KvdPutOutputStream extends OutputStream implements Abortable {
   }
 
   @Override
-  public void close() throws IOException {
-    try {
-      flush();
-      backend.sendAsync(Packets.packet(PacketType.PUT_FINISH, channelId));
-      completed.get();
-    } catch(Exception e) {
-      throw new KvdException("close failed", e);
-    } finally {
-      closeInternal();
+  public void close() {
+    if(closed.compareAndSet(false, true)) {
+      try {
+        flush();
+        backend.sendAsync(Packets.packet(PacketType.PUT_FINISH, channelId));
+        completed.get();
+      } catch(Exception e) {
+        throw new KvdException("close failed", e);
+      } finally {
+        closeInternal();
+      }
     }
   }
 
   @Override
   public void abort() {
-    try {
-      backend.sendAsync(Packets.packet(PacketType.PUT_ABORT, channelId));
-    } catch(Exception e) {
-      throw new KvdException("abort failed", e);
-    } finally {
-      closeInternal();
-      completed.completeExceptionally(new KvdException("aborted"));
+    if(closed.compareAndSet(false, true)) {
+      try {
+        backend.sendAsync(Packets.packet(PacketType.PUT_ABORT, channelId));
+      } catch(Exception e) {
+        throw new KvdException("abort failed", e);
+      } finally {
+        closeInternal();
+        completed.completeExceptionally(new KvdException("aborted"));
+      }
     }
   }
 
   private void closeInternal() {
-    closed.set(true);
     backend.closeChannel(channelId);
     this.closeListener.accept(this);
-  }
-
-  @Override
-  public String toString() {
-    return "PUT " + key;
   }
 
 }

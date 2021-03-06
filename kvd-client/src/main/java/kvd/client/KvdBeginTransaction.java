@@ -26,7 +26,7 @@ import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 import kvd.common.packet.proto.TxBeginBody;
 
-public class KvdBeginTransaction implements Abortable {
+class KvdBeginTransaction implements Abortable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdBeginTransaction.class);
 
