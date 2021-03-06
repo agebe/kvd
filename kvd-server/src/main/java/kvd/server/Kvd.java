@@ -30,6 +30,7 @@ import kvd.client.KvdClient;
 import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.common.Version;
+import kvd.server.storage.OptimisticLockStorageBackend;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 
@@ -54,11 +55,26 @@ public class Kvd {
     @Parameter(names="--log-level", description="logback log level (trace, debug, info, warn, error, all, off)")
     public String logLevel = "info";
 
+    @Parameter(names= {"--concurrency-control", "-cc"}, description="concurrency control: none, optimistic (OPTW or OPTRW)")
+    public ConcurrencyControl concurrency = ConcurrencyControl.NONE;
+
   }
 
   private SimpleSocketServer socketServer;
 
   private SocketConnectHandler handler;
+
+  private StorageBackend setupConcurrencyControl(KvdOptions options, StorageBackend downstream) {
+    if(options.concurrency == null || ConcurrencyControl.NONE.equals(options.concurrency)) {
+      return downstream;
+    } else if (ConcurrencyControl.OPTRW.equals(options.concurrency)) {
+      return new OptimisticLockStorageBackend(downstream, OptimisticLockStorageBackend.Mode.READWRITE);
+    } else if(ConcurrencyControl.OPTW.equals(options.concurrency)) {
+      return new OptimisticLockStorageBackend(downstream, OptimisticLockStorageBackend.Mode.WRITEONLY);
+    } else {
+      throw new KvdException(String.format("concurrency control '%s' not implemented", options.concurrency));
+    }
+  }
 
   private StorageBackend createStorageBackend(KvdOptions options) {
     if(StringUtils.startsWith(options.storage, "file:")) {
@@ -69,8 +85,6 @@ public class Kvd {
       throw new KvdException("file storage currently not available");
     } else if(StringUtils.startsWith(options.storage, "mem:")) {
       log.info("using mem storage backend");
-      // TODO how to setup optimistic, pessimistic or no locking? somehow through the options
-      //return new OptimisticLockStorageBackend(new MemStorageBackend(), OptimisticLockStorageBackend.Mode.WRITEONLY);
       return new MemStorageBackend();
     } else {
       throw new KvdException("unknown storage backend: "+ options.storage);
@@ -83,7 +97,8 @@ public class Kvd {
     if(version != null) {
       log.info("{}", version.version());
     }
-    handler = new SocketConnectHandler(options.maxClients, createStorageBackend(options));
+    handler = new SocketConnectHandler(options.maxClients,
+        setupConcurrencyControl(options, createStorageBackend(options)));
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);

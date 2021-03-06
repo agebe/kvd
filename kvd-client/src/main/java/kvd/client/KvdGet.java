@@ -48,6 +48,7 @@ class KvdGet implements Abortable {
 
   public KvdGet(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
     this.backend = backend;
+    this.txId = txId;
     this.key = key;
     this.closeListener = closeListener;
     stream = new KvdGetInputStream(this::closeInternal);

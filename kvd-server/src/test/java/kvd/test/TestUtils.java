@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import kvd.server.ConcurrencyControl;
 import kvd.server.Kvd;
 
 public class TestUtils {
@@ -46,14 +47,15 @@ public class TestUtils {
   }
 
   public static Kvd startMemServer() {
-    return startMemServer("warn");
+    return startMemServer("warn", ConcurrencyControl.NONE);
   }
 
-  public static Kvd startMemServer(String loglevel) {
+  public static Kvd startMemServer(String loglevel, ConcurrencyControl cc) {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
     options.port = 0;
     options.storage = "mem:";
     options.logLevel = loglevel;
+    options.concurrency = cc;
     Kvd server = new Kvd();
     server.run(options);
     return server;
