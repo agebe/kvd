@@ -206,16 +206,20 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("received contains request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
       } else if(tx == null) {
-        storage.withTransactionVoid(newTx -> {
-          boolean contains = storage.contains(newTx, key);
-          client.sendAsync(Packets.packet(PacketType.CONTAINS_RESPONSE,
-              packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
-        });
+        storage.withTransactionVoid(newTx -> containsRequest(packet, newTx, key));
       } else {
-        boolean contains = storage.contains(tx.getTransaction(), key);
-        client.sendAsync(Packets.packet(PacketType.CONTAINS_RESPONSE,
-            packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
+        containsRequest(packet, tx.getTransaction(), key);
       }
+    }
+  }
+
+  private void containsRequest(Packet packet, Transaction tx, String key) {
+    try {
+      boolean contains = storage.contains(tx, key);
+      client.sendAsync(Packets.packet(PacketType.CONTAINS_RESPONSE,
+          packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
+    } catch(Exception e) {
+      client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
     }
   }
 
@@ -231,16 +235,20 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("received remove request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
       } else if(tx == null) {
-        storage.withTransactionVoid(Newtx -> {
-          boolean removed = storage.remove(Newtx, key);
-          client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
-              packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
-        });
+        storage.withTransactionVoid(newTx -> removeRequest(packet, newTx, key));
       } else {
-        boolean removed = storage.remove(tx.getTransaction(), key);
-        client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
-            packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
+        removeRequest(packet, tx.getTransaction(), key);
       }
+    }
+  }
+
+  private void removeRequest(Packet packet, Transaction tx, String key) {
+    try {
+      boolean removed = storage.remove(tx, key);
+      client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
+          packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
+    } catch(Exception e) {
+      client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
     }
   }
 

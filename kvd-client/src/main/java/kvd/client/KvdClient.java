@@ -145,7 +145,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   @Override
   public synchronized void close() {
     if(!closed.getAndSet(true)) {
-      abortables.forEach(a -> {
+      new HashSet<>(abortables).forEach(a -> {
         try {
           log.warn("aborting '{}'", a);
           a.abort();

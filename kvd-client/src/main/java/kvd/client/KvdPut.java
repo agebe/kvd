@@ -90,6 +90,7 @@ class KvdPut implements Abortable {
       future.complete(stream);
     } else if(PacketType.PUT_ABORT.equals(packet.getType())) {
       future.completeExceptionally(new KvdException("aborted"));
+      close();
     } else {
       throw new KvdException(String.format("invalid server response '%s'", packet.getType()));
     }
