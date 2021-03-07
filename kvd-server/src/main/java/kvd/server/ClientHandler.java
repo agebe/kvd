@@ -346,6 +346,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
       c.accept(packet);
     } else {
       log.error("can't handle packet type '{}' (not implemented)", packet.getType());
+      client.sendAsync(Packets.packet(PacketType.INVALID_REQUEST, packet.getChannel()));
       throw new KvdException("server error, can't handle packet type " + packet.getType());
     }
   }
