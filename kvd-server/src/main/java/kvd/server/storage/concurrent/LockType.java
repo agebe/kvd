@@ -11,9 +11,8 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.server.storage.concurrent;
 
-interface OptimisticLockStore {
-  void acquireWriteLock(OptimisticLockTransaction tx, String key);
-  void acquireReadLock(OptimisticLockTransaction tx, String key);
+public enum LockType {
+  READ, WRITE
 }

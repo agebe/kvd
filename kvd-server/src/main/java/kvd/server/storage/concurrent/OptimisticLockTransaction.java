@@ -11,12 +11,16 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.server.storage.concurrent;
 
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+
+import kvd.server.storage.AbortableOutputStream;
+import kvd.server.storage.AbstractTransaction;
+import kvd.server.storage.Transaction;
 
 class OptimisticLockTransaction extends AbstractTransaction {
 

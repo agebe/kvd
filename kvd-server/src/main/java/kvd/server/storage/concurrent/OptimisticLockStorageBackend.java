@@ -11,7 +11,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.server.storage.concurrent;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,6 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.server.storage.StorageBackend;
+import kvd.server.storage.Transaction;
 
 /**
  * This lock manager fails a operations (put, get, remove, contains) immediately

@@ -11,7 +11,10 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.server.storage.concurrent;
+
+import kvd.server.storage.StorageBackend;
+import kvd.server.storage.Transaction;
 
 /**
  * Manages read/write locks and stalls transactions that can't currently proceed waiting to acquire a lock.

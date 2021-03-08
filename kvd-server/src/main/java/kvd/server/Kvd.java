@@ -30,8 +30,8 @@ import kvd.client.KvdClient;
 import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.common.Version;
-import kvd.server.storage.OptimisticLockStorageBackend;
 import kvd.server.storage.StorageBackend;
+import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 
 public class Kvd {
