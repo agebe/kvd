@@ -13,8 +13,6 @@
  */
 package kvd.server.storage;
 
-import java.io.InputStream;
-
 /**
  * Manages read/write locks and stalls transactions that can't currently proceed waiting to acquire a lock.
  * This locking system also fails transactions that cause a deadlock immediately.
@@ -26,30 +24,6 @@ public class PessimisticLockStorageBackend implements StorageBackend {
   public Transaction begin() {
     // TODO Auto-generated method stub
     return null;
-  }
-
-  @Override
-  public AbortableOutputStream put(Transaction tx, String key) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public InputStream get(Transaction tx, String key) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public boolean contains(Transaction tx, String key) {
-    // TODO Auto-generated method stub
-    return false;
-  }
-
-  @Override
-  public boolean remove(Transaction tx, String key) {
-    // TODO Auto-generated method stub
-    return false;
   }
 
 }

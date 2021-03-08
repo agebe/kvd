@@ -13,7 +13,6 @@
  */
 package kvd.server.storage;
 
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -60,60 +59,27 @@ public class OptimisticLockStorageBackend implements StorageBackend {
     this.mode = mode;
   }
 
-  private OptimisticLockTransaction cast(Transaction tx) {
-    return (OptimisticLockTransaction)tx;
-  }
-
   @Override
   public synchronized Transaction begin() {
     OptimisticLockTransaction tx = new OptimisticLockTransaction(
         handles.getAndIncrement(),
         backend.begin(),
-        this::closeTransaction);
+        this::closeTransaction,
+        new OptimisticLockStore() {
+
+          @Override
+          public void acquireWriteLock(OptimisticLockTransaction tx, String key) {
+            OptimisticLockStorageBackend.this.acquireWriteLock(tx, key);
+          }
+
+          @Override
+          public void acquireReadLock(OptimisticLockTransaction tx, String key) {
+            OptimisticLockStorageBackend.this.acquireReadLock(tx, key);
+          }});
     // slight race here but the close listener is not called before we put the transaction into the map
     // closeTransaction also checks that the transaction is in the map
     transactions.put(tx.handle(), tx);
     return tx;
-  }
-
-  @Override
-  public AbortableOutputStream put(Transaction tx, String key) {
-    return put(cast(tx), key);
-  }
-
-  private AbortableOutputStream put(OptimisticLockTransaction tx, String key) {
-    acquireWriteLock(tx, key);
-    return backend.put(tx.backendTx(), key);
-  }
-
-  @Override
-  public InputStream get(Transaction tx, String key) {
-    return get(cast(tx), key);
-  }
-
-  private InputStream get(OptimisticLockTransaction tx, String key) {
-    acquireReadLock(tx, key);
-    return backend.get(tx.backendTx(), key);
-  }
-
-  @Override
-  public boolean contains(Transaction tx, String key) {
-    return contains(cast(tx), key);
-  }
-
-  private boolean contains(OptimisticLockTransaction tx, String key) {
-    acquireReadLock(tx, key);
-    return backend.contains(tx.backendTx(), key);
-  }
-
-  @Override
-  public boolean remove(Transaction tx, String key) {
-    return remove(cast(tx), key);
-  }
-
-  private boolean remove(OptimisticLockTransaction tx, String key) {
-    acquireWriteLock(tx, key);
-    return backend.remove(tx.backendTx(), key);
   }
 
   private synchronized void acquireWriteLock(OptimisticLockTransaction tx, String key) {

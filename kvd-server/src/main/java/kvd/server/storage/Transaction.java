@@ -13,7 +13,42 @@
  */
 package kvd.server.storage;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import kvd.common.KvdException;
+import kvd.common.Utils;
+
 public interface Transaction extends AutoCloseable {
+
+  AbortableOutputStream put(String key);
+
+  InputStream get(String key);
+
+  boolean contains(String key);
+
+  boolean remove(String key);
+
+  default void putBytes(String key, byte[] bytes) {
+    try(OutputStream out = put(key)) {
+      out.write(bytes);
+    } catch(IOException e) {
+      throw new KvdException("put bytes failed", e);
+    }
+  }
+
+  default byte[] getBytes(String key) {
+    try(InputStream in = get(key)) {
+      if(in != null) {
+        return Utils.toByteArray(in);
+      } else {
+        return null;
+      }
+    } catch(IOException e) {
+      throw new KvdException("get bytes failed", e);
+    }
+  }
 
   /**
    * commit and close.

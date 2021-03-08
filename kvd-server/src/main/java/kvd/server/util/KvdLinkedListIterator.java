@@ -151,7 +151,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     byte[] b = serializer.apply(e);
     String nodeKey = newNodeKey(e);
     storage.withTransactionVoid(tx -> {
-      if(storage.contains(tx, nodeKey)) {
+      if(tx.contains(nodeKey)) {
         throw new DuplicateKeyException(String.format("key '%s' already in store", nodeKey));
       }
       if(isEmpty()) {
@@ -244,7 +244,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     if(StringUtils.isBlank(key)) {
       return null;
     } else {
-      try(InputStream in = storage.get(tx, key)) {
+      try(InputStream in = tx.get(key)) {
         return in!=null?ListNode.deserialize(in):null;
       } catch(IOException e) {
         throw new KvdException(String.format("list get node failed for '%s'", key), e);
@@ -253,7 +253,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
   }
 
   private void putNode(Transaction tx, String key, ListNode node) {
-    try(OutputStream out = storage.put(tx, key)) {
+    try(OutputStream out = tx.put(key)) {
       node.serialize(out);
     } catch(IOException e) {
       throw new KvdException(String.format("list put node failed for '%s'", key), e);
@@ -261,14 +261,14 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
   }
 
   private void removeNode(Transaction tx, String key) {
-    storage.remove(tx, key);
+    tx.remove(key);
   }
 
   private void setListPointer(Transaction tx, String key, String value) {
     if(StringUtils.isBlank(value)) {
-      storage.remove(tx, key);
+      tx.remove(key);
     } else {
-      storage.putBytes(tx, key, Utils.toUTF8(value));
+      tx.putBytes(key, Utils.toUTF8(value));
     }
   }
 
@@ -281,7 +281,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
   }
 
   private String getListPointer(Transaction tx, String key) {
-    byte[] b = storage.getBytes(tx, key);
+    byte[] b = tx.getBytes(key);
     return b!=null?Utils.fromUTF8(b):null;
   }
 

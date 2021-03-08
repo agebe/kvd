@@ -13,13 +13,11 @@
  */
 package kvd.server.storage.mem;
 
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
 
@@ -43,32 +41,10 @@ public class MemStorageBackend implements StorageBackend {
     // remove: record remove in the transaction store as a special object that gets propagated to the global store
     //   when the transaction is committed. when there is another put operation on the same key the remove object is overwritten
     //   on put close
-    // FIXME this is probably not good enough as users should expects read/write locks on keys while transaction is going
-    //   how to deal with deadlocks in this case (detect/fix)
     int txHandle = txCounter.getAndIncrement();
     MemTx tx = new MemTx(txHandle, store, () -> transactions.remove(txHandle));
     transactions.put(txHandle, tx);
     return tx;
-  }
-
-  @Override
-  public AbortableOutputStream put(Transaction tx, String key) {
-    return ((MemTx)tx).put(key);
-  }
-
-  @Override
-  public InputStream get(Transaction tx, String key) {
-    return ((MemTx)tx).get(key);
-  }
-
-  @Override
-  public boolean contains(Transaction tx, String key) {
-    return ((MemTx)tx).contains(key);
-  }
-
-  @Override
-  public boolean remove(Transaction tx, String key) {
-    return ((MemTx)tx).remove(key);
   }
 
 }

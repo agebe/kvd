@@ -37,13 +37,13 @@ public class OptimisticLockStorageBackendTest {
     try(Transaction t1 = backend.begin()) {
       assertEquals(1, backend.transactions());
       assertEquals(0, backend.lockedKeys());
-      assertFalse(backend.contains(t1, "key1"));
+      assertFalse(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(1, backend.lockedKeys());
       assertEquals(LockType.READ, ((OptimisticLockTransaction)t1).locks().get("key1"));
-      backend.putBytes(t1, "key1", "foo".getBytes());
+      t1.putBytes("key1", "foo".getBytes());
       assertEquals(LockType.WRITE, ((OptimisticLockTransaction)t1).locks().get("key1"));
-      assertTrue(backend.contains(t1, "key1"));
+      assertTrue(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(1, backend.lockedKeys());
       t1.commit();
@@ -53,23 +53,23 @@ public class OptimisticLockStorageBackendTest {
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
     try(Transaction t2 = backend.begin()) {
-      assertTrue(backend.contains(t2, "key1"));
-      assertEquals("foo", new String(backend.getBytes(t2, "key1")));
-      assertTrue(backend.remove(t2, "key1"));
-      assertNull(backend.getBytes(t2, "key1"));
+      assertTrue(t2.contains("key1"));
+      assertEquals("foo", new String(t2.getBytes("key1")));
+      assertTrue(t2.remove("key1"));
+      assertNull(t2.getBytes("key1"));
       // no commit, so auto rollback on close
     }
     try(Transaction t3 = backend.begin()) {
-      assertTrue(backend.contains(t3, "key1"));
-      assertEquals("foo", new String(backend.getBytes(t3, "key1")));
-      assertTrue(backend.remove(t3, "key1"));
-      assertNull(backend.getBytes(t3, "key1"));
+      assertTrue(t3.contains("key1"));
+      assertEquals("foo", new String(t3.getBytes("key1")));
+      assertTrue(t3.remove("key1"));
+      assertNull(t3.getBytes("key1"));
       t3.commit();
     }
     try(Transaction t4 = backend.begin()) {
-      assertFalse(backend.contains(t4, "key1"));
-      backend.putBytes(t4, "key1", "foo".getBytes());
-      assertTrue(backend.contains(t4, "key1"));
+      assertFalse(t4.contains("key1"));
+      t4.putBytes("key1", "foo".getBytes());
+      assertTrue(t4.contains("key1"));
       t4.commit();
     }
     assertEquals(0, backend.transactions());
@@ -85,12 +85,12 @@ public class OptimisticLockStorageBackendTest {
     try(Transaction t1 = backend.begin()) {
       assertEquals(1, backend.transactions());
       assertEquals(0, backend.lockedKeys());
-      assertFalse(backend.contains(t1, "key1"));
+      assertFalse(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(0, backend.lockedKeys());
-      backend.putBytes(t1, "key1", "foo".getBytes());
+      t1.putBytes("key1", "foo".getBytes());
       assertEquals(LockType.WRITE, ((OptimisticLockTransaction)t1).locks().get("key1"));
-      assertTrue(backend.contains(t1, "key1"));
+      assertTrue(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(1, backend.lockedKeys());
       t1.commit();
@@ -100,23 +100,23 @@ public class OptimisticLockStorageBackendTest {
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
     try(Transaction t2 = backend.begin()) {
-      assertTrue(backend.contains(t2, "key1"));
-      assertEquals("foo", new String(backend.getBytes(t2, "key1")));
-      assertTrue(backend.remove(t2, "key1"));
-      assertNull(backend.getBytes(t2, "key1"));
+      assertTrue(t2.contains("key1"));
+      assertEquals("foo", new String(t2.getBytes("key1")));
+      assertTrue(t2.remove("key1"));
+      assertNull(t2.getBytes("key1"));
       // no commit, so auto rollback on close
     }
     try(Transaction t3 = backend.begin()) {
-      assertTrue(backend.contains(t3, "key1"));
-      assertEquals("foo", new String(backend.getBytes(t3, "key1")));
-      assertTrue(backend.remove(t3, "key1"));
-      assertNull(backend.getBytes(t3, "key1"));
+      assertTrue(t3.contains("key1"));
+      assertEquals("foo", new String(t3.getBytes("key1")));
+      assertTrue(t3.remove("key1"));
+      assertNull(t3.getBytes("key1"));
       t3.commit();
     }
     try(Transaction t4 = backend.begin()) {
-      assertFalse(backend.contains(t4, "key1"));
-      backend.putBytes(t4, "key1", "foo".getBytes());
-      assertTrue(backend.contains(t4, "key1"));
+      assertFalse(t4.contains("key1"));
+      t4.putBytes("key1", "foo".getBytes());
+      assertTrue(t4.contains("key1"));
       t4.commit();
     }
     assertEquals(0, backend.transactions());
@@ -129,21 +129,21 @@ public class OptimisticLockStorageBackendTest {
         OptimisticLockStorageBackend.Mode.READWRITE);
     Transaction t1 = backend.begin();
     Transaction t2 = backend.begin();
-    backend.contains(t1, "key1");
-    backend.putBytes(t2, "key2", "foo".getBytes());
-    assertThrows(OptimisticLockException.class, () -> backend.putBytes(t2, "key1", "bar".getBytes()));
-    backend.contains(t2, "key1");
-    assertThrows(OptimisticLockException.class, () -> backend.putBytes(t1, "key1", "bar".getBytes()));
+    t1.contains("key1");
+    t2.putBytes("key2", "foo".getBytes());
+    assertThrows(OptimisticLockException.class, () -> t2.putBytes("key1", "bar".getBytes()));
+    t2.contains("key1");
+    assertThrows(OptimisticLockException.class, () -> t1.putBytes("key1", "bar".getBytes()));
     assertEquals(2, backend.transactions());
     assertEquals(2, backend.lockedKeys());
     t2.commit();
-    backend.putBytes(t1, "key1", "bar".getBytes());
+    t1.putBytes("key1", "bar".getBytes());
     Transaction t3 = backend.begin();
-    assertThrows(OptimisticLockException.class, () -> backend.contains(t3, "key1"));
+    assertThrows(OptimisticLockException.class, () -> t3.contains("key1"));
     t1.commit();
     assertEquals(1, backend.transactions());
     assertEquals(0, backend.lockedKeys());
-    assertTrue(backend.contains(t3, "key1"));
+    assertTrue(t3.contains("key1"));
     t3.commit();
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
@@ -155,23 +155,23 @@ public class OptimisticLockStorageBackendTest {
         OptimisticLockStorageBackend.Mode.WRITEONLY);
     Transaction t1 = backend.begin();
     Transaction t2 = backend.begin();
-    backend.contains(t1, "key1");
-    backend.putBytes(t2, "key2", "foo".getBytes());
-    backend.putBytes(t2, "key1", "bar".getBytes());
-    assertTrue(backend.contains(t2, "key1"));
-    assertFalse(backend.contains(t1, "key1"));
-    assertThrows(OptimisticLockException.class, () -> backend.putBytes(t1, "key1", "bar".getBytes()));
+    t1.contains("key1");
+    t2.putBytes("key2", "foo".getBytes());
+    t2.putBytes("key1", "bar".getBytes());
+    assertTrue(t2.contains("key1"));
+    assertFalse(t1.contains("key1"));
+    assertThrows(OptimisticLockException.class, () -> t1.putBytes("key1", "bar".getBytes()));
     assertEquals(2, backend.transactions());
     assertEquals(2, backend.lockedKeys());
     t2.commit();
-    assertTrue(backend.contains(t1, "key1"));
-    assertEquals("bar", new String(backend.getBytes(t1, "key1")));
-    backend.putBytes(t1, "key1", "baz".getBytes());
+    assertTrue(t1.contains("key1"));
+    assertEquals("bar", new String(t1.getBytes("key1")));
+    t1.putBytes("key1", "baz".getBytes());
     Transaction t3 = backend.begin();
-    assertTrue(backend.contains(t3, "key1"));
-    assertEquals("bar", new String(backend.getBytes(t3, "key1")));
+    assertTrue(t3.contains("key1"));
+    assertEquals("bar", new String(t3.getBytes("key1")));
     t1.commit();
-    assertEquals("baz", new String(backend.getBytes(t3, "key1")));
+    assertEquals("baz", new String(t3.getBytes("key1")));
     t3.commit();
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
@@ -182,12 +182,12 @@ public class OptimisticLockStorageBackendTest {
     OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
         OptimisticLockStorageBackend.Mode.WRITEONLY);
     Transaction t1 = backend.begin();
-    OutputStream out = backend.put(t1, "key1");
+    OutputStream out = t1.put("key1");
     out.write("foo".getBytes());
     t1.commit();
     assertThrows(IOException.class, () -> out.write("bar".getBytes()));
     Transaction t2 = backend.begin();
-    assertFalse(backend.contains(t2, "key1"));
+    assertFalse(t2.contains("key1"));
     t2.commit();
   }
 

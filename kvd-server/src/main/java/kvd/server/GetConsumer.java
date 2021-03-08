@@ -34,8 +34,6 @@ public class GetConsumer implements ChannelConsumer {
 
   private int channel;
 
-  private StorageBackend storage;
-
   private ClientResponseHandler client;
 
   private AtomicBoolean closed = new AtomicBoolean(false);
@@ -48,7 +46,6 @@ public class GetConsumer implements ChannelConsumer {
     super();
     this.clientId = clientId;
     this.channel = channel;
-    this.storage = storage;
     this.client = client;
     txOwner = (tx==null);
     this.tx = txOwner?storage.begin():tx;
@@ -67,7 +64,7 @@ public class GetConsumer implements ChannelConsumer {
             client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
             return;
           }
-          try(InputStream in = storage.get(tx, key)) {
+          try(InputStream in = tx.get(key)) {
             if(in != null) {
               // Send an empty packet so the client can distinguish between
               // non existing keys and keys with an empty value.

@@ -13,6 +13,7 @@
  */
 package kvd.server.storage;
 
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -25,10 +26,16 @@ class OptimisticLockTransaction extends AbstractTransaction {
 
   private Map<String, LockType> locks = new HashMap<>();
 
-  OptimisticLockTransaction(int handle, Transaction backendTx, Consumer<OptimisticLockTransaction> closeListener) {
+  private OptimisticLockStore lockStore;
+
+  OptimisticLockTransaction(int handle,
+      Transaction backendTx,
+      Consumer<OptimisticLockTransaction> closeListener,
+      OptimisticLockStore lockStore) {
     super(handle);
     this.backendTx = backendTx;
     this.closeListener = closeListener;
+    this.lockStore = lockStore;
   }
 
   LockType getLock(String key) {
@@ -63,6 +70,30 @@ class OptimisticLockTransaction extends AbstractTransaction {
     } finally {
       closeListener.accept(this);
     }
+  }
+
+  @Override
+  public AbortableOutputStream put(String key) {
+    lockStore.acquireWriteLock(this, key);
+    return backendTx.put(key);
+  }
+
+  @Override
+  public InputStream get(String key) {
+    lockStore.acquireReadLock(this, key);
+    return backendTx.get(key);
+  }
+
+  @Override
+  public boolean contains(String key) {
+    lockStore.acquireReadLock(this, key);
+    return backendTx.contains(key);
+  }
+
+  @Override
+  public boolean remove(String key) {
+    lockStore.acquireWriteLock(this, key);
+    return backendTx.remove(key);
   }
 
 }

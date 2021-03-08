@@ -56,13 +56,9 @@ class MemTx extends AbstractTransaction {
   protected void commitInternal() {
     wlock.lock();
     try {
-      if(!isClosed()) {
-        closeListener.run();
-        store.commit(txStore);
-        abortUnfinishedPuts();
-      } else {
-        log.warn("commit ignored, already closed");
-      }
+      closeListener.run();
+      store.commit(txStore);
+      abortUnfinishedPuts();
     } finally {
       wlock.unlock();
     }
@@ -72,10 +68,8 @@ class MemTx extends AbstractTransaction {
   protected void rollbackInternal() {
     wlock.lock();
     try {
-      if(!isClosed()) {
-        closeListener.run();
-        abortUnfinishedPuts();
-      }
+      closeListener.run();
+      abortUnfinishedPuts();
     } finally {
       wlock.unlock();
     }
@@ -95,7 +89,8 @@ class MemTx extends AbstractTransaction {
     staging.clear();
   }
 
-  AbortableOutputStream put(String key) {
+  @Override
+  public AbortableOutputStream put(String key) {
     checkClosed();
     wlock.lock();
     try {
@@ -140,7 +135,8 @@ class MemTx extends AbstractTransaction {
     }
   }
 
-  InputStream get(String key) {
+  @Override
+  public InputStream get(String key) {
     checkClosed();
     rlock.lock();
     try {
@@ -158,7 +154,8 @@ class MemTx extends AbstractTransaction {
     }
   }
 
-  boolean contains(String key) {
+  @Override
+  public boolean contains(String key) {
     checkClosed();
     rlock.lock();
     try {
@@ -177,6 +174,7 @@ class MemTx extends AbstractTransaction {
     }
   }
 
+  @Override
   public boolean remove(String key) {
     checkClosed();
     wlock.lock();

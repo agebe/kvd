@@ -215,7 +215,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private void containsRequest(Packet packet, Transaction tx, String key) {
     try {
-      boolean contains = storage.contains(tx, key);
+      boolean contains = tx.contains(key);
       client.sendAsync(Packets.packet(PacketType.CONTAINS_RESPONSE,
           packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
     } catch(Exception e) {
@@ -244,7 +244,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private void removeRequest(Packet packet, Transaction tx, String key) {
     try {
-      boolean removed = storage.remove(tx, key);
+      boolean removed = tx.remove(key);
       client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
           packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
     } catch(Exception e) {

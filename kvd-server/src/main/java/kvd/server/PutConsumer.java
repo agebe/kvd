@@ -33,8 +33,6 @@ public class PutConsumer implements ChannelConsumer {
 
   private AbortableOutputStream out;
 
-  private StorageBackend storage;
-
   private ClientResponseHandler client;
 
   private boolean aborted;
@@ -45,7 +43,6 @@ public class PutConsumer implements ChannelConsumer {
 
   public PutConsumer(StorageBackend storage, ClientResponseHandler client, Transaction tx) {
     super();
-    this.storage = storage;
     this.client = client;
  // if no transaction has been passed in this put will create a transaction but also needs to commit it on 'PUT_FINISH'
     txOwner = (tx==null);
@@ -69,7 +66,7 @@ public class PutConsumer implements ChannelConsumer {
       } else {
         this.keyShort = StringUtils.substring(key, 0, 200);
         try {
-          out = this.storage.put(tx, key);
+          out = tx.put(key);
           // the client waits for a PUT_INIT or PUT_ABORT response before proceeding
           // PUT_INIT means put init complete normal (no body required)
           client.sendAsync(Packets.packet(PacketType.PUT_INIT, packet.getChannel()));

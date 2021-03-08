@@ -15,7 +15,12 @@ package kvd.server.storage;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public abstract class AbstractTransaction implements Transaction {
+
+  private static final Logger log = LoggerFactory.getLogger(AbstractTransaction.class);
 
   private int handle;
 
@@ -28,23 +33,17 @@ public abstract class AbstractTransaction implements Transaction {
 
   @Override
   public synchronized void commit() {
-    if(!isClosed()) {
-      try {
-        commitInternal();
-      } finally {
-        closed.set(true);
-      }
+    if(!closed.getAndSet(true)) {
+      commitInternal();
+    } else {
+      log.debug("commit ignored, already closed");
     }
   }
 
   @Override
   public synchronized void rollback() {
-    if(!isClosed()) {
-      try {
-        rollbackInternal();
-      } finally {
-        closed.set(true);
-      }
+    if(!closed.getAndSet(true)) {
+      rollbackInternal();
     }
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Andre Gebers
+ * Copyright 2021 Andre Gebers
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -13,23 +13,7 @@
  */
 package kvd.server.storage;
 
-public interface StorageBackend {
-
-  Transaction begin();
-
-  default void withTransactionVoid(VoidWork work) {
-    try(Transaction tx = begin()) {
-      work.run(tx);
-      tx.commit();
-    }
-  }
-
-  default <E> E withTransaction(Work<E> work) {
-    try(Transaction tx = begin()) {
-      E e = work.run(tx);
-      tx.commit();
-      return e;
-    }
-  }
-
+interface OptimisticLockStore {
+  void acquireWriteLock(OptimisticLockTransaction tx, String key);
+  void acquireReadLock(OptimisticLockTransaction tx, String key);
 }
