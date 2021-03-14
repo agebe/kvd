@@ -15,7 +15,7 @@ package kvd.server.storage.mem;
 
 import kvd.server.storage.AbortableOutputStream;
 
-public class Staging {
+class Staging {
 
   private String key;
 

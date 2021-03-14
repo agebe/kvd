@@ -11,18 +11,40 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage.mem;
+package kvd.server.storage.fs;
 
-class MemStorageRemove {
+import java.io.File;
+
+import kvd.server.storage.AbortableOutputStream;
+
+class Staging {
 
   private String key;
 
-  public MemStorageRemove(String key) {
-    super();
+  private File file;
+
+  private AbortableOutputStream out;
+
+  public Staging(String key, File file, AbortableOutputStream out) {
     this.key = key;
+    this.file = file;
+    this.out = out;
   }
 
   public String getKey() {
     return key;
   }
+
+  public File getFile() {
+    return file;
+  }
+
+  public AbortableOutputStream getOut() {
+    return out;
+  }
+
+  public void abort() {
+    out.abort();
+  }
+
 }

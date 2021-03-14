@@ -11,7 +11,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.server.storage.fs;
 
 import java.nio.charset.Charset;
 
@@ -21,7 +21,7 @@ import com.google.common.hash.Hashing;
 
 import kvd.common.Utils;
 
-public class KeyUtils {
+class KeyUtils {
 
   // only lowercase so keys that contain uppercase are hashed to support case sensitive keys
   // also on filesystems that are case insensitive
