@@ -22,20 +22,20 @@ import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
 import kvd.server.storage.Transaction;
 
-class OptimisticLockTransaction extends AbstractTransaction {
+class LockTransaction extends AbstractTransaction {
 
   private Transaction backendTx;
 
-  private Consumer<OptimisticLockTransaction> closeListener;
+  private Consumer<LockTransaction> closeListener;
 
   private Map<String, LockType> locks = new HashMap<>();
 
-  private OptimisticLockStore lockStore;
+  private LockStore lockStore;
 
-  OptimisticLockTransaction(int handle,
+  LockTransaction(int handle,
       Transaction backendTx,
-      Consumer<OptimisticLockTransaction> closeListener,
-      OptimisticLockStore lockStore) {
+      Consumer<LockTransaction> closeListener,
+      LockStore lockStore) {
     super(handle);
     this.backendTx = backendTx;
     this.closeListener = closeListener;

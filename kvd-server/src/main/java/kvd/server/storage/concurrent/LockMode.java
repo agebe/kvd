@@ -13,7 +13,6 @@
  */
 package kvd.server.storage.concurrent;
 
-interface OptimisticLockStore {
-  void acquireWriteLock(OptimisticLockTransaction tx, String key);
-  void acquireReadLock(OptimisticLockTransaction tx, String key);
+public enum LockMode {
+  READWRITE, WRITEONLY;
 }

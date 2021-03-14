@@ -32,7 +32,7 @@ public class OptimisticLockStorageBackendTest {
   @Test
   public void test1() {
     OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
-        OptimisticLockStorageBackend.Mode.READWRITE);
+        LockMode.READWRITE);
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
     try(Transaction t1 = backend.begin()) {
@@ -41,9 +41,9 @@ public class OptimisticLockStorageBackendTest {
       assertFalse(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(1, backend.lockedKeys());
-      assertEquals(LockType.READ, ((OptimisticLockTransaction)t1).locks().get("key1"));
+      assertEquals(LockType.READ, ((LockTransaction)t1).locks().get("key1"));
       t1.putBytes("key1", "foo".getBytes());
-      assertEquals(LockType.WRITE, ((OptimisticLockTransaction)t1).locks().get("key1"));
+      assertEquals(LockType.WRITE, ((LockTransaction)t1).locks().get("key1"));
       assertTrue(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(1, backend.lockedKeys());
@@ -80,7 +80,7 @@ public class OptimisticLockStorageBackendTest {
   @Test
   public void test2() {
     OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
-        OptimisticLockStorageBackend.Mode.WRITEONLY);
+        LockMode.WRITEONLY);
     assertEquals(0, backend.transactions());
     assertEquals(0, backend.lockedKeys());
     try(Transaction t1 = backend.begin()) {
@@ -90,7 +90,7 @@ public class OptimisticLockStorageBackendTest {
       assertEquals(1, backend.transactions());
       assertEquals(0, backend.lockedKeys());
       t1.putBytes("key1", "foo".getBytes());
-      assertEquals(LockType.WRITE, ((OptimisticLockTransaction)t1).locks().get("key1"));
+      assertEquals(LockType.WRITE, ((LockTransaction)t1).locks().get("key1"));
       assertTrue(t1.contains("key1"));
       assertEquals(1, backend.transactions());
       assertEquals(1, backend.lockedKeys());
@@ -127,7 +127,7 @@ public class OptimisticLockStorageBackendTest {
   @Test
   public void test3() {
     OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
-        OptimisticLockStorageBackend.Mode.READWRITE);
+        LockMode.READWRITE);
     Transaction t1 = backend.begin();
     Transaction t2 = backend.begin();
     t1.contains("key1");
@@ -153,7 +153,7 @@ public class OptimisticLockStorageBackendTest {
   @Test
   public void test4() {
     OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
-        OptimisticLockStorageBackend.Mode.WRITEONLY);
+        LockMode.WRITEONLY);
     Transaction t1 = backend.begin();
     Transaction t2 = backend.begin();
     t1.contains("key1");
@@ -181,7 +181,7 @@ public class OptimisticLockStorageBackendTest {
   @Test
   public void test5() throws IOException {
     OptimisticLockStorageBackend backend = new OptimisticLockStorageBackend(new MemStorageBackend(),
-        OptimisticLockStorageBackend.Mode.WRITEONLY);
+        LockMode.WRITEONLY);
     Transaction t1 = backend.begin();
     OutputStream out = t1.put("key1");
     out.write("foo".getBytes());

@@ -17,14 +17,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.storage.StorageBackend;
-import kvd.server.storage.Transaction;
 
 /**
  * This lock manager fails a operations (put, get, remove, contains) immediately
@@ -37,58 +35,22 @@ import kvd.server.storage.Transaction;
  *
  * The downstream storage manager must also support read/write isolation.
  */
-public class OptimisticLockStorageBackend implements StorageBackend {
+public class OptimisticLockStorageBackend extends AbstractLockStorageBackend {
 
   private static final Logger log = LoggerFactory.getLogger(OptimisticLockStorageBackend.class);
 
-  public static enum Mode {
-    READWRITE, WRITEONLY;
-  }
+  private Map<String, Set<LockTransaction>> locks = new HashMap<>();
 
-  private StorageBackend backend;
-
-  private Mode mode;
-
-  private Map<Integer, OptimisticLockTransaction> transactions = new HashMap<>();
-
-  private Map<String, Set<OptimisticLockTransaction>> locks = new HashMap<>();
-
-  private AtomicInteger handles = new AtomicInteger(1);
-
-  public OptimisticLockStorageBackend(StorageBackend backend, Mode mode) {
-    super();
-    this.backend = backend;
-    this.mode = mode;
+  public OptimisticLockStorageBackend(StorageBackend backend, LockMode mode) {
+    super(backend, mode);
   }
 
   @Override
-  public synchronized Transaction begin() {
-    OptimisticLockTransaction tx = new OptimisticLockTransaction(
-        handles.getAndIncrement(),
-        backend.begin(),
-        this::closeTransaction,
-        new OptimisticLockStore() {
-
-          @Override
-          public void acquireWriteLock(OptimisticLockTransaction tx, String key) {
-            OptimisticLockStorageBackend.this.acquireWriteLock(tx, key);
-          }
-
-          @Override
-          public void acquireReadLock(OptimisticLockTransaction tx, String key) {
-            OptimisticLockStorageBackend.this.acquireReadLock(tx, key);
-          }});
-    // slight race here but the close listener is not called before we put the transaction into the map
-    // closeTransaction also checks that the transaction is in the map
-    transactions.put(tx.handle(), tx);
-    return tx;
-  }
-
-  private synchronized void acquireWriteLock(OptimisticLockTransaction tx, String key) {
+  protected synchronized void acquireWriteLock(LockTransaction tx, String key) {
     LockType hasLock = tx.getLock(key);
     if(hasLock == null) {
       // transaction has no lock on this key yet
-      Set<OptimisticLockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
+      Set<LockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
       if(set.isEmpty()) {
         set.add(tx);
         tx.putLock(key, LockType.WRITE);
@@ -97,7 +59,7 @@ public class OptimisticLockStorageBackend implements StorageBackend {
       }
     } else if(LockType.READ.equals(hasLock)) {
       // transaction requires a lock upgrade
-      Set<OptimisticLockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
+      Set<LockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
       if(set.isEmpty()) {
         throw new OptimisticLockException("internal error, no read locks recorded"
             + " but expected read lock for this transaction");
@@ -119,23 +81,18 @@ public class OptimisticLockStorageBackend implements StorageBackend {
     }
   }
 
-  private void acquireReadLock(OptimisticLockTransaction tx, String key) {
-    if(Mode.READWRITE.equals(mode)) {
-      acquireReadLockSync(tx, key);
-    }
-  }
-
-  private synchronized  void acquireReadLockSync(OptimisticLockTransaction tx, String key) {
+  @Override
+  protected synchronized void acquireReadLock(LockTransaction tx, String key) {
     LockType hasLock = tx.getLock(key);
     if(hasLock == null) {
       // transaction has no lock on this key yet
-      Set<OptimisticLockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
+      Set<LockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
       if(set.isEmpty()) {
         set.add(tx);
         tx.putLock(key, LockType.READ);
       } else {
         // check any other transaction that holds a key. only one is sufficient to check if read lock can be acquired
-        OptimisticLockTransaction other = set.iterator().next();
+        LockTransaction other = set.iterator().next();
         if(other.getLock(key).equals(LockType.READ)) {
           set.add(tx);
           tx.putLock(key, LockType.READ);
@@ -154,20 +111,10 @@ public class OptimisticLockStorageBackend implements StorageBackend {
     }
   }
 
-  private synchronized void closeTransaction(OptimisticLockTransaction tx) {
-    // clear the locks first
-    removeAllLocks(tx);
-    OptimisticLockTransaction t = transactions.remove(tx.handle());
-    if(t == null) {
-      throw new KvdException(String.format("missing transaction '%s'", tx.handle()));
-    } else if(!tx.equals(t)) {
-      throw new KvdException(String.format("handle '%s' belongs to other transaction", tx.handle()));
-    }
-  }
-
-  private synchronized void removeAllLocks(OptimisticLockTransaction tx) {
+  @Override
+  protected synchronized void removeAllLocks(LockTransaction tx) {
     tx.locks().keySet().forEach(key -> {
-      Set<OptimisticLockTransaction> s = locks.get(key);
+      Set<LockTransaction> s = locks.get(key);
       if(s != null) {
         if(!s.remove(tx)) {
           log.warn("lock from tx '{}'/'{}' disappeared on key '{}',"
@@ -180,10 +127,6 @@ public class OptimisticLockStorageBackend implements StorageBackend {
         log.warn("lock set disappeared, remove all locks");
       }
     });
-  }
-
-  synchronized int transactions() {
-    return transactions.size();
   }
 
   synchronized int lockedKeys() {
