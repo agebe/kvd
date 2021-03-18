@@ -132,15 +132,15 @@ public class OptimisticLockStorageBackendTest {
     Transaction t2 = backend.begin();
     t1.contains("key1");
     t2.putBytes("key2", "foo".getBytes());
-    assertThrows(OptimisticLockException.class, () -> t2.putBytes("key1", "bar".getBytes()));
+    assertThrows(LockException.class, () -> t2.putBytes("key1", "bar".getBytes()));
     t2.contains("key1");
-    assertThrows(OptimisticLockException.class, () -> t1.putBytes("key1", "bar".getBytes()));
+    assertThrows(LockException.class, () -> t1.putBytes("key1", "bar".getBytes()));
     assertEquals(2, backend.transactions());
     assertEquals(2, backend.lockedKeys());
     t2.commit();
     t1.putBytes("key1", "bar".getBytes());
     Transaction t3 = backend.begin();
-    assertThrows(OptimisticLockException.class, () -> t3.contains("key1"));
+    assertThrows(LockException.class, () -> t3.contains("key1"));
     t1.commit();
     assertEquals(1, backend.transactions());
     assertEquals(0, backend.lockedKeys());
@@ -161,7 +161,7 @@ public class OptimisticLockStorageBackendTest {
     t2.putBytes("key1", "bar".getBytes());
     assertTrue(t2.contains("key1"));
     assertFalse(t1.contains("key1"));
-    assertThrows(OptimisticLockException.class, () -> t1.putBytes("key1", "bar".getBytes()));
+    assertThrows(LockException.class, () -> t1.putBytes("key1", "bar".getBytes()));
     assertEquals(2, backend.transactions());
     assertEquals(2, backend.lockedKeys());
     t2.commit();

@@ -13,30 +13,27 @@
  */
 package kvd.server.storage.concurrent;
 
-import kvd.common.KvdException;
+public class AcquireLockException extends LockException {
 
-public class OptimisticLockException extends KvdException {
+  private static final long serialVersionUID = 4569020345678160321L;
 
-  private static final long serialVersionUID = -7120339264127480357L;
-
-  public OptimisticLockException() {
+  public AcquireLockException() {
     super();
   }
 
-  public OptimisticLockException(String message, Throwable cause, boolean enableSuppression,
-      boolean writableStackTrace) {
+  public AcquireLockException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }
 
-  public OptimisticLockException(String message, Throwable cause) {
+  public AcquireLockException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public OptimisticLockException(String message) {
+  public AcquireLockException(String message) {
     super(message);
   }
 
-  public OptimisticLockException(Throwable cause) {
+  public AcquireLockException(Throwable cause) {
     super(cause);
   }
 

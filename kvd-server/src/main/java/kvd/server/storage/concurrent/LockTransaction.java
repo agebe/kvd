@@ -14,6 +14,7 @@
 package kvd.server.storage.concurrent;
 
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -28,18 +29,22 @@ class LockTransaction extends AbstractTransaction {
 
   private Consumer<LockTransaction> closeListener;
 
-  private Map<String, LockType> locks = new HashMap<>();
+  private Map<String, LockType> locks = Collections.synchronizedMap(new HashMap<>());
 
   private LockStore lockStore;
+
+  private LockMode lockMode;
 
   LockTransaction(int handle,
       Transaction backendTx,
       Consumer<LockTransaction> closeListener,
-      LockStore lockStore) {
+      LockStore lockStore,
+      LockMode lockMode) {
     super(handle);
     this.backendTx = backendTx;
     this.closeListener = closeListener;
     this.lockStore = lockStore;
+    this.lockMode = lockMode;
   }
 
   LockType getLock(String key) {
@@ -76,27 +81,56 @@ class LockTransaction extends AbstractTransaction {
     }
   }
 
+  private void checkHasWriteLock(String key) {
+    LockType l = getLock(key);
+    if((l == null) || LockType.READ.equals(l)) {
+      throw new LockException("check has write lock failed, " + l);
+    }
+  }
+
+  private void checkHasReadLock(String key) {
+    if(LockMode.WRITEONLY.equals(lockMode)) {
+      return;
+    }
+    LockType l = getLock(key);
+    if(l == null) {
+      throw new LockException("check has read lock failed");
+    }
+  }
+
   @Override
   public AbortableOutputStream put(String key) {
+    checkClosed();
     lockStore.acquireWriteLock(this, key);
+    checkClosed();
+    checkHasWriteLock(key);
     return backendTx.put(key);
   }
 
   @Override
   public InputStream get(String key) {
+    checkClosed();
     lockStore.acquireReadLock(this, key);
+    checkClosed();
+    checkHasReadLock(key);
     return backendTx.get(key);
   }
 
   @Override
   public boolean contains(String key) {
+    checkClosed();
     lockStore.acquireReadLock(this, key);
+    checkClosed();
+    checkHasReadLock(key);
     return backendTx.contains(key);
   }
 
   @Override
   public boolean remove(String key) {
+    checkClosed();
     lockStore.acquireWriteLock(this, key);
+    checkClosed();
+    checkHasWriteLock(key);
     return backendTx.remove(key);
   }
 

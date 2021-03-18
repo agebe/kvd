@@ -13,15 +13,8 @@
  */
 package kvd.server.storage.concurrent;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import kvd.common.KvdException;
 import kvd.server.storage.StorageBackend;
 
 /**
@@ -37,100 +30,45 @@ import kvd.server.storage.StorageBackend;
  */
 public class OptimisticLockStorageBackend extends AbstractLockStorageBackend {
 
-  private static final Logger log = LoggerFactory.getLogger(OptimisticLockStorageBackend.class);
-
-  private Map<String, Set<LockTransaction>> locks = new HashMap<>();
-
   public OptimisticLockStorageBackend(StorageBackend backend, LockMode mode) {
     super(backend, mode);
   }
 
   @Override
-  protected synchronized void acquireWriteLock(LockTransaction tx, String key) {
-    LockType hasLock = tx.getLock(key);
-    if(hasLock == null) {
-      // transaction has no lock on this key yet
-      Set<LockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
-      if(set.isEmpty()) {
-        set.add(tx);
-        tx.putLock(key, LockType.WRITE);
-      } else {
-        throw new OptimisticLockException("failed to acquire write lock (already locked) on " + key);
-      }
-    } else if(LockType.READ.equals(hasLock)) {
-      // transaction requires a lock upgrade
-      Set<LockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
-      if(set.isEmpty()) {
-        throw new OptimisticLockException("internal error, no read locks recorded"
-            + " but expected read lock for this transaction");
-      }
-      if(set.size() > 1) {
-        throw new OptimisticLockException("failed to upgrade to write lock, key already locked " + key);
-      }
-      if(set.contains(tx)) {
-        tx.putLock(key, LockType.WRITE);
-      } else {
-        throw new OptimisticLockException("internal error, recorded lock from other transaction"
-            + " but should be from current transaction");
-      }
-    } else if(LockType.WRITE.equals(hasLock)) {
-      // transaction already has write lock on the key, all good
-      return;
+  protected boolean canReadLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+    if(lockHolders.isEmpty()) {
+      return true;
     } else {
-      throw new KvdException("unexpected lock type " + hasLock);
+      // check any other transaction that holds a key. only one is sufficient to check if read lock can be acquired
+      LockTransaction other = lockHolders.iterator().next();
+      if(other.getLock(key).equals(LockType.READ)) {
+        return true;
+      } else {
+        throw new AcquireLockException("failed to acquire read lock (already write locked) on " + key);
+      }
     }
   }
 
   @Override
-  protected synchronized void acquireReadLock(LockTransaction tx, String key) {
-    LockType hasLock = tx.getLock(key);
-    if(hasLock == null) {
-      // transaction has no lock on this key yet
-      Set<LockTransaction> set = locks.computeIfAbsent(key, k -> new HashSet<>());
-      if(set.isEmpty()) {
-        set.add(tx);
-        tx.putLock(key, LockType.READ);
-      } else {
-        // check any other transaction that holds a key. only one is sufficient to check if read lock can be acquired
-        LockTransaction other = set.iterator().next();
-        if(other.getLock(key).equals(LockType.READ)) {
-          set.add(tx);
-          tx.putLock(key, LockType.READ);
-        } else {
-          throw new OptimisticLockException("failed to acquire read lock (already write locked) on " + key);
-        }
-      }
-    } else if(LockType.READ.equals(hasLock)) {
-      // transaction already has a read lock on the key, all good
-      return;
-    } else if(LockType.WRITE.equals(hasLock)) {
-      // transaction already has write lock on the key, all good
-      return;
+  protected boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+    if(lockHolders.isEmpty()) {
+      return true;
     } else {
-      throw new KvdException("unexpected lock type " + hasLock);
+      throw new AcquireLockException("failed to acquire write lock (already locked) on " + key);
     }
   }
 
   @Override
-  protected synchronized void removeAllLocks(LockTransaction tx) {
-    tx.locks().keySet().forEach(key -> {
-      Set<LockTransaction> s = locks.get(key);
-      if(s != null) {
-        if(!s.remove(tx)) {
-          log.warn("lock from tx '{}'/'{}' disappeared on key '{}',"
-              + " remove all locks", tx.handle(), tx.locks().get(key), key);
-        }
-        if(s.isEmpty()) {
-          locks.remove(key);
-        }
+  protected boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+    if(lockHolders.contains(tx)) {
+      if(lockHolders.size() == 1) {
+        return true;
       } else {
-        log.warn("lock set disappeared, remove all locks");
+        throw new AcquireLockException("failed to upgrade to write lock, key already locked " + key);
       }
-    });
-  }
-
-  synchronized int lockedKeys() {
-    return locks.size();
+    } else {
+      throw new AcquireLockException("internal error on lock upgrade, current tx does not hold lock");
+    }
   }
 
 }

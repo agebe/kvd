@@ -38,7 +38,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.TransactionClosedException;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
 
@@ -152,12 +151,6 @@ class FileTx extends AbstractTransaction {
       cleanup();
     } finally {
       wlock.unlock();
-    }
-  }
-
-  private void checkClosed() {
-    if(isClosed()) {
-      throw new TransactionClosedException();
     }
   }
 

@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
-import kvd.common.TransactionClosedException;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
 
@@ -72,12 +71,6 @@ class MemTx extends AbstractTransaction {
       abortUnfinishedPuts();
     } finally {
       wlock.unlock();
-    }
-  }
-
-  private void checkClosed() {
-    if(isClosed()) {
-      throw new TransactionClosedException();
     }
   }
 

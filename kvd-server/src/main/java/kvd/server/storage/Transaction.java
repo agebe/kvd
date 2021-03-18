@@ -53,8 +53,6 @@ public interface Transaction extends AutoCloseable {
   /**
    * commit and close.
    */
-  // I think this should be commit now and rollback any unfinished put
-  // maybe we should also have a commitLater() that waits for put to complete?
   void commit();
 
   /**

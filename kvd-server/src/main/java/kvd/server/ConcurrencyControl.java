@@ -17,5 +17,7 @@ public enum ConcurrencyControl {
   NONE,
   OPTW,
   OPTRW,
+  PESW,
+  PESRW
   ;
 }

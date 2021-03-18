@@ -33,6 +33,7 @@ import kvd.common.Version;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.concurrent.LockMode;
 import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
+import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.fs.FileStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 
@@ -73,6 +74,10 @@ public class Kvd {
       return new OptimisticLockStorageBackend(downstream, LockMode.READWRITE);
     } else if(ConcurrencyControl.OPTW.equals(options.concurrency)) {
       return new OptimisticLockStorageBackend(downstream, LockMode.WRITEONLY);
+    } else if (ConcurrencyControl.PESRW.equals(options.concurrency)) {
+      return new PessimisticLockStorageBackend(downstream, LockMode.READWRITE);
+    } else if(ConcurrencyControl.PESW.equals(options.concurrency)) {
+      return new PessimisticLockStorageBackend(downstream, LockMode.WRITEONLY);
     } else {
       throw new KvdException(String.format("concurrency control '%s' not implemented", options.concurrency));
     }

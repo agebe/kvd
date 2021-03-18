@@ -14,14 +14,21 @@
 package kvd.server.storage.concurrent;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
 
 public abstract class AbstractLockStorageBackend implements StorageBackend {
+
+  private static final Logger log = LoggerFactory.getLogger(AbstractLockStorageBackend.class);
 
   private StorageBackend backend;
 
@@ -30,6 +37,8 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
   private Map<Integer, LockTransaction> transactions = new HashMap<>();
 
   private AtomicInteger handles = new AtomicInteger(1);
+
+  private Map<String, Set<LockTransaction>> locks = new HashMap<>();
 
   public AbstractLockStorageBackend(StorageBackend backend, LockMode mode) {
     super();
@@ -59,7 +68,8 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
             if(LockMode.READWRITE.equals(mode)) {
               AbstractLockStorageBackend.this.acquireReadLock(tx, key);
             }
-          }});
+          }},
+        mode);
     // slight race here but the close listener is not called before we put the transaction into the map
     // closeTransaction also checks that the transaction is in the map
     transactions.put(tx.handle(), tx);
@@ -68,7 +78,7 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
 
   private synchronized void closeTransaction(LockTransaction tx) {
     // clear the locks first
-    removeAllLocks(tx);
+    releaseAllLocks(tx);
     LockTransaction t = transactions.remove(tx.handle());
     if(t == null) {
       throw new KvdException(String.format("missing transaction '%s'", tx.handle()));
@@ -77,10 +87,101 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
     }
   }
 
-  protected abstract void removeAllLocks(LockTransaction tx);
+  protected synchronized void acquireWriteLock(LockTransaction tx, String key) {
+    LockType hasLock = tx.getLock(key);
+    if(hasLock == null) {
+      // transaction has no lock on this key yet
+      while(!tx.isClosed()) {
+        Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
+        if(canWriteLockNow(tx, key, lockHolders)) {
+          lockHolders.add(tx);
+          tx.putLock(key, LockType.WRITE);
+          break;
+        } else {
+          try {
+            wait();
+          } catch(InterruptedException e) {
+            break;
+          }
+        }
+      }
+    } else if(LockType.READ.equals(hasLock)) {
+      // transaction requires a lock upgrade
+      while(!tx.isClosed()) {
+        Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
+        if(canWriteLockUpgradeNow(tx, key, lockHolders)) {
+          tx.putLock(key, LockType.WRITE);
+          break;
+        } else {
+          // TODO check deadlock before wait!
+          try {
+            wait();
+          } catch(InterruptedException e) {
+            break;
+          }
+        }
+      }
+    } else if(LockType.WRITE.equals(hasLock)) {
+      // transaction already has write lock on the key, all good
+    } else {
+      throw new KvdException("unexpected lock type " + hasLock);
+    }
+  }
 
-  protected abstract void acquireWriteLock(LockTransaction tx, String key);
+  protected synchronized void acquireReadLock(LockTransaction tx, String key) {
+    LockType hasLock = tx.getLock(key);
+    if(hasLock == null) {
+      // transaction has no lock on this key yet
+      while(!tx.isClosed()) {
+        Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
+        if(canReadLockNow(tx, key, lockHolders)) {
+          lockHolders.add(tx);
+          tx.putLock(key, LockType.READ);
+          break;
+        } else {
+          try {
+            // TODO check deadlock before wait!
+            this.wait();
+          } catch(InterruptedException e) {
+            break;
+          }
+        }
+      }
+    } else if(LockType.READ.equals(hasLock)) {
+      // transaction already has a read lock on the key, all good
+    } else if(LockType.WRITE.equals(hasLock)) {
+      // transaction already has write lock on the key, all good
+    } else {
+      throw new KvdException("unexpected lock type " + hasLock);
+    }
+  }
 
-  protected abstract void acquireReadLock(LockTransaction tx, String key);
+  private synchronized void releaseAllLocks(LockTransaction tx) {
+    tx.locks().keySet().forEach(key -> {
+      Set<LockTransaction> s = locks.get(key);
+      if(s != null) {
+        if(!s.remove(tx)) {
+          log.warn("lock from tx '{}'/'{}' disappeared on key '{}',"
+              + " remove all locks", tx.handle(), tx.locks().get(key), key);
+        }
+        if(s.isEmpty()) {
+          locks.remove(key);
+        }
+      } else {
+        log.warn("lock set disappeared, remove all locks");
+      }
+    });
+    notifyAll();
+  }
+
+  synchronized int lockedKeys() {
+    return locks.size();
+  }
+
+  protected abstract boolean canReadLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
+
+  protected abstract boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
+
+  protected abstract boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
 
 }

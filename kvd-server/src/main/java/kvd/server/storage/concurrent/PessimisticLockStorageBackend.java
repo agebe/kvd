@@ -13,8 +13,7 @@
  */
 package kvd.server.storage.concurrent;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Set;
 
 import kvd.server.storage.StorageBackend;
 
@@ -22,31 +21,36 @@ import kvd.server.storage.StorageBackend;
  * Manages read/write locks and stalls transactions that can't currently proceed waiting to acquire a lock.
  * This locking system also fails transactions that cause a deadlock immediately.
  */
-// maintain a graph of transactions waiting for each other and fail a transaction that creates a cycle in the graph
+// TODO maintain a graph of transactions waiting for each other and fail a transaction that creates a cycle in the graph
 public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
-
-  private static final Logger log = LoggerFactory.getLogger(PessimisticLockStorageBackend.class);
 
   public PessimisticLockStorageBackend(StorageBackend backend, LockMode mode) {
     super(backend, mode);
   }
 
   @Override
-  protected synchronized void removeAllLocks(LockTransaction tx) {
-    // TODO Auto-generated method stub
-    
+  protected boolean canReadLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+    if(lockHolders.isEmpty()) {
+      return true;
+    } else {
+      // check any other transaction that holds a key. only one is sufficient to check if read lock can be acquired
+      LockTransaction other = lockHolders.iterator().next();
+      return other.getLock(key).equals(LockType.READ);
+    }
   }
 
   @Override
-  protected synchronized void acquireWriteLock(LockTransaction tx, String key) {
-    // TODO Auto-generated method stub
-    
+  protected boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+    return lockHolders.isEmpty();
   }
 
   @Override
-  protected synchronized void acquireReadLock(LockTransaction tx, String key) {
-    // TODO Auto-generated method stub
-    
+  protected boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+    if(lockHolders.contains(tx)) {
+      return lockHolders.size() == 1;
+    } else {
+      throw new LockException("internal error on lock upgrade, current tx does not hold lock");
+    }
   }
 
 }

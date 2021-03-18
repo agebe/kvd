@@ -18,6 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import kvd.common.TransactionClosedException;
+
 public abstract class AbstractTransaction implements Transaction {
 
   private static final Logger log = LoggerFactory.getLogger(AbstractTransaction.class);
@@ -54,6 +56,12 @@ public abstract class AbstractTransaction implements Transaction {
 
   public boolean isClosed() {
     return closed.get();
+  }
+
+  protected void checkClosed() {
+    if(isClosed()) {
+      throw new TransactionClosedException();
+    }
   }
 
   protected abstract void commitInternal();

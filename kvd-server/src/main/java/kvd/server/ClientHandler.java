@@ -18,6 +18,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,6 +39,7 @@ import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
+import kvd.server.storage.concurrent.AcquireLockException;
 
 public class ClientHandler implements Runnable, AutoCloseable {
 
@@ -60,6 +62,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
   private ClientResponseHandler client;
 
   private Thread clientThread;
+
+  private ExecutorService pool = Executors.newCachedThreadPool();
 
   // how to react to client packets
   private Map<PacketType, Consumer<Packet>> packetConsumers = ImmutableMap.<PacketType, Consumer<Packet>>builder()
@@ -156,7 +160,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received put init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
     } else {
-      createChannel(packet, new PutConsumer(storage, client, tx!=null?tx.getTransaction():null));
+      // execute async as this might block
+      pool.execute(() -> createChannel(packet, new PutConsumer(storage, client, tx!=null?tx.getTransaction():null)));
     }
   }
 
@@ -178,8 +183,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received get init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.GET_ABORT, packet.getChannel()));
     } else {
-      createChannel(packet, new GetConsumer(clientId, packet.getChannel(),
-          storage, client, tx!=null?tx.getTransaction():null));
+      pool.execute(() -> createChannel(packet, new GetConsumer(clientId, packet.getChannel(),
+          storage, client, tx!=null?tx.getTransaction():null)));
     }
   }
 
@@ -206,19 +211,26 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("received contains request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
       } else if(tx == null) {
-        storage.withTransactionVoid(newTx -> containsRequest(packet, newTx, key));
+        pool.execute(() -> storage.withTransactionVoid(newTx -> containsRequest(packet, newTx, key)));
       } else {
-        containsRequest(packet, tx.getTransaction(), key);
+        pool.execute(() -> containsRequest(packet, tx.getTransaction(), key));
       }
     }
   }
 
   private void containsRequest(Packet packet, Transaction tx, String key) {
     try {
+      log.trace("execute contains, tx '{}', key '{}'", tx.handle(), key);
       boolean contains = tx.contains(key);
       client.sendAsync(Packets.packet(PacketType.CONTAINS_RESPONSE,
           packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
+      log.trace("done execute contains, tx '{}', key '{}', contains '{}'", tx.handle(), key, contains);
     } catch(Exception e) {
+      if(e instanceof AcquireLockException) {
+        log.trace("containts failed", e);
+      } else {
+        log.warn("containts failed", e);
+      }
       client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
     }
   }
@@ -235,9 +247,9 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("received remove request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
       } else if(tx == null) {
-        storage.withTransactionVoid(newTx -> removeRequest(packet, newTx, key));
+        pool.execute(() -> storage.withTransactionVoid(newTx -> removeRequest(packet, newTx, key)));
       } else {
-        removeRequest(packet, tx.getTransaction(), key);
+        pool.execute(() -> removeRequest(packet, tx.getTransaction(), key));
       }
     }
   }
@@ -248,6 +260,11 @@ public class ClientHandler implements Runnable, AutoCloseable {
       client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
           packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
     } catch(Exception e) {
+      if(e instanceof AcquireLockException) {
+        log.trace("remove failed", e);
+      } else {
+        log.warn("remove failed", e);
+      }
       client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
     }
   }
