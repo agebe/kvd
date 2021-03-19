@@ -160,8 +160,10 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received put init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
     } else {
+      final PutConsumer c = new PutConsumer(storage, client, tx!=null?tx.getTransaction():null);
+      createChannel(packet, c);
       // execute async as this might block
-      pool.execute(() -> createChannel(packet, new PutConsumer(storage, client, tx!=null?tx.getTransaction():null)));
+      pool.execute(() -> c.accept(packet));
     }
   }
 
@@ -183,8 +185,9 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received get init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.GET_ABORT, packet.getChannel()));
     } else {
-      pool.execute(() -> createChannel(packet, new GetConsumer(packet.getChannel(),
-          storage, client, tx!=null?tx.getTransaction():null)));
+      final GetConsumer c = new GetConsumer(packet.getChannel(), storage, client, tx!=null?tx.getTransaction():null);
+      createChannel(packet, c);
+      pool.execute(() -> c.accept(packet));
     }
   }
 
@@ -387,7 +390,6 @@ public class ClientHandler implements Runnable, AutoCloseable {
     if(!channels.containsKey(channel)) {
       log.trace("channel opened '{}'", channel);
       channels.put(channel, c);
-      c.accept(packet);
     } else {
       throw new KvdException("client error, channel already exists " + channel);
     }
@@ -436,6 +438,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     shutdownTxTimeouts();
     Utils.closeQuietly(in);
     Utils.closeQuietly(client);
+    pool.shutdown();
   }
 
 }
