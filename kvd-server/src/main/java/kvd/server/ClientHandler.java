@@ -210,21 +210,20 @@ public class ClientHandler implements Runnable, AutoCloseable {
       if((txId!=0) && (tx==null)) {
         log.warn("received contains request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
-      } else if(tx == null) {
-        pool.execute(() -> storage.withTransactionVoid(newTx -> containsRequest(packet, newTx, key)));
       } else {
-        pool.execute(() -> containsRequest(packet, tx.getTransaction(), key));
+        pool.execute(() -> containsRequest(packet, tx!=null?tx.getTransaction():null, key));
       }
     }
   }
 
   private void containsRequest(Packet packet, Transaction tx, String key) {
     try {
-      log.trace("execute contains, tx '{}', key '{}'", tx.handle(), key);
-      boolean contains = tx.contains(key);
+      log.trace("execute contains, tx '{}', key '{}'", tx, key);
+      boolean contains = contains(tx, key);
+      // race: if there was no outer transaction the step transaction must be committed before sending out the response
       client.sendAsync(Packets.packet(PacketType.CONTAINS_RESPONSE,
           packet.getChannel(), new byte[] {(contains?(byte)1:(byte)0)}));
-      log.trace("done execute contains, tx '{}', key '{}', contains '{}'", tx.handle(), key, contains);
+      log.trace("done execute contains, tx '{}', key '{}', contains '{}'", tx, key, contains);
     } catch(Exception e) {
       if(e instanceof AcquireLockException) {
         log.trace("containts failed", e);
@@ -232,6 +231,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("containts failed", e);
       }
       client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
+    }
+  }
+
+  private boolean contains(Transaction tx, String key) {
+    if(tx!=null) {
+      return tx.contains(key);
+    } else {
+      return storage.withTransaction(newTx -> newTx.contains(key));
     }
   }
 
@@ -246,17 +253,16 @@ public class ClientHandler implements Runnable, AutoCloseable {
       if((txId!=0) && (tx==null)) {
         log.warn("received remove request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
-      } else if(tx == null) {
-        pool.execute(() -> storage.withTransactionVoid(newTx -> removeRequest(packet, newTx, key)));
       } else {
-        pool.execute(() -> removeRequest(packet, tx.getTransaction(), key));
+        pool.execute(() -> removeRequest(packet, tx!=null?tx.getTransaction():null, key));
       }
     }
   }
 
   private void removeRequest(Packet packet, Transaction tx, String key) {
     try {
-      boolean removed = tx.remove(key);
+      boolean removed = remove(tx, key);
+      // race: if there was no outer transaction the step transaction must be committed before sending out the response
       client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
           packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
     } catch(Exception e) {
@@ -266,6 +272,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("remove failed", e);
       }
       client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
+    }
+  }
+
+  private boolean remove(Transaction tx, String key) {
+    if(tx!=null) {
+      return tx.remove(key);
+    } else {
+      return storage.withTransaction(newTx -> newTx.remove(key));
     }
   }
 
