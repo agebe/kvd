@@ -30,8 +30,6 @@ public class GetConsumer implements ChannelConsumer {
 
   private static final Logger log = LoggerFactory.getLogger(GetConsumer.class);
 
-  private long clientId;
-
   private int channel;
 
   private ClientResponseHandler client;
@@ -42,9 +40,8 @@ public class GetConsumer implements ChannelConsumer {
 
   private boolean txOwner;
 
-  public GetConsumer(long clientId, int channel, StorageBackend storage, ClientResponseHandler client, Transaction tx) {
+  public GetConsumer(int channel, StorageBackend storage, ClientResponseHandler client, Transaction tx) {
     super();
-    this.clientId = clientId;
     this.channel = channel;
     this.client = client;
     txOwner = (tx==null);
@@ -57,54 +54,51 @@ public class GetConsumer implements ChannelConsumer {
       if(channel != packet.getChannel()) {
         throw new KvdException("channel mismatch");
       }
-      Thread t = new Thread(() -> {
-        try {
-          String key = packet.getStringBody().getStr();
-          if(Keys.isInternalKey(key)) {
-            client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
-            return;
-          }
-          try(InputStream in = tx.get(key)) {
-            if(in != null) {
-              // Send an empty packet so the client can distinguish between
-              // non existing keys and keys with an empty value.
-              // This is only required on empty values when no other GET_DATA packets are send
-              // but to keep things simple here just send it first thing once before the loop.
-              client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, new byte[0]));
-              while(!closed.get()) {
-                byte[] buf = new byte[16*1024];
-                int read = in.read(buf);
-                if(read < 0) {
-                  break;
-                } else if(read > 0) {
-                  if(read == buf.length) {
-                    client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, buf));
-                  } else {
-                    byte[] send = new byte[read];
-                    System.arraycopy(buf, 0, send, 0, read);
-                    client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, send));
-                  }
+      try {
+        String key = packet.getStringBody().getStr();
+        if(Keys.isInternalKey(key)) {
+          client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
+          return;
+        }
+        try(InputStream in = tx.get(key)) {
+          if(in != null) {
+            // Send an empty packet so the client can distinguish between
+            // non existing keys and keys with an empty value.
+            // This is only required on empty values when no other GET_DATA packets are send
+            // but to keep things simple here just send it first thing once before the loop.
+            client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, new byte[0]));
+            while(!closed.get()) {
+              byte[] buf = new byte[16*1024];
+              int read = in.read(buf);
+              if(read < 0) {
+                break;
+              } else if(read > 0) {
+                if(read == buf.length) {
+                  client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, buf));
+                } else {
+                  byte[] send = new byte[read];
+                  System.arraycopy(buf, 0, send, 0, read);
+                  client.sendAsync(Packets.packet(PacketType.GET_DATA, channel, send));
                 }
               }
             }
-          } catch(Exception e) {
-            log.debug("get failed", e);
-            client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
-          }
-          if(!closed.get()) {
-            client.sendAsync(Packets.packet(PacketType.GET_FINISH, channel));
-          }
-          if(txOwner) {
-            tx.commit();
           }
         } catch(Exception e) {
-          log.error("get failed", e);
+          log.debug("get failed", e);
           client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
-        } finally {
-          closed.set(true);
         }
-      }, "get-" + clientId + "-" + channel);
-      t.start();
+        if(txOwner) {
+          tx.commit();
+        }
+        if(!closed.get()) {
+          client.sendAsync(Packets.packet(PacketType.GET_FINISH, channel));
+        }
+      } catch(Exception e) {
+        log.error("get failed", e);
+        client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
+      } finally {
+        closed.set(true);
+      }
     } else {
       throw new KvdException("unexpected packet type " + packet.getType());
     }

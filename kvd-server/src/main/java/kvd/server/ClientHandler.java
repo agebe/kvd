@@ -183,7 +183,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received get init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.GET_ABORT, packet.getChannel()));
     } else {
-      pool.execute(() -> createChannel(packet, new GetConsumer(clientId, packet.getChannel(),
+      pool.execute(() -> createChannel(packet, new GetConsumer(packet.getChannel(),
           storage, client, tx!=null?tx.getTransaction():null)));
     }
   }
