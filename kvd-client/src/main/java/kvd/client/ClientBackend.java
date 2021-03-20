@@ -17,6 +17,7 @@ import java.io.EOFException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -135,26 +136,30 @@ class ClientBackend {
       log.trace("received hello packet");
       long lastReceiveNs = System.nanoTime();
       for(;;) {
-        Packet packet = Packet.parseDelimitedFrom(in);
-        if(packet != null) {
-          lastReceiveNs = System.nanoTime();
-          if(PacketType.PONG.equals(packet.getType())) {
-            log.trace("received pong");
-          } else if(PacketType.BYE.equals(packet.getType())) {
-            log.trace("received bye");
-            break;
-          } else {
-            int channelId = packet.getChannel();
-            Consumer<Packet> channel = getChannel(channelId);
-            if(channel != null) {
-              channel.accept(packet);
+        try {
+          Packet packet = Packet.parseDelimitedFrom(in);
+          if(packet != null) {
+            lastReceiveNs = System.nanoTime();
+            if(PacketType.PONG.equals(packet.getType())) {
+              log.trace("received pong");
+            } else if(PacketType.BYE.equals(packet.getType())) {
+              log.trace("received bye");
+              break;
             } else {
-              log.debug("ignore packet '{}', channel '{}' does not exist", packet.getType(), channelId);
+              int channelId = packet.getChannel();
+              Consumer<Packet> channel = getChannel(channelId);
+              if(channel != null) {
+                channel.accept(packet);
+              } else {
+                log.debug("ignore packet '{}', channel '{}' does not exist", packet.getType(), channelId);
+              }
             }
           }
-        }
-        if(Utils.isTimeout(lastReceiveNs, 15)) {
-          throw new KvdException("receive timeout");
+          if(Utils.isTimeout(lastReceiveNs, 15)) {
+            throw new KvdException("receive timeout");
+          }
+        } catch(SocketTimeoutException e) {
+          // ignore
         }
       }
     } catch(EOFException e) {

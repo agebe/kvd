@@ -16,6 +16,7 @@ package kvd.server;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -113,16 +114,20 @@ public class ClientHandler implements Runnable, AutoCloseable {
       client.sendAsync(Packets.hello());
       long lastReceiveNs = System.nanoTime();
       while(!closed.get()) {
-        Packet packet = Packet.parseDelimitedFrom(in);
-        if(packet != null) {
-          lastReceiveNs = System.nanoTime();
-          log.trace("received packet " + packet.getType());
-          handlePacket(packet);
-        } else {
-          if(Utils.isTimeout(lastReceiveNs, 10)) {
-            log.info("client '{}' timeout", clientId);
-            break;
+        try {
+          Packet packet = Packet.parseDelimitedFrom(in);
+          if(packet != null) {
+            lastReceiveNs = System.nanoTime();
+            log.trace("received packet " + packet.getType());
+            handlePacket(packet);
+          } else {
+            if(Utils.isTimeout(lastReceiveNs, 10)) {
+              log.info("client '{}' timeout", clientId);
+              break;
+            }
           }
+        } catch(SocketTimeoutException e) {
+          // ignore
         }
       }
     } catch(Exception e) {
