@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -64,7 +66,7 @@ public class ConcurrencyControlPesRWTest {
     }
   }
 
-//  @Test
+  @Test
   public void concurrentReadWrite1() throws Exception {
     final String key = "concurrentReadWrite1";
     final String value1 = key;
@@ -73,7 +75,7 @@ public class ConcurrencyControlPesRWTest {
       assertFalse(client.contains(key));
       client.putString(key, value1);
       KvdTransaction tx1 = client.beginTransaction();
-      KvdTransaction tx2 = client.beginTransaction();
+      KvdTransaction tx2 = client.beginTransaction(250);
       assertEquals(value1, tx1.getString(key));
       tx1.putString(key, value2);
       assertEquals(value2, tx1.getString(key));
@@ -81,73 +83,121 @@ public class ConcurrencyControlPesRWTest {
       assertThrows(KvdException.class, () -> tx2.getString(key));
       assertThrows(KvdException.class, () -> tx2.contains(key));
       tx1.commit();
-      assertEquals(value2, tx2.getString(key));
-      tx2.commit();
       assertTrue(client.remove(key));
     }
   }
 
+  @Test
+  public void concurrentReadWrite2() throws Exception {
+    // testing get write lock in t2
+    final String key = "concurrentReadWrite2";
+    CompletableFuture<Boolean> f1 = new CompletableFuture<>();
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      client.putString(key, "1");
+      Thread t1 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertTrue(tx.contains(key));
+          f1.complete(true);
+          Thread.sleep(100);
+          tx.putString(key, "2");
+          Thread.sleep(100);
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t1 failed", e);
+        }
+      });
+      Thread t2 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          f1.get();
+          tx.putString(key, "3");
+          assertEquals("3", tx.getString(key));
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t2 failed", e);
+        }
+      });
+      t1.start();
+      t2.start();
+      t1.join();
+      t2.join();
+      assertEquals("3", client.getString(key));
+    }
+  }
+
+  @Test
+  public void concurrentReadWrite3() throws Exception {
+    // testing write lock upgrade in t1
+    final String key = "concurrentReadWrite3";
+    CompletableFuture<Boolean> f1 = new CompletableFuture<>();
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      client.putString(key, "1");
+      Thread t1 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertTrue(tx.contains(key));
+          f1.get();
+          tx.putString(key, "2");
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t1 failed", e);
+        }
+      });
+      Thread t2 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertTrue(tx.contains(key));
+          f1.complete(true);
+          Thread.sleep(100);
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t2 failed", e);
+        }
+      });
+      t1.start();
+      t2.start();
+      t1.join();
+      t2.join();
+      assertEquals("2", client.getString(key));
+    }
+  }
+
 //  @Test
-//  public void concurrentReadWrite2() throws Exception {
-//    final String key = "concurrentReadWrite2";
-//    final String value1 = key;
-//    final String value2 = value1+"value2";
-//    try(KvdClient client = client()) {
-//      assertFalse(client.contains(key));
-//      client.putString(key, value1);
-//      KvdTransaction tx1 = client.beginTransaction();
-//      KvdTransaction tx2 = client.beginTransaction();
-//      assertEquals(value1, tx1.getString(key));
-//      assertEquals(value1, tx2.getString(key));
-//      assertEquals(value1, client.getString(key));
-//      assertThrows(KvdException.class, () -> tx1.putString(key, value2));
-//      assertThrows(KvdException.class, () -> tx1.remove(key));
-//      assertEquals(value1, tx1.getString(key));
-//      assertEquals(value1, tx2.getString(key));
-//      tx2.commit();
-//      assertEquals(value1, tx1.getString(key));
-//      assertTrue(tx1.contains(key));
-//      assertEquals(value1, client.getString(key));
-//      assertTrue(client.contains(key));
-//      tx1.putString(key, value2);
-//      assertEquals(value2, tx1.getString(key));
-//      assertThrows(KvdException.class, () -> client.getString(key));
-//      assertThrows(KvdException.class, () -> client.contains(key));
-//      tx1.commit();
-//      assertEquals(value2, client.getString(key));
-//      assertTrue(client.remove(key));
-//    }
-//  }
-//
-//  @Test
-//  public void concurrentWrite1() throws Exception {
-//    final String key = "concurrentWrite1";
-//    final String value1 = key;
-//    final String value2 = value1+"value2";
-//    final String value3 = value1+"value3";
-//    try(KvdClient client = client()) {
-//      assertFalse(client.contains(key));
-//      client.putString(key, value1);
-//      KvdTransaction tx1 = client.beginTransaction();
-//      KvdTransaction tx2 = client.beginTransaction();
-//      tx1.putString(key, value2);
-//      assertThrows(KvdException.class, () -> tx2.putString(key, value3));
-//      assertThrows(KvdException.class, () -> tx2.getString(key));
-//      assertThrows(KvdException.class, () -> client.putString(key, "foo"));
-//      assertThrows(KvdException.class, () -> client.getString(key));
-//      tx1.commit();
-//      assertEquals(value2, tx2.getString(key));
-//      assertEquals(value2, client.getString(key));
-//      tx2.putString(key, value3);
-//      assertEquals(value3, tx2.getString(key));
-//      assertThrows(KvdException.class, () -> client.getString(key));
-//      assertThrows(KvdException.class, () -> client.contains(key));
-//      assertThrows(KvdException.class, () -> client.remove(key));
-//      assertThrows(KvdException.class, () -> client.putString(key, "bar"));
-//      tx2.commit();
-//      assertEquals(value3, client.getString(key));
-//      assertTrue(client.remove(key));
-//    }
-//  }
+  public void testDeadlock1() throws Exception {
+    // neither thread can upgrade read lock
+    final String key = "testDeadlock1";
+    CompletableFuture<Boolean> f1 = new CompletableFuture<>();
+    CompletableFuture<Boolean> f2 = new CompletableFuture<>();
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      client.putString(key, "1");
+      Thread t1 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertTrue(tx.contains(key));
+          f2.get();
+          tx.putString(key, "2");
+          f1.complete(true);
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t1 failed", e);
+        }
+      });
+      Thread t2 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertTrue(tx.contains(key));
+          f2.complete(true);
+          f1.get();
+          assertThrows(KvdException.class, () -> tx.putString(key, "3"));
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t2 failed", e);
+        }
+      });
+      t1.start();
+      t2.start();
+      t1.join();
+      t2.join();
+      assertEquals("2", client.getString(key));
+    }
+  }
 
 }
