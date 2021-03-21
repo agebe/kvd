@@ -234,9 +234,9 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.trace("done execute contains, tx '{}', key '{}', contains '{}'", tx, key, contains);
     } catch(Exception e) {
       if(e instanceof AcquireLockException) {
-        log.trace("containts failed", e);
+        log.trace("contains failed", e);
       } else {
-        log.warn("containts failed", e);
+        log.warn("contains failed", e);
       }
       client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
     }
