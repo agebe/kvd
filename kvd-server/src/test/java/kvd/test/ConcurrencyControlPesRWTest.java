@@ -211,4 +211,83 @@ public class ConcurrencyControlPesRWTest {
     }
   }
 
+  @Test
+  public void deadlock3() throws Exception {
+    // neither thread can upgrade read lock
+    final String key1 = "deadlock3_1";
+    final String key2 = "deadlock3_2";
+    final String key3 = "deadlock3_3";
+    CompletableFuture<Boolean> f1 = new CompletableFuture<>();
+    CompletableFuture<Boolean> f2 = new CompletableFuture<>();
+    CompletableFuture<Boolean> f3 = new CompletableFuture<>();
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key1));
+      assertFalse(client.contains(key2));
+      assertFalse(client.contains(key3));
+      Thread t1 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertFalse(tx.contains(key1));
+          tx.putString(key1, "1");
+          f1.complete(true);
+          f2.get();
+          f3.get();
+          long startNs = System.nanoTime();
+          assertTrue(tx.contains(key2));
+          assertEquals("2", tx.getString(key2));
+          tx.putString(key2, "1");
+          assertEquals("1", tx.getString(key2));
+          long endNs = System.nanoTime();
+          assertTrue(TimeUnit.NANOSECONDS.toMillis(endNs - startNs) > 500);
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t1 failed", e);
+        }
+      });
+      Thread t2 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertFalse(tx.contains(key2));
+          tx.putString(key2, "2");
+          f2.complete(true);
+          f1.get();
+          f3.get();
+          long startNs = System.nanoTime();
+          assertTrue(tx.contains(key3));
+          assertEquals("3", tx.getString(key3));
+          tx.putString(key3, "2");
+          assertEquals("2", tx.getString(key2));
+          long endNs = System.nanoTime();
+          assertTrue(TimeUnit.NANOSECONDS.toMillis(endNs - startNs) > 200);
+          Thread.sleep(250);
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t2 failed", e);
+        }
+      });
+      Thread t3 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          assertFalse(tx.contains(key3));
+          tx.putString(key3, "3");
+          f3.complete(true);
+          f1.get();
+          f2.get();
+          Thread.sleep(250);
+          // this creates the deadlock
+          assertThrows(KvdException.class, () -> tx.getString(key1));
+          tx.commit();
+        } catch(Exception e) {
+          throw new RuntimeException("t2 failed", e);
+        }
+      });
+      t1.start();
+      t2.start();
+      t3.start();
+      t1.join();
+      t2.join();
+      t3.join();
+      assertEquals("1", client.getString(key1));
+      assertEquals("1", client.getString(key2));
+      assertEquals("2", client.getString(key3));
+    }
+  }
+
 }

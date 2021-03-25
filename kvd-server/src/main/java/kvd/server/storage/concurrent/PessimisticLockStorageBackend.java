@@ -13,6 +13,8 @@
  */
 package kvd.server.storage.concurrent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -28,20 +30,21 @@ import kvd.server.storage.StorageBackend;
 
 /**
  * Manages read/write locks and stalls transactions that can't currently proceed waiting to acquire a lock.
- * This locking system also fails transactions that cause a deadlock immediately.
+ * This locking system also fails the operation that causes a deadlock immediately.
  */
 public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
 
   private static final Logger log = LoggerFactory.getLogger(PessimisticLockStorageBackend.class);
 
-  // records hold and wait edges between transactions and keys.
+  // records hold edges between transactions and keys.
   // a vertex is either a key or a transaction
   // an edge goes between a key and a transaction only (not key to key or transaction to transaction)
-  // an edge pointing from a key to a transaction is a 'hold edge' (transaction has locked that key)
-  // an edge pointing from a transaction to a key is a 'wait edge' (transaction is waiting to lock key)
+  // an edge pointing always from a key to a transaction shows a hold (transaction has locked that key)
   private Graph<KeyOrTx, DefaultEdge> lockAllocationGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
 
   // directed graph recording which transactions are waiting on each other for deadlock detection
+  // The DirectedAcyclicGraph does not allow cycles in the graph so detecting deadlocks is as simple as adding
+  // wait edges to the graph. if it goes bang we detected a deadlock.
   private Graph<LockTransaction, DefaultEdge> waitGraph = new DirectedAcyclicGraph<>(DefaultEdge.class);
 
   public PessimisticLockStorageBackend(StorageBackend backend, LockMode mode) {
@@ -80,8 +83,6 @@ public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
     KeyOrTx vKey = new KeyOrTx(key);
     lockAllocationGraph.addVertex(vTx);
     lockAllocationGraph.addVertex(vKey);
-    // remove the 'wait edge' if it exists
-    lockAllocationGraph.removeEdge(vTx, vKey);
     // add a 'hold edge' if it not already exists
     lockAllocationGraph.addEdge(vKey, vTx);
     log.trace("recordHold, lock allocation graph '{}'", lockAllocationGraph);
@@ -91,37 +92,39 @@ public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
 
   @Override
   protected synchronized void recordWait(LockTransaction tx, String key) {
-    // TODO do i really need the wait edges in the lock allocation graph? what are they for?
     log.trace("record wait tx '{}', key '{}'", tx, key);
     KeyOrTx vTx = new KeyOrTx(tx);
     KeyOrTx vKey = new KeyOrTx(key);
     lockAllocationGraph.addVertex(vTx);
     lockAllocationGraph.addVertex(vKey);
-    // remove 'hold edge' if it exists
-    DefaultEdge holdEdge = lockAllocationGraph.removeEdge(vKey, vTx);
-    // add 'wait edge' if it not already exists
-    DefaultEdge waitEdge = lockAllocationGraph.addEdge(vTx, vKey);
+    // remember which edges have been added so they can be undone in case of an exception (e.g. deadlock detected)
+    List<DefaultEdge> edges = new ArrayList<>();
     try {
       for(DefaultEdge otherHoldEdge : lockAllocationGraph.outgoingEdgesOf(vKey)) {
         KeyOrTx otherHoldTx = lockAllocationGraph.getEdgeTarget(otherHoldEdge);
         if(otherHoldTx.getTx() == null) {
-          throw new KvdException("lock exception, hold edge pointing to other key");
+          throw new KvdException("lock exception, hold edge pointing to other key but expected transaction");
         } else if(otherHoldTx.getTx().equals(tx)) {
-          throw new KvdException("lock exception, hold edge pointing to same tx");
+          // ignore, we don't want to wait on ourselves. I think this might happen on lock upgrades (read -> write)
+          continue;
         } else {
           log.trace("found other hold lock tx '{}', adding to wait graph...", otherHoldTx.getTx().handle());
           waitGraph.addVertex(tx);
           waitGraph.addVertex(otherHoldTx.getTx());
-          waitGraph.addEdge(tx, otherHoldTx.getTx());
+          try {
+            DefaultEdge edge = waitGraph.addEdge(tx, otherHoldTx.getTx());
+            if(edge != null) {
+              edges.add(edge);
+            }
+          } catch(IllegalArgumentException e) {
+            throw new AcquireLockException(String.format("deadlock detected, '%s', key '%s'", tx, key), e);
+          }
         }
       }
-    } catch(IllegalArgumentException e) {
-      // this is thrown from waitGraph.addEdge when we induce a cycle in the wait graph (DAG does not allow cycles)
-      // TODO undo all changes
-      //log.warn("deadlock detected");
-      throw new AcquireLockException(String.format("deadlock detected, '%s', key '%s'", tx, key), e);
     } catch(Exception e) {
-   // TODO undo all changes
+      // wait edge cleanup is required as the transaction is not waiting after the exception is thrown.
+      waitGraph.removeAllEdges(edges);
+      // vertex cleanup not required here as they (vertex) get removed on releaseAllLocks when the transaction finishes
       throw e;
     }
     log.trace("recordWait, lock allocation graph '{}'", lockAllocationGraph);
