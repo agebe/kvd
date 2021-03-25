@@ -25,6 +25,7 @@ import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
+import kvd.server.storage.concurrent.AcquireLockException;
 
 public class GetConsumer implements ChannelConsumer {
 
@@ -84,7 +85,11 @@ public class GetConsumer implements ChannelConsumer {
             }
           }
         } catch(Exception e) {
-          log.debug("get failed", e);
+          if(e instanceof AcquireLockException) {
+            log.debug("get acquire lock failed on key '{}'", key, e);
+          } else {
+            log.warn("get failed on key '{}'", key, e);
+          }
           client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
         }
         if(txOwner) {

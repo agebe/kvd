@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -68,7 +69,7 @@ public class ConcurrencyControlPesRWTest {
 
   @Test
   public void concurrentReadWrite1() throws Exception {
-    final String key = "concurrentReadWrite1";
+    final String key = "concurrentReadWrite1_pesrw";
     final String value1 = key;
     final String value2 = value1+"value2";
     try(KvdClient client = client()) {
@@ -161,21 +162,28 @@ public class ConcurrencyControlPesRWTest {
     }
   }
 
-//  @Test
+  @Test
   public void testDeadlock1() throws Exception {
     // neither thread can upgrade read lock
-    final String key = "testDeadlock1";
+    final String key1 = "testDeadlock1";
+    final String key2 = "testDeadlock2";
     CompletableFuture<Boolean> f1 = new CompletableFuture<>();
     CompletableFuture<Boolean> f2 = new CompletableFuture<>();
     try(KvdClient client = client()) {
-      assertFalse(client.contains(key));
-      client.putString(key, "1");
+      assertFalse(client.contains(key1));
+      assertFalse(client.contains(key2));
+      client.putString(key1, "1");
+      client.putString(key2, "1");
       Thread t1 = new Thread(() -> {
         try(KvdTransaction tx = client.beginTransaction()) {
-          assertTrue(tx.contains(key));
-          f2.get();
-          tx.putString(key, "2");
+          assertTrue(tx.contains(key1));
+          tx.putString(key1, "2");
           f1.complete(true);
+          f2.get();
+          long startNs = System.nanoTime();
+          assertEquals("2", tx.getString(key2));
+          long endNs = System.nanoTime();
+          assertTrue(TimeUnit.NANOSECONDS.toMillis(endNs - startNs) > 200);
           tx.commit();
         } catch(Exception e) {
           throw new RuntimeException("t1 failed", e);
@@ -183,10 +191,12 @@ public class ConcurrencyControlPesRWTest {
       });
       Thread t2 = new Thread(() -> {
         try(KvdTransaction tx = client.beginTransaction()) {
-          assertTrue(tx.contains(key));
+          assertTrue(tx.contains(key2));
+          tx.putString(key2, "2");
           f2.complete(true);
           f1.get();
-          assertThrows(KvdException.class, () -> tx.putString(key, "3"));
+          Thread.sleep(250);
+          assertThrows(KvdException.class, () -> tx.getString(key1));
           tx.commit();
         } catch(Exception e) {
           throw new RuntimeException("t2 failed", e);
@@ -196,7 +206,8 @@ public class ConcurrencyControlPesRWTest {
       t2.start();
       t1.join();
       t2.join();
-      assertEquals("2", client.getString(key));
+      assertEquals("2", client.getString(key1));
+      assertEquals("2", client.getString(key2));
     }
   }
 

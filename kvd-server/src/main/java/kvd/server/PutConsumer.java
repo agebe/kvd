@@ -24,6 +24,7 @@ import kvd.common.packet.proto.PacketType;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
+import kvd.server.storage.concurrent.AcquireLockException;
 
 public class PutConsumer implements ChannelConsumer {
 
@@ -71,6 +72,11 @@ public class PutConsumer implements ChannelConsumer {
           // PUT_INIT means put init complete normal (no body required)
           client.sendAsync(Packets.packet(PacketType.PUT_INIT, packet.getChannel()));
         } catch(Exception e) {
+          if(e instanceof AcquireLockException) {
+            log.debug("put init acquire lock failed on key '{}'", keyShort, e);
+          } else {
+            log.warn("put init failed with exception on key '{}'", keyShort, e);
+          }
           client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
         }
       }

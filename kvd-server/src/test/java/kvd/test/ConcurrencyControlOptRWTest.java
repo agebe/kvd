@@ -67,7 +67,7 @@ public class ConcurrencyControlOptRWTest {
 
   @Test
   public void concurrentReadWrite1() throws Exception {
-    final String key = "concurrentReadWrite1";
+    final String key = "concurrentReadWrite1_optrw";
     final String value1 = key;
     final String value2 = value1+"value2";
     try(KvdClient client = client()) {

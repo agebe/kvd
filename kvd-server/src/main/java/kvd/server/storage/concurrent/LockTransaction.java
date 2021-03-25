@@ -134,4 +134,9 @@ class LockTransaction extends AbstractTransaction {
     return backendTx.remove(key);
   }
 
+  @Override
+  public String toString() {
+    return "tx:"+handle();
+  }
+
 }

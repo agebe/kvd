@@ -94,10 +94,12 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
       while(!tx.isClosed()) {
         Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
         if(canWriteLockNow(tx, key, lockHolders)) {
+          recordHold(tx, key);
           lockHolders.add(tx);
           tx.putLock(key, LockType.WRITE);
           break;
         } else {
+          recordWait(tx, key);
           try {
             wait();
           } catch(InterruptedException e) {
@@ -110,10 +112,11 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
       while(!tx.isClosed()) {
         Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
         if(canWriteLockUpgradeNow(tx, key, lockHolders)) {
+          recordHold(tx, key);
           tx.putLock(key, LockType.WRITE);
           break;
         } else {
-          // TODO check deadlock before wait!
+          recordWait(tx, key);
           try {
             wait();
           } catch(InterruptedException e) {
@@ -135,12 +138,13 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
       while(!tx.isClosed()) {
         Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
         if(canReadLockNow(tx, key, lockHolders)) {
+          recordHold(tx, key);
           lockHolders.add(tx);
           tx.putLock(key, LockType.READ);
           break;
         } else {
+          recordWait(tx, key);
           try {
-            // TODO check deadlock before wait!
             this.wait();
           } catch(InterruptedException e) {
             break;
@@ -156,7 +160,7 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
     }
   }
 
-  private synchronized void releaseAllLocks(LockTransaction tx) {
+  protected synchronized void releaseAllLocks(LockTransaction tx) {
     tx.locks().keySet().forEach(key -> {
       Set<LockTransaction> s = locks.get(key);
       if(s != null) {
@@ -183,5 +187,9 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
   protected abstract boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
 
   protected abstract boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
+
+  protected abstract void recordHold(LockTransaction tx, String key);
+
+  protected abstract void recordWait(LockTransaction tx, String key);
 
 }

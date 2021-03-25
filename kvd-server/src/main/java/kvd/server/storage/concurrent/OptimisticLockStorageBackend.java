@@ -71,4 +71,14 @@ public class OptimisticLockStorageBackend extends AbstractLockStorageBackend {
     }
   }
 
+  @Override
+  protected void recordHold(LockTransaction tx, String key) {
+    // nothing to do
+  }
+
+  @Override
+  protected void recordWait(LockTransaction tx, String key) {
+    // nothing to do
+  }
+
 }
