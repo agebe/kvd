@@ -42,6 +42,11 @@ import kvd.common.packet.proto.PacketType;
  *  }
  * </pre>
  *
+ * All {@link KvdOperations} methods implemented in this class execute a single operation transaction on the server that
+ * is automatically committed when the operation completes. They partake in resource locking the same way as
+ * {@link KvdTransaction} operations. The main difference between {@link KvdTransaction} operations is that operations
+ * in {@code KvdClient} are auto committed. For manual commit/rollback start a new Transaction with {@link #beginTransaction()}
+ *
  * <p>Note: {@link KvdClient#KvdClient(java.lang.String)} establishes a single socket connection to the server
  * that it keeps alive until {@link KvdClient#close} is called.
  *
@@ -58,6 +63,11 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   private Set<Abortable> abortables = new HashSet<>();
 
   private AtomicBoolean closed = new AtomicBoolean(false);
+
+  // TODO make txDefaultTimeout configurable
+  private long txDefaultTimeout;
+
+  private ThreadLocal<KvdTransaction> transactions = new ThreadLocal<>();
 
   /**
    * Establishes the connection to the server.
@@ -173,8 +183,9 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   }
 
   /**
-   * begin a new transaction with the specified timeout.
-   * @param timeoutMs the timeout in milliseconds or 0 for no timeout
+   * Begin a new transaction with the specified timeout. Also see {{@link #beginTransaction(long)}
+   * @param timeoutMs The transaction timeout in milliseconds or 0 for no timeout. If the timeout is exceeded
+   * the transaction is aborted (rollback).
    * @return {@code Future} that evaluates to a {@link KvdTransaction} when the server has created the transaction
    */
   public synchronized Future<KvdTransaction> beginTransactionAsync(long timeoutMs) {
@@ -185,6 +196,17 @@ public class KvdClient implements KvdOperations, AutoCloseable {
     return txBegin.getFuture();
   }
 
+  /**
+   * Begin a new transaction with the specified timeout and waits until the transaction has been created on the server.
+   * Normally this method should be used in a try-with-resource block to make
+   * sure the transaction is closed. Note that you have to commit the transaction manually to make changes permanent
+   * before the try-with-resource block closes the transaction. Also consider using {@link #withTransaction(KvdWork)}
+   * which automatically commits transactions and also allows outer/inner units of work to share the same transaction
+   * to improve code reusability
+   * @param timeoutMs The transaction timeout in milliseconds or 0 for no timeout. If the timeout is exceeded
+   * the transaction is aborted (rollback).
+   * @return {@link KvdTransaction}
+   */
   public KvdTransaction beginTransaction(long timeoutMs) {
     try {
       return beginTransactionAsync(timeoutMs).get();
@@ -193,8 +215,53 @@ public class KvdClient implements KvdOperations, AutoCloseable {
     }
   }
 
+  /**
+   * See {@link #beginTransaction(long)} except this method uses the default transaction timeout
+   * @return {@link KvdTransaction}
+   */
   public KvdTransaction beginTransaction() {
-    return beginTransaction(0);
+    return beginTransaction(txDefaultTimeout);
+  }
+
+  private <T> T withNewTransaction(KvdWork<T> work) {
+    // try-with-resource closes KvdTransaction (rollback), no need to handle exceptions here
+    try(KvdTransaction tx = beginTransaction()) {
+      transactions.set(tx);
+      T result = work.execute(tx);
+      tx.commit();
+      return result;
+    } finally {
+      transactions.remove();
+    }
+  }
+
+  /**
+   * Execute a new or join an existing {@link KvdTransaction} that has been started either with
+   * {@link #withTransaction(KvdWork)} or {@link #withTransactionVoid(KvdVoidWork)}. A new transaction is started 
+   * with the default timeout. The transaction is automatically committed when the most outer {@link KvdWork} finishes
+   * or aborted (rollback) when the {@link KvdWork} throws an exceptions.
+   * @param <T> Result type of the {@link KvdWork}
+   * @param work the unit of work to be executed within the transaction
+   * @return The result of the unit of work
+   */
+  public <T> T withTransaction(KvdWork<T> work) {
+    KvdTransaction tx = transactions.get();
+    if(tx != null) {
+      return work.execute(tx);
+    } else {
+      return withNewTransaction(work);
+    }
+  }
+
+  /**
+   * Same as {@link #withTransaction(KvdWork)} except this does not return a result
+   * @param work the unit of work to be executed within the transaction
+   */
+  public void withTransactionVoid(KvdVoidWork work) {
+    withTransaction(tx -> {
+      work.execute(tx);
+      return null;
+    });
   }
 
 }

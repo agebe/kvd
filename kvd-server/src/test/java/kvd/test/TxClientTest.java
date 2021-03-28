@@ -13,6 +13,7 @@
  */
 package kvd.test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -116,6 +117,49 @@ public class TxClientTest {
     try(KvdClient client = client()) {
       assertFalse(client.contains(key));
     }
+  }
+
+  @Test
+  public void testWithTransaction1() {
+    final String key = "testWithTransaction1";
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      String val = client.withTransaction(tx -> {
+        tx.putString(key, key);
+        return tx.getString(key);
+      });
+      assertEquals(key, val);
+    }
+  }
+
+  @Test
+  public void testWithTransactionVoid() {
+    final String key = "testWithTransactionVoid";
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      client.withTransactionVoid(tx -> {
+        tx.putString(key, key);
+      });
+      assertEquals(key, client.getString(key));
+    }
+  }
+
+  @Test
+  public void testWithTransaction2() {
+    // test if inner transaction joins outer transactions
+    final String key = "testWithTransaction2";
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      String val = client.withTransaction(tx -> {
+        tx.putString(key, key);
+        return getStrVal(client, key);
+      });
+      assertEquals(key, val);
+    }
+  }
+
+  private String getStrVal(KvdClient client, String key) {
+    return client.withTransaction(tx -> tx.getString(key));
   }
 
 }
