@@ -162,4 +162,15 @@ public class TxClientTest {
     return client.withTransaction(tx -> tx.getString(key));
   }
 
+  @Test
+  public void testLock1() {
+    final String key = "testLock1";
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      client.withTransactionVoid(tx -> {
+        assertFalse(tx.lock(key));
+      });
+    }
+  }
+
 }

@@ -151,7 +151,26 @@ public class ConcurrencyControlOptRWTest {
     }
   }
 
-  // TODO add a multi-threaded test
+  @Test
+  public void testWriteLock1() {
+    final String key = "testWriteLock1";
+    final String value = key;
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      client.putString(key, value);
+      KvdTransaction tx1 = client.beginTransaction();
+      KvdTransaction tx2 = client.beginTransaction();
+      assertTrue(tx1.lock(key));
+      assertThrows(KvdException.class, () -> tx2.lock(key));
+      assertThrows(KvdException.class, () -> client.contains(key));
+      tx1.putString(key, value);
+      assertEquals(value, tx1.getString(key));
+      tx1.commit();
+      assertTrue(tx2.lock(key));
+      assertThrows(KvdException.class, () -> client.contains(key));
+      tx2.rollback();
+      assertTrue(client.contains(key));
+    }
+  }
 
 }
-

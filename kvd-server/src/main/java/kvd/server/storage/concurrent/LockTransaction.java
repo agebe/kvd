@@ -135,6 +135,15 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
+  public boolean lock(String key) {
+    checkClosed();
+    lockStore.acquireWriteLock(this, key);
+    checkClosed();
+    checkHasWriteLock(key);
+    return true;
+  }
+
+  @Override
   public String toString() {
     return "tx:"+handle();
   }

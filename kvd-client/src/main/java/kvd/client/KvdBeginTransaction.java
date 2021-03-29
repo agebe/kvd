@@ -48,7 +48,11 @@ class KvdBeginTransaction implements Abortable {
     this.backend = backend;
     this.closeListener = closeListener;
     this.timeoutMs = timeoutMs;
-    future.whenComplete((t,e) -> close());
+    future.whenComplete((t,e) -> {
+      if(tx == null) {
+        close();
+      }
+    });
   }
 
   public void start() {
@@ -72,10 +76,10 @@ class KvdBeginTransaction implements Abortable {
 
   @Override
   public void abort() {
+    log.warn("received abort");
     future.completeExceptionally(new KvdException("aborted"));
-    close();
     if(tx != null) {
-      tx.rollback();
+      tx.abortNow();
     }
   }
 
@@ -96,6 +100,9 @@ class KvdBeginTransaction implements Abortable {
       if(PacketType.TX_BEGIN.equals(packet.getType())) {
         log.debug("begin tx '{}'", packet.getTx());
         tx = new KvdTransaction(backend, packet.getTx(), packet.getChannel());
+        tx.closedFuture().whenComplete((r,t) -> {
+          close();
+        });
         future.complete(tx);
       } else if(PacketType.TX_ABORT.equals(packet.getType())) {
         abort();
@@ -113,7 +120,7 @@ class KvdBeginTransaction implements Abortable {
 
   @Override
   public String toString() {
-    return "TX BEGIN";
+    return "TX";
   }
 
 }

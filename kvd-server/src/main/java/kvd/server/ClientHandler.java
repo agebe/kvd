@@ -81,6 +81,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
       .put(PacketType.TX_BEGIN, this::txBegin)
       .put(PacketType.TX_COMMIT, this::txCommit)
       .put(PacketType.TX_ROLLBACK, this::txRollback)
+      .put(PacketType.LOCK, this::lockRequest)
       .build();
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -257,7 +258,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     } else {
       int txId = packet.getTx();
       Tx tx = transactions.get(txId);
-      log.debug("contains req, txId '{}', tx '{}'", txId, tx);
+      log.debug("remove req, txId '{}', tx '{}'", txId, tx);
       if((txId!=0) && (tx==null)) {
         log.warn("received remove request for tx '{}' but transaction does not exit", txId);
         client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
@@ -288,6 +289,38 @@ public class ClientHandler implements Runnable, AutoCloseable {
       return tx.remove(key);
     } else {
       return storage.withTransaction(newTx -> newTx.remove(key));
+    }
+  }
+
+  private void lockRequest(Packet packet) {
+    String key = packet.getStringBody().getStr();
+    if(Keys.isInternalKey(key)) {
+      client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
+    } else {
+      int txId = packet.getTx();
+      Tx tx = transactions.get(txId);
+      log.debug("lock req, txId '{}', tx '{}'", txId, tx);
+      if(tx==null) {
+        // can only lock key within transaction
+        client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
+      } else {
+        pool.execute(() -> lockRequest(packet, tx!=null?tx.getTransaction():null, key));
+      }
+    }
+  }
+
+  private void lockRequest(Packet packet, Transaction tx, String key) {
+    try {
+      boolean locked = tx.lock(key);
+      client.sendAsync(Packets.packet(PacketType.LOCK,
+          packet.getChannel(), new byte[] {(locked?(byte)1:(byte)0)}));
+    } catch(Exception e) {
+      if(e instanceof AcquireLockException) {
+        log.trace("remove failed", e);
+      } else {
+        log.warn("remove failed", e);
+      }
+      client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
     }
   }
 

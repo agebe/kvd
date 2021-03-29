@@ -31,6 +31,9 @@ import kvd.common.packet.Packets;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 
+/**
+ * Transaction support, Unit of Work pattern
+ */
 public class KvdTransaction implements KvdOperations, AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(KvdTransaction.class);
@@ -47,7 +50,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
 
   private CompletableFuture<Boolean> txClosed = new CompletableFuture<>();
 
-  public KvdTransaction(ClientBackend backend, int txId, int channel) {
+  KvdTransaction(ClientBackend backend, int txId, int channel) {
     super();
     this.backend = backend;
     this.txId = txId;
@@ -57,6 +60,17 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
     });
   }
 
+  CompletableFuture<Boolean> closedFuture() {
+    return txClosed;
+  }
+
+  void abortNow() {
+    txClosed.complete(true);
+  }
+
+  /**
+   * Rollback and close transaction.
+   */
   @Override
   public void close() {
     rollback();
@@ -100,11 +114,20 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
     }
   }
 
+  /**
+   * Commit and close the transaction. No further operations are allowed on the transaction after commit and the
+   * transaction object can be discarded.
+   * @return {@code Future} future that resolves to true or completes exceptionally.
+   */
   public synchronized Future<Boolean> commitAsync() {
     closeInternal(Packets.packet(PacketType.TX_COMMIT, channel, txId));
     return txClosed;
   }
 
+  /**
+   * Commit and close the transaction. No further operations are allowed on the transaction after commit and the
+   * transaction object can be discarded.
+   */
   public void commit() {
     try {
       commitAsync().get();
@@ -113,11 +136,20 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
     }
   }
 
+  /**
+   * Rollback and close the transaction. No further operations are allowed on the transaction after commit and the
+   * transaction object can be discarded.
+   * @return {@code Future} that resolves to true or completes exceptionally.
+   */
   public synchronized Future<Boolean> rollbackAsync() {
     closeInternal(Packets.packet(PacketType.TX_ROLLBACK, channel, txId));
     return txClosed;
   }
 
+  /**
+   * Rollback and close the transaction. No further operations are allowed on the transaction after commit and the
+   * transaction object can be discarded.
+   */
   public void rollback() {
     try {
       rollbackAsync().get();
@@ -177,6 +209,36 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
     abortables.add(remove);
     remove.start();
     return remove.getFuture();
+  }
+
+  /**
+   * Obtain write lock on the key in the same way a put or remove operation would do.
+   * It does not matter whether the key exists in the database or not.
+   * @param key the key to write lock
+   * @return {@code Future} that evaluates to true if concurrency mode is different from NONE or false for concurrency mode NONE
+   * or completes exceptionally if the key can't be write locked because either another transaction has a write lock on
+   * the key already in optimistic concurrency mode or a deadlock is detected in pessimistic concurrency mode
+   */
+  public synchronized Future<Boolean> lockAsync(String key) {
+    checkClosed();
+    Utils.checkKey(key);
+    KvdLock lock = new KvdLock(backend, txId, key, this::removeAbortable);
+    abortables.add(lock);
+    lock.start();
+    return lock.getFuture();
+  }
+
+  /**
+   * Convenience method that calls {@lockAsync} and waits for the {@code Future} to complete.
+   * @param key the key to write lock
+   * @return see {@link #lockAsync(String)}
+   */
+  public boolean lock(String key) {
+    try {
+      return lockAsync(key).get();
+    } catch(Exception e) {
+      throw new KvdException("write lock failed", e);
+    }
   }
 
   @Override

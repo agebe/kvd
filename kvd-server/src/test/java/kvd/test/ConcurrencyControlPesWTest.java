@@ -274,6 +274,52 @@ public class ConcurrencyControlPesWTest {
   }
 
   @Test
+  public void testLock1() throws Exception {
+    CompletableFuture<Boolean> ft1 = new CompletableFuture<>();
+    CompletableFuture<Boolean> ft2 = new CompletableFuture<>();
+    CompletableFuture<Boolean> f1 = new CompletableFuture<>();
+    final String key = "testLock1";
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      Thread t1 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          tx.lock(key);
+          f1.complete(true);
+          Thread.sleep(250);
+          tx.putString(key, "1");
+          tx.commit();
+          ft1.complete(true);
+        } catch(Throwable t) {
+          ft1.completeExceptionally(new RuntimeException("t1 failed", t));
+        }
+      });
+      Thread t2 = new Thread(() -> {
+        try(KvdTransaction tx = client.beginTransaction()) {
+          f1.get();
+          assertFalse(tx.contains(key));
+          long startNs = System.nanoTime();
+          tx.lock(key);
+          long endNs = System.nanoTime();
+          assertTrue(TimeUnit.NANOSECONDS.toMillis(endNs - startNs) > 200);
+          assertEquals("1", tx.getString(key));
+          tx.putString(key, "2");
+          tx.commit();
+          ft2.complete(true);
+        } catch(Throwable t) {
+          ft2.completeExceptionally(new RuntimeException("t2 failed", t));
+        }
+      });
+      t1.start();
+      t2.start();
+      t1.join();
+      t2.join();
+      ft1.get();
+      ft2.get();
+      assertEquals("2", client.getString(key));
+    }
+  }
+
+  @Test
   public void readUntilSet() throws Exception {
     CompletableFuture<Boolean> ft1 = new CompletableFuture<>();
     CompletableFuture<Boolean> ft2 = new CompletableFuture<>();

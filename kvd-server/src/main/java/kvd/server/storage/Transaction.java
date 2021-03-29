@@ -30,6 +30,8 @@ public interface Transaction extends AutoCloseable {
 
   boolean remove(String key);
 
+  boolean lock(String key);
+
   default void putBytes(String key, byte[] bytes) {
     try(OutputStream out = put(key)) {
       out.write(bytes);

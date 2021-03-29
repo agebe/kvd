@@ -32,6 +32,8 @@ enum PacketType {
   TX_ABORT = 23;
   TX_CLOSED = 24;
   INVALID_REQUEST = 25;
+  LOCK = 26;
+  ABORT = 27;
 }
 
 message PutInitBody {

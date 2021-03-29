@@ -64,6 +64,11 @@ public abstract class AbstractTransaction implements Transaction {
     }
   }
 
+  @Override
+  public boolean lock(String key) {
+    return false;
+  }
+
   protected abstract void commitInternal();
 
   protected abstract void rollbackInternal();
