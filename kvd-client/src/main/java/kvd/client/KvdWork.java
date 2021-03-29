@@ -15,7 +15,7 @@ package kvd.client;
 
 /**
  * For executing transactions, this is a unit of work.
- * See {#link {@link KvdClient#withTransaction(KvdWork)}
+ * See {@link KvdClient#withTransaction(KvdWork)}
  */
 @FunctionalInterface
 public interface KvdWork<T> {
