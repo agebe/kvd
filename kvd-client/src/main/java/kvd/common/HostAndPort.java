@@ -41,7 +41,7 @@ public final class HostAndPort implements Serializable {
    * IPv4/IPv6 literal.
    *
    * <p>A successful parse does not imply any degree of sanity in this field. For additional
-   * validation, see the {@link HostSpecifier} class.
+   * validation, see the {@code HostSpecifier} class.
    *
    * @since 20.0 (since 10.0 as {@code getHostText})
    */
@@ -309,7 +309,7 @@ public final class HostAndPort implements Serializable {
    * disallow IPv6 literals that don't contain these brackets.
    *
    * <p>Note that this parser identifies IPv6 literals solely based on the presence of a colon. To
-   * perform actual validation of IP addresses, see the {@link InetAddresses#forString(String)}
+   * perform actual validation of IP addresses, see the {@code InetAddresses#forString(String)}
    * method.
    *
    * @return {@code this}, to enable chaining of calls.

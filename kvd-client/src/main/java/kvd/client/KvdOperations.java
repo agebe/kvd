@@ -51,7 +51,7 @@ public interface KvdOperations {
    * Removes the mapping for the specified key from the server.
    * @param key key whose mapping is to be removed
    * @return {@code Future} which evaluates to {@code true} if the key/value was removed from the server,
-   *         @{code false} otherwise.
+   *         {@code false} otherwise.
    */
   Future<Boolean> removeAsync(String key);
 
@@ -70,7 +70,7 @@ public interface KvdOperations {
   }
 
   /**
-   * Convenience method that calls {@getAsync} and waits for the {@code Future} to complete.
+   * Convenience method that calls {@link #getAsync(String)} and waits for the {@code Future} to complete.
    * @param key key the key whose associated value is to be returned
    * @return the {@code InputStream} for keys that exist or {@code null} for keys that don't exist on the server.
    */
