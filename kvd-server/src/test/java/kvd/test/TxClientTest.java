@@ -105,10 +105,10 @@ public class TxClientTest {
   public void timeoutTest() throws Exception {
     final String key = "timeoutTest";
     try(KvdClient client = client()) {
-      try(KvdTransaction tx = client.beginTransaction(250)) {
+      try(KvdTransaction tx = client.beginTransaction(5000)) {
         tx.putString(key, "test");
         assertTrue(tx.contains(key));
-        Thread.sleep(300);
+        Thread.sleep(5000);
         assertThrows(KvdException.class, () -> {
           assertTrue(tx.contains(key));
         });

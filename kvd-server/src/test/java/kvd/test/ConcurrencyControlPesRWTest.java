@@ -77,7 +77,7 @@ public class ConcurrencyControlPesRWTest {
       assertFalse(client.contains(key));
       client.putString(key, value1);
       KvdTransaction tx1 = client.beginTransaction();
-      KvdTransaction tx2 = client.beginTransaction(250);
+      KvdTransaction tx2 = client.beginTransaction(2500);
       assertEquals(value1, tx1.getString(key));
       tx1.putString(key, value2);
       assertEquals(value2, tx1.getString(key));
