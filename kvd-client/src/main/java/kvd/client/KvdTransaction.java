@@ -229,7 +229,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   /**
-   * Convenience method that calls {@lockAsync} and waits for the {@code Future} to complete.
+   * Convenience method that calls {@link #lockAsync(String)} and waits for the {@code Future} to complete.
    * @param key the key to write lock
    * @return see {@link #lockAsync(String)}
    */
