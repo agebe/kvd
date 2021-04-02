@@ -58,7 +58,8 @@ public class Kvd {
     @Parameter(names="--log-level", description="logback log level (trace, debug, info, warn, error, all, off)")
     public String logLevel = "info";
 
-    @Parameter(names= {"--concurrency-control", "-cc"}, description="concurrency control: none, optimistic (OPTW or OPTRW)")
+    @Parameter(names= {"--concurrency-control", "-cc"}, description="concurrency control: none,"
+        + " optimistic (OPTW or OPTRW), pessimistic (PESW or PESRW)")
     public ConcurrencyControl concurrency = ConcurrencyControl.NONE;
 
   }
@@ -96,12 +97,24 @@ public class Kvd {
     }
   }
 
+  private void logJvmInfo() {
+    long maxMem = Runtime.getRuntime().maxMemory();
+    String maxMemString = maxMem == Long.MAX_VALUE?"unlimited":Utils.humanReadableByteCountBin(maxMem);
+    log.info("jvm '{} {} {}', processors '{}', max jvm memory '{}'",
+        System.getProperty("java.vm.name"),
+        System.getProperty("java.vm.version"),
+        System.getProperty("java.vm.vendor"),
+        Runtime.getRuntime().availableProcessors(),
+        maxMemString);
+  }
+
   public void run(KvdOptions options) {
     setLogLevel("kvd", options.logLevel);
     Version version = getVersion();
     if(version != null) {
       log.info("{}", version.version());
     }
+    logJvmInfo();
     handler = new SocketConnectHandler(options.maxClients,
         setupConcurrencyControl(options, createStorageBackend(options)));
     socketServer = new SimpleSocketServer(options.port, handler);
