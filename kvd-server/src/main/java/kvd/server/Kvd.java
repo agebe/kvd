@@ -131,7 +131,11 @@ public class Kvd {
   }
 
   public KvdClient newLocalClient() {
-    return new KvdClient("localhost:"+getSocketServer().getLocalPort());
+    return new KvdClient("localhost:"+getLocalPort());
+  }
+
+  public int getLocalPort() {
+    return getSocketServer().getLocalPort();
   }
 
   private Version getVersion() {

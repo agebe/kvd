@@ -64,20 +64,25 @@ public class KvdClient implements KvdOperations, AutoCloseable {
 
   private AtomicBoolean closed = new AtomicBoolean(false);
 
-  // TODO make txDefaultTimeout configurable
-  private long txDefaultTimeout;
+  private long transactionDefaultTimeoutMs;
 
   private ThreadLocal<KvdTransaction> transactions = new ThreadLocal<>();
 
   /**
-   * Establishes the connection to the server.
+   * Create a new {@code KvdClient} instance connecting to the server. Use {@link KvdClientBuilder} to create a
+   * {@code KvdClient} with non standard options.
    * @param serverAddress in the form
    *        <a href="https://guava.dev/releases/30.1-jre/api/docs/com/google/common/net/HostAndPort.html">{@code host:port}</a>.
    *        Port can be omitted and 3030 is used in this case.
    */
   public KvdClient(String serverAddress) {
+    this(new KvdClientBuilder(serverAddress));
+  }
+
+  KvdClient(KvdClientBuilder builder) {
     try {
-      HostAndPort hp = HostAndPort.fromString(serverAddress).withDefaultPort(3030);
+      this.transactionDefaultTimeoutMs = builder.getTransactionDefaultTimeoutMs();
+      HostAndPort hp = HostAndPort.fromString(builder.getServerAddress()).withDefaultPort(3030);
       log.trace("connecting to '{}'", hp);
       Socket socket = new Socket(InetAddress.getByName(hp.getHost()), hp.getPort());
       socket.setSoTimeout(1000);
@@ -93,7 +98,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
       backend.sendAsync(Packets.hello());
       backend.waitForHelloReceived();
     } catch(Exception e) {
-      throw new KvdException(String.format("failed to connect to '%s'", serverAddress), e);
+      throw new KvdException(String.format("failed to connect to '%s'", builder.getServerAddress()), e);
     }
   }
 
@@ -220,7 +225,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
    * @return {@link KvdTransaction}
    */
   public KvdTransaction beginTransaction() {
-    return beginTransaction(txDefaultTimeout);
+    return beginTransaction(transactionDefaultTimeoutMs);
   }
 
   private <T> T withNewTransaction(KvdWork<T> work) {
@@ -262,6 +267,15 @@ public class KvdClient implements KvdOperations, AutoCloseable {
       work.execute(tx);
       return null;
     });
+  }
+
+  /**
+   * Retrieve the default transaction timeout in milliseconds, 0 means no timeout. This value can only be set when
+   * the {@code KvdClient} is constructed through the {@link KvdClientBuilder}
+   * @return The default transaction timeout in milliseconds
+   */
+  public long getTransactionDefaultTimeoutMs() {
+    return transactionDefaultTimeoutMs;
   }
 
 }
