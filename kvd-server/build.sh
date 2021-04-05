@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
-docker pull gradle:jdk8
-docker pull openjdk:15-buster
+docker pull gradle:jdk11
+docker pull openjdk:16-buster
 TAG=${1:-master}
 TDIR=`mktemp -d`
 echo $TDIR
@@ -22,7 +22,7 @@ else
   DOCKER_TAG=$TAG
 fi
 
-docker run --rm -ti -u gradle --name "kvd-build" -v "$PWD/kvd":/home/gradle/project -w /home/gradle/project -e "GRADLE_USER_HOME=/home/gradle/project/.gradle" gradle:jdk8 gradle dockerPrepare
+docker run --rm -ti -u gradle --name "kvd-build" -v "$PWD/kvd":/home/gradle/project -w /home/gradle/project -e "GRADLE_USER_HOME=/home/gradle/project/.gradle" gradle:jdk11 gradle dockerPrepare
 ( cd kvd/kvd-server/build/docker && docker build -t kvd:$DOCKER_TAG . )
 
 echo done
