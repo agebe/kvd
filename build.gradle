@@ -21,7 +21,7 @@ subprojects {
   apply plugin: 'signing'
   apply plugin: 'com.google.protobuf'
 
-  version = '0.2.0'
+  version = '0.3.0'
   group = 'io.github.agebe'
 
   repositories {
