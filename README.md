@@ -29,20 +29,21 @@ The server listens by default on TCP port 3030 and writes to $HOME/.kvd
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.2.0
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.3.0
 ```
 
 Otherwise you might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.2.0 --storage file:/storage --log-level debug
+$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.3.0 --storage file:/storage --log-level debug
 ```
 
 ### Running the server from source
 
 * Clone kvd from this repository
-* Make sure you have jdk1.8+ installed.
-* Install recent version of [gradle](https://gradle.org/)
-* To start the server execute
+* Make sure you have jdk 11+ installed.
+* Install recent version of [gradle](https://gradle.org/releases/)
+* Install [protoc](https://github.com/protocolbuffers/protobuf/releases/download/v3.15.7/protoc-3.15.7-linux-x86_64.zip) and make sure the protoc binary is on your $PATH
+* Change dir into ./kvd-server and execute:
 ```bash
 $ gradle run
 ```
@@ -55,7 +56,7 @@ For the example below to work you need to add the kvd-client library as a depend
 Gradle:
 ```gradle
 dependencies {
-  implementation 'io.github.agebe:kvd-client:0.2.0'
+  implementation 'io.github.agebe:kvd-client:0.3.0'
 }
 ```
 
@@ -64,7 +65,7 @@ Maven:
 <dependency>
   <groupId>io.github.agebe</groupId>
   <artifactId>kvd-client</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
