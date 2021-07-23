@@ -13,7 +13,6 @@
  */
 package kvd.server;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,8 +28,6 @@ import kvd.server.storage.concurrent.AcquireLockException;
 public class PutConsumer implements ChannelConsumer {
 
   private static final Logger log = LoggerFactory.getLogger(PutConsumer.class);
-
-  private String keyShort;
 
   private AbortableOutputStream out;
 
@@ -57,15 +54,14 @@ public class PutConsumer implements ChannelConsumer {
       return;
     }
     if(PacketType.PUT_INIT.equals(packet.getType())) {
-      String key = packet.getPutInit().getKey();
-      if(StringUtils.isNotBlank(this.keyShort)) {
-        throw new KvdException("put already initialized for key " + keyShort);
+      Key key = new Key(packet.getPutInit().getKey().toByteArray());
+      if(out != null) {
+        throw new KvdException("put already initialized");
       }
-      if(Keys.isInternalKey(key)) {
+      if(key.isInternalKey()) {
         aborted = true;
         client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
       } else {
-        this.keyShort = StringUtils.substring(key, 0, 200);
         try {
           out = tx.put(key);
           // the client waits for a PUT_INIT or PUT_ABORT response before proceeding
@@ -73,9 +69,9 @@ public class PutConsumer implements ChannelConsumer {
           client.sendAsync(Packets.packet(PacketType.PUT_INIT, packet.getChannel()));
         } catch(Exception e) {
           if(e instanceof AcquireLockException) {
-            log.debug("put init acquire lock failed on key '{}'", keyShort, e);
+            log.debug("put init acquire lock failed", e);
           } else {
-            log.warn("put init failed with exception on key '{}'", keyShort, e);
+            log.warn("put init failed with exception", e);
           }
           client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
         }
@@ -91,7 +87,7 @@ public class PutConsumer implements ChannelConsumer {
           } catch(Exception abortException) {
             log.warn("abort failed", abortException);
           }
-          throw new KvdException("failed to write to stream for key "+ this.keyShort, e);
+          throw new KvdException("failed to write to stream", e);
         }
       } else {
         throw new KvdException("put has not been initialized yet");

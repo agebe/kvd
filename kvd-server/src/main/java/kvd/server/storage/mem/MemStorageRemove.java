@@ -13,16 +13,18 @@
  */
 package kvd.server.storage.mem;
 
+import kvd.server.Key;
+
 class MemStorageRemove {
 
-  private String key;
+  private Key key;
 
-  public MemStorageRemove(String key) {
+  public MemStorageRemove(Key key) {
     super();
     this.key = key;
   }
 
-  public String getKey() {
+  public Key getKey() {
     return key;
   }
 }

@@ -13,35 +13,24 @@
  */
 package kvd.server.storage.fs;
 
-import java.nio.charset.Charset;
-
-import org.apache.commons.lang3.StringUtils;
-
 import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
 
 import kvd.common.Utils;
 
 class KeyUtils {
 
-  // only lowercase so keys that contain uppercase are hashed to support case sensitive keys
-  // also on filesystems that are case insensitive
-  private static final String LEGAL_CHARS = "abcdefghijklmnopqrstuvwxyz1234567890_";
-
-  public static String internalKey(String key) {
+  public static String internalKey(byte[] key) {
     Utils.checkKey(key);
-    if((key.length() > 200) || containsIllegalChars(key)) {
+    if(key.length > 100) {
       return hashed(key);
     } else {
-      return key;
+      return BaseEncoding.base16().lowerCase().encode(key);
     }
   }
 
-  private static String hashed(String key) {
-    return Hashing.sha256().hashString(key, Charset.forName("UTF-8")).toString();
-  }
-
-  private static boolean containsIllegalChars(String key) {
-    return !StringUtils.containsOnly(key, LEGAL_CHARS);
+  private static String hashed(byte[] key) {
+    return Hashing.sha256().hashBytes(key).toString();
   }
 
 }

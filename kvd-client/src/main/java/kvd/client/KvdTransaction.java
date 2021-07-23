@@ -172,7 +172,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<OutputStream> putAsync(String key) {
+  public synchronized Future<OutputStream> putAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdPut put = new KvdPut(backend, txId, key, this::removeAbortable);
@@ -182,7 +182,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<InputStream> getAsync(String key) {
+  public synchronized Future<InputStream> getAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdGet get = new KvdGet(backend, txId, key, this::removeAbortable);
@@ -192,7 +192,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<Boolean> containsAsync(String key) {
+  public synchronized Future<Boolean> containsAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdContains contains = new KvdContains(backend, txId, key, this::removeAbortable);
@@ -202,7 +202,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<Boolean> removeAsync(String key) {
+  public synchronized Future<Boolean> removeAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdRemove remove = new KvdRemove(backend, txId, key, this::removeAbortable);
@@ -219,7 +219,7 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
    * or completes exceptionally if the key can't be write locked because either another transaction has a write lock on
    * the key already in optimistic concurrency mode or a deadlock is detected in pessimistic concurrency mode
    */
-  public synchronized Future<Boolean> lockAsync(String key) {
+  public synchronized Future<Boolean> lockAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdLock lock = new KvdLock(backend, txId, key, this::removeAbortable);
@@ -229,7 +229,18 @@ public class KvdTransaction implements KvdOperations, AutoCloseable {
   }
 
   /**
-   * Convenience method that calls {@link #lockAsync(String)} and waits for the {@code Future} to complete.
+   * Obtain write lock on the key in the same way a put or remove operation would do.
+   * It does not matter whether the key exists in the database or not.
+   * @param key the key to write lock
+   * @return {@code Future} that evaluates to true if concurrency mode is different from NONE or false for concurrency mode NONE
+   * or completes exceptionally if the key can't be write locked because either another transaction has a write lock on
+   * the key already in optimistic concurrency mode or a deadlock is detected in pessimistic concurrency mode
+   */
+  public synchronized Future<Boolean> lockAsync(String key) {
+    return lockAsync(key.getBytes());
+  }
+
+  /**
    * @param key the key to write lock
    * @return see {@link #lockAsync(String)}
    */

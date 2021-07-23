@@ -13,13 +13,15 @@
  */
 package kvd.server.storage.concurrent;
 
+import kvd.server.Key;
+
 public class KeyOrTx {
 
-  private String key;
+  private Key key;
 
   private LockTransaction tx;
 
-  public KeyOrTx(String key) {
+  public KeyOrTx(Key key) {
     super();
     this.key = key;
   }
@@ -29,7 +31,7 @@ public class KeyOrTx {
     this.tx = tx;
   }
 
-  public String getKey() {
+  public Key getKey() {
     return key;
   }
 
@@ -71,7 +73,7 @@ public class KeyOrTx {
   @Override
   public String toString() {
     if(key != null) {
-      return "key:"+key;
+      return "key: '"+key+"'";
     } else if(tx != null) {
       return tx.toString();
     } else {

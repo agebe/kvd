@@ -15,6 +15,7 @@ package kvd.server.storage.concurrent;
 
 import java.util.Set;
 
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 
 /**
@@ -35,7 +36,7 @@ public class OptimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected boolean canReadLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+  protected boolean canReadLockNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders) {
     if(lockHolders.isEmpty()) {
       return true;
     } else {
@@ -50,21 +51,21 @@ public class OptimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+  protected boolean canWriteLockNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders) {
     if(lockHolders.isEmpty()) {
       return true;
     } else {
-      throw new AcquireLockException("failed to acquire write lock (already locked) on " + key);
+      throw new AcquireLockException("failed to acquire write lock (key already locked)");
     }
   }
 
   @Override
-  protected boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+  protected boolean canWriteLockUpgradeNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders) {
     if(lockHolders.contains(tx)) {
       if(lockHolders.size() == 1) {
         return true;
       } else {
-        throw new AcquireLockException("failed to upgrade to write lock, key already locked " + key);
+        throw new AcquireLockException("failed to upgrade to write lock, key already locked");
       }
     } else {
       throw new AcquireLockException("internal error on lock upgrade, current tx does not hold lock");
@@ -72,12 +73,12 @@ public class OptimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected void recordHold(LockTransaction tx, String key) {
+  protected void recordHold(LockTransaction tx, Key key) {
     // nothing to do
   }
 
   @Override
-  protected void recordWait(LockTransaction tx, String key) {
+  protected void recordWait(LockTransaction tx, Key key) {
     // nothing to do
   }
 

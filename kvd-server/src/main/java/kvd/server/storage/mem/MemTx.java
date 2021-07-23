@@ -21,11 +21,11 @@ import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
 
@@ -39,7 +39,7 @@ class MemTx extends AbstractTransaction {
 
   private Map<String, Staging> staging = new HashMap<>();
 
-  private Map<String, Object> txStore = new HashMap<>();
+  private Map<Key, Object> txStore = new HashMap<>();
 
   private ReentrantReadWriteLock rwlock = new ReentrantReadWriteLock();
   private Lock rlock = rwlock.readLock();
@@ -83,7 +83,7 @@ class MemTx extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream put(String key) {
+  public AbortableOutputStream put(Key key) {
     checkClosed();
     wlock.lock();
     try {
@@ -96,7 +96,7 @@ class MemTx extends AbstractTransaction {
           this::putRollback);
       Staging staging = new Staging(key, blobStream, out);
       this.staging.put(txId, staging);
-      log.debug("starting put, key '{}', tx '{}'", StringUtils.substring(key, 0, 200), txId);
+      log.debug("starting put, key '{}', tx '{}'", key, txId);
       return out;
     } finally {
       wlock.unlock();
@@ -129,7 +129,7 @@ class MemTx extends AbstractTransaction {
   }
 
   @Override
-  public InputStream get(String key) {
+  public InputStream get(Key key) {
     checkClosed();
     rlock.lock();
     try {
@@ -148,7 +148,7 @@ class MemTx extends AbstractTransaction {
   }
 
   @Override
-  public boolean contains(String key) {
+  public boolean contains(Key key) {
     checkClosed();
     rlock.lock();
     try {
@@ -168,7 +168,7 @@ class MemTx extends AbstractTransaction {
   }
 
   @Override
-  public boolean remove(String key) {
+  public boolean remove(Key key) {
     checkClosed();
     wlock.lock();
     try {

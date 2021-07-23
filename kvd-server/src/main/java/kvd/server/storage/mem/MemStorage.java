@@ -22,17 +22,19 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import kvd.server.Key;
+
 class MemStorage {
 
   private static final Logger log = LoggerFactory.getLogger(MemStorage.class);
 
-  private Map<String, BinaryLargeObject> store = new HashMap<>();
+  private Map<Key, BinaryLargeObject> store = new HashMap<>();
 
   private ReentrantReadWriteLock rwlock = new ReentrantReadWriteLock();
   private Lock rlock = rwlock.readLock();
   private Lock wlock = rwlock.writeLock();
 
-  InputStream get(String key) {
+  InputStream get(Key key) {
     rlock.lock();
     try {
       BinaryLargeObject blob = store.get(key);
@@ -42,7 +44,7 @@ class MemStorage {
     }
   }
 
-  boolean contains(String key) {
+  boolean contains(Key key) {
     rlock.lock();
     try {
       return store.containsKey(key);
@@ -51,7 +53,7 @@ class MemStorage {
     }
   }
 
-  void commit(Map<String, Object> txStore) {
+  void commit(Map<Key, Object> txStore) {
     wlock.lock();
     try {
       txStore.forEach((key, val) -> {

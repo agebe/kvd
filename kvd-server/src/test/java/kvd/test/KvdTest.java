@@ -13,6 +13,7 @@
  */
 package kvd.test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -346,6 +347,37 @@ public abstract class KvdTest {
           out.write(b);
         }
       });
+    }
+  }
+
+  @Test
+  public void binaryKeyTest() {
+    log.info("binaryKeyTest");
+    try(KvdClient client = client()) {
+      byte[] key1 = new byte[] { 0 };
+      byte[] key2 = new byte[] { 42 };
+      byte[] key3 = new byte[] { 0, 1, 2 };
+      assertFalse(client.contains(key1));
+      assertFalse(client.contains(key2));
+      assertFalse(client.contains(key3));
+      assertNull(client.getBytes(key1));
+      assertNull(client.getBytes(key2));
+      assertNull(client.getBytes(key3));
+      assertFalse(client.remove(key1));
+      assertFalse(client.remove(key2));
+      assertFalse(client.remove(key3));
+      client.putBytes(key1, key1);
+      client.putBytes(key2, key2);
+      client.putBytes(key3, key3);
+      assertTrue(client.contains(key1));
+      assertTrue(client.contains(key2));
+      assertTrue(client.contains(key3));
+      assertArrayEquals(key1, client.getBytes(key1));
+      assertArrayEquals(key2, client.getBytes(key2));
+      assertArrayEquals(key3, client.getBytes(key3));
+      assertTrue(client.remove(key1));
+      assertTrue(client.remove(key2));
+      assertTrue(client.remove(key3));
     }
   }
 

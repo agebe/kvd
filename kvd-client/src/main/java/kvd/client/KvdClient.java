@@ -112,9 +112,8 @@ public class KvdClient implements KvdOperations, AutoCloseable {
     }
   }
 
-
   @Override
-  public synchronized Future<OutputStream> putAsync(String key) {
+  public synchronized Future<OutputStream> putAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdPut put = new KvdPut(backend, NO_TX, key, this::removeAbortable);
@@ -124,7 +123,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<InputStream> getAsync(String key) {
+  public synchronized Future<InputStream> getAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdGet get = new KvdGet(backend, NO_TX, key, this::removeAbortable);
@@ -134,7 +133,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<Boolean> containsAsync(String key) {
+  public synchronized Future<Boolean> containsAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdContains contains = new KvdContains(backend, NO_TX, key, this::removeAbortable);
@@ -144,7 +143,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   }
 
   @Override
-  public synchronized Future<Boolean> removeAsync(String key) {
+  public synchronized Future<Boolean> removeAsync(byte[] key) {
     checkClosed();
     Utils.checkKey(key);
     KvdRemove remove = new KvdRemove(backend, NO_TX, key, this::removeAbortable);

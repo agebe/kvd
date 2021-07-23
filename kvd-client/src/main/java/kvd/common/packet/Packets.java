@@ -22,7 +22,6 @@ import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
-import kvd.common.packet.proto.StringBody;
 
 public class Packets {
 
@@ -53,11 +52,9 @@ public class Packets {
     return builder(type, channel, tx).build();
   }
 
-  public static Packet packet(PacketType type, int channel, int tx, String body) {
+  public static Packet packet(PacketType type, int channel, int tx, byte[] body) {
     return builder(type, channel, tx)
-        .setStringBody(StringBody.newBuilder()
-            .setStr(body)
-            .build())
+        .setByteBody(ByteString.copyFrom(body))
         .build();
   }
 
@@ -68,7 +65,7 @@ public class Packets {
   }
 
   public static Packet hello() {
-    return packet(PacketType.HELLO, 0, 0, "KvdHello1");
+    return packet(PacketType.HELLO, 0, 0, Utils.toUTF8("KvdHello2"));
   }
 
   public static void receiveHello(InputStream in) throws IOException {
@@ -76,7 +73,7 @@ public class Packets {
     for(;;) {
       Packet p = Packet.parseDelimitedFrom(in);
       if(p != null) {
-        if(!"KvdHello1".equals(p.getStringBody().getStr())) {
+        if(!"KvdHello2".equals(p.getByteBody().toStringUtf8())) {
           throw new KvdException("hello mismatch");
         } else {
           break;

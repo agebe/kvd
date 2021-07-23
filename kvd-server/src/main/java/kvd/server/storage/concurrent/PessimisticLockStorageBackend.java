@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 
 /**
@@ -52,7 +53,7 @@ public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected boolean canReadLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+  protected boolean canReadLockNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders) {
     if(lockHolders.isEmpty()) {
       return true;
     } else {
@@ -63,12 +64,12 @@ public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+  protected boolean canWriteLockNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders) {
     return lockHolders.isEmpty();
   }
 
   @Override
-  protected boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders) {
+  protected boolean canWriteLockUpgradeNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders) {
     if(lockHolders.contains(tx)) {
       return lockHolders.size() == 1;
     } else {
@@ -77,7 +78,7 @@ public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected synchronized void recordHold(LockTransaction tx, String key) {
+  protected synchronized void recordHold(LockTransaction tx, Key key) {
     log.trace("record hold tx '{}', key '{}'", tx, key);
     KeyOrTx vTx = new KeyOrTx(tx);
     KeyOrTx vKey = new KeyOrTx(key);
@@ -91,7 +92,7 @@ public class PessimisticLockStorageBackend extends AbstractLockStorageBackend {
   }
 
   @Override
-  protected synchronized void recordWait(LockTransaction tx, String key) {
+  protected synchronized void recordWait(LockTransaction tx, Key key) {
     log.trace("record wait tx '{}', key '{}'", tx, key);
     KeyOrTx vTx = new KeyOrTx(tx);
     KeyOrTx vKey = new KeyOrTx(key);

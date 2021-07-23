@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.Kvd;
 import kvd.server.storage.Transaction;
 
@@ -36,9 +37,9 @@ public class RedoCommitTest {
 
   @Test
   public void test1() throws Exception {
-    String key1 = "key1";
-    String key2 = "key2";
-    String key3 = "key3";
+    Key key1 = Key.of("key1");
+    Key key2 = Key.of("key2");
+    Key key3 = Key.of("key3");
     File fStore = Files.createTempDirectory("kvdfile").toFile();
     {
       FileStorageBackend storage = new FileStorageBackend(fStore);
@@ -46,7 +47,7 @@ public class RedoCommitTest {
         assertFalse(t.contains(key1));
         assertFalse(t.contains(key2));
         assertFalse(t.contains(key3));
-        t.putBytes(key1, key1.getBytes());
+        t.putBytes(key1, key1.getKey());
         t.commit();
       }
     }
@@ -61,8 +62,8 @@ public class RedoCommitTest {
       assertFalse(t2.contains(key2));
       assertFalse(t2.contains(key3));
       t1.remove(key1);
-      t1.putBytes(key2, key2.getBytes());
-      t2.putBytes(key3, key3.getBytes());
+      t1.putBytes(key2, key2.getKey());
+      t2.putBytes(key3, key3.getKey());
       assertFalse(t1.contains(key1));
       assertTrue(t1.contains(key2));
       assertFalse(t1.contains(key3));

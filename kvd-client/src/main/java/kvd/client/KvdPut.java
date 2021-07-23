@@ -18,6 +18,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import com.google.protobuf.ByteString;
+
 import kvd.common.KvdException;
 import kvd.common.packet.Packets;
 import kvd.common.packet.proto.Packet;
@@ -28,7 +30,7 @@ class KvdPut implements Abortable {
 
   private ClientBackend backend;
 
-  private String key;
+  private byte[] key;
 
   private CompletableFuture<OutputStream> future = new CompletableFuture<>();
 
@@ -42,7 +44,7 @@ class KvdPut implements Abortable {
 
   private int txId;
 
-  public KvdPut(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
+  public KvdPut(ClientBackend backend, int txId, byte[] key, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.txId = txId;
     this.key = key;
@@ -54,7 +56,7 @@ class KvdPut implements Abortable {
     try {
       backend.sendAsync(Packets.builder(PacketType.PUT_INIT, channelId, txId)
           .setPutInit(PutInitBody.newBuilder()
-              .setKey(key)
+              .setKey(ByteString.copyFrom(key))
               .build())
           .build());
     } catch(Exception e) {

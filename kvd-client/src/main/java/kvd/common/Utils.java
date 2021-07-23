@@ -117,9 +117,9 @@ public class Utils {
     return cs == null ? 0 : cs.length();
   }
 
-  public static void checkKey(String key) {
-    if(isBlank(key)) {
-      throw new KvdException("invalid key (blank)");
+  public static void checkKey(byte[] key) {
+    if((key==null) || (key.length == 0)) {
+      throw new KvdException("invalid key (null or empty)");
     }
   }
 

@@ -30,7 +30,7 @@ class KvdLock implements Abortable {
 
   private ClientBackend backend;
 
-  private String key;
+  private byte[] key;
 
   private CompletableFuture<Boolean> future = new CompletableFuture<>();
 
@@ -40,7 +40,7 @@ class KvdLock implements Abortable {
 
   private int txId;
 
-  public KvdLock(ClientBackend backend, int txId, String key, Consumer<Abortable> closeListener) {
+  public KvdLock(ClientBackend backend, int txId, byte[] key, Consumer<Abortable> closeListener) {
     this.backend = backend;
     this.txId = txId;
     this.key = key;

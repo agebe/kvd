@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
 
@@ -163,12 +164,12 @@ class FileTx extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream put(String key) {
+  public AbortableOutputStream put(Key key) {
     checkClosed();
     String internalKey = null;
     wlock.lock();
     try {
-      internalKey = KeyUtils.internalKey(key);
+      internalKey = KeyUtils.internalKey(key.getKey());
       String stageId = UUID.randomUUID().toString();
       File file = new File(fTxStage, stageId);
       AbortableOutputStream out = new AbortableOutputStream(
@@ -225,12 +226,12 @@ class FileTx extends AbstractTransaction {
   }
 
   @Override
-  public InputStream get(String key) {
+  public InputStream get(Key key) {
     checkClosed();
     String internalKey = null;
     rlock.lock();
     try {
-      internalKey = KeyUtils.internalKey(key);
+      internalKey = KeyUtils.internalKey(key.getKey());
       File f = new File(fTxStore, internalKey);
       if(f.exists()) {
         return new BufferedInputStream(new FileInputStream(f));
@@ -245,11 +246,11 @@ class FileTx extends AbstractTransaction {
   }
 
   @Override
-  public boolean contains(String key) {
+  public boolean contains(Key key) {
     checkClosed();
     rlock.lock();
     try {
-      String internalKey = KeyUtils.internalKey(key);
+      String internalKey = KeyUtils.internalKey(key.getKey());
       File f = new File(fTxStore, internalKey);
       if(f.exists()) {
         return true;
@@ -264,13 +265,13 @@ class FileTx extends AbstractTransaction {
   }
 
   @Override
-  public boolean remove(String key) {
+  public boolean remove(Key key) {
     checkClosed();
     wlock.lock();
     try {
       boolean contains = contains(key);
       if(contains) {
-        String internalKey = KeyUtils.internalKey(key);
+        String internalKey = KeyUtils.internalKey(key.getKey());
         File f = new File(fTxStore, internalKey);
         if(f.exists()) {
           f.delete();

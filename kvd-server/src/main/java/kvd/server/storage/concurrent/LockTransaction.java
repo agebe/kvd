@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import kvd.server.Key;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
 import kvd.server.storage.Transaction;
@@ -29,7 +30,7 @@ class LockTransaction extends AbstractTransaction {
 
   private Consumer<LockTransaction> closeListener;
 
-  private Map<String, LockType> locks = Collections.synchronizedMap(new HashMap<>());
+  private Map<Key, LockType> locks = Collections.synchronizedMap(new HashMap<>());
 
   private LockStore lockStore;
 
@@ -47,11 +48,11 @@ class LockTransaction extends AbstractTransaction {
     this.lockMode = lockMode;
   }
 
-  LockType getLock(String key) {
+  LockType getLock(Key key) {
     return locks.get(key);
   }
 
-  void putLock(String key, LockType lock) {
+  void putLock(Key key, LockType lock) {
     locks.put(key, lock);
   }
 
@@ -59,7 +60,7 @@ class LockTransaction extends AbstractTransaction {
     return backendTx;
   }
 
-  Map<String, LockType> locks() {
+  Map<Key, LockType> locks() {
     return locks;
   }
 
@@ -81,14 +82,14 @@ class LockTransaction extends AbstractTransaction {
     }
   }
 
-  private void checkHasWriteLock(String key) {
+  private void checkHasWriteLock(Key key) {
     LockType l = getLock(key);
     if((l == null) || LockType.READ.equals(l)) {
       throw new LockException("check has write lock failed, " + l);
     }
   }
 
-  private void checkHasReadLock(String key) {
+  private void checkHasReadLock(Key key) {
     if(LockMode.WRITEONLY.equals(lockMode)) {
       return;
     }
@@ -99,7 +100,7 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream put(String key) {
+  public AbortableOutputStream put(Key key) {
     checkClosed();
     lockStore.acquireWriteLock(this, key);
     checkClosed();
@@ -108,7 +109,7 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
-  public InputStream get(String key) {
+  public InputStream get(Key key) {
     checkClosed();
     lockStore.acquireReadLock(this, key);
     checkClosed();
@@ -117,7 +118,7 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
-  public boolean contains(String key) {
+  public boolean contains(Key key) {
     checkClosed();
     lockStore.acquireReadLock(this, key);
     checkClosed();
@@ -126,7 +127,7 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
-  public boolean remove(String key) {
+  public boolean remove(Key key) {
     checkClosed();
     lockStore.acquireWriteLock(this, key);
     checkClosed();
@@ -135,7 +136,7 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
-  public boolean lock(String key) {
+  public boolean lock(Key key) {
     checkClosed();
     lockStore.acquireWriteLock(this, key);
     checkClosed();

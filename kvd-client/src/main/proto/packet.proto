@@ -38,15 +38,11 @@ enum PacketType {
 
 message PutInitBody {
   optional int64 ttlMs = 1;
-  optional string key = 2;
+  optional bytes key = 2;
 }
 
 message TxBeginBody {
   optional int64 timeoutMs = 1;
-}
-
-message StringBody {
-  optional string str = 1;
 }
 
 message Packet {
@@ -55,7 +51,6 @@ message Packet {
   optional int32 tx = 3;
   oneof body {
     bytes byteBody = 10;
-    StringBody stringBody = 11;
     PutInitBody putInit = 12;
     TxBeginBody txBegin = 13;
   }

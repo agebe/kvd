@@ -30,6 +30,7 @@ public class PacketTest {
 
   @Test
   public void test1() throws Exception {
+//    Arrays.stream(ManagementFactory.getRuntimeMXBean().getClassPath().split(":")).forEach(System.out::println);
     Packet hello = Packet.newBuilder()
         .setType(PacketType.HELLO)
         .setByteBody(ByteString.copyFrom(Utils.toUTF8("KvdHello1")))
@@ -43,7 +44,7 @@ public class PacketTest {
         .setTx(5)
         .setPutInit(PutInitBody.newBuilder()
             .setTtlMs(TimeUnit.HOURS.toMillis(1))
-            .setKey("testkey")
+            .setKey(ByteString.copyFromUtf8("testkey"))
             .build())
         .build();
     Packet bye = Packet.newBuilder()
@@ -55,7 +56,7 @@ public class PacketTest {
     putInit.writeDelimitedTo(out);
     bye.writeDelimitedTo(out);
     byte[] buf = out.toByteArray();
-    System.out.println("byte array size: " + buf.length);
+    //System.out.println("byte array size: " + buf.length);
     ByteArrayInputStream in = new ByteArrayInputStream(buf);
     Packet p1 = Packet.parseDelimitedFrom(in);
     Packet p2 = Packet.parseDelimitedFrom(in);
@@ -68,7 +69,7 @@ public class PacketTest {
     assertEquals(1, p3.getChannel());
     assertEquals(5, p3.getTx());
     assertEquals(TimeUnit.HOURS.toMillis(1), p3.getPutInit().getTtlMs());
-    assertEquals("testkey", p3.getPutInit().getKey());
+    assertEquals("testkey", p3.getPutInit().getKey().toStringUtf8());
     assertEquals(bye, p4);
     assertNull(p5);
   }

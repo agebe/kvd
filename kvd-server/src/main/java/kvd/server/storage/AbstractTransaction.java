@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.TransactionClosedException;
+import kvd.server.Key;
 
 public abstract class AbstractTransaction implements Transaction {
 
@@ -65,7 +66,7 @@ public abstract class AbstractTransaction implements Transaction {
   }
 
   @Override
-  public boolean lock(String key) {
+  public boolean lock(Key key) {
     return false;
   }
 

@@ -56,8 +56,8 @@ public class GetConsumer implements ChannelConsumer {
         throw new KvdException("channel mismatch");
       }
       try {
-        String key = packet.getStringBody().getStr();
-        if(Keys.isInternalKey(key)) {
+        Key key = new Key(packet.getByteBody().toByteArray());
+        if(key.isInternalKey()) {
           client.sendAsync(Packets.packet(PacketType.GET_ABORT, channel));
           return;
         }

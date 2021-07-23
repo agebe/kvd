@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
 
@@ -38,7 +39,7 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
 
   private AtomicInteger handles = new AtomicInteger(1);
 
-  private Map<String, Set<LockTransaction>> locks = new HashMap<>();
+  private Map<Key, Set<LockTransaction>> locks = new HashMap<>();
 
   public AbstractLockStorageBackend(StorageBackend backend, LockMode mode) {
     super();
@@ -59,12 +60,12 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
         new LockStore() {
 
           @Override
-          public void acquireWriteLock(LockTransaction tx, String key) {
+          public void acquireWriteLock(LockTransaction tx, Key key) {
             AbstractLockStorageBackend.this.acquireWriteLock(tx, key);
           }
 
           @Override
-          public void acquireReadLock(LockTransaction tx, String key) {
+          public void acquireReadLock(LockTransaction tx, Key key) {
             if(LockMode.READWRITE.equals(mode)) {
               AbstractLockStorageBackend.this.acquireReadLock(tx, key);
             }
@@ -87,7 +88,7 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
     }
   }
 
-  protected synchronized void acquireWriteLock(LockTransaction tx, String key) {
+  protected synchronized void acquireWriteLock(LockTransaction tx, Key key) {
     LockType hasLock = tx.getLock(key);
     if(hasLock == null) {
       // transaction has no lock on this key yet
@@ -131,7 +132,7 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
     }
   }
 
-  protected synchronized void acquireReadLock(LockTransaction tx, String key) {
+  protected synchronized void acquireReadLock(LockTransaction tx, Key key) {
     LockType hasLock = tx.getLock(key);
     if(hasLock == null) {
       // transaction has no lock on this key yet
@@ -182,14 +183,14 @@ public abstract class AbstractLockStorageBackend implements StorageBackend {
     return locks.size();
   }
 
-  protected abstract boolean canReadLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
+  protected abstract boolean canReadLockNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders);
 
-  protected abstract boolean canWriteLockNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
+  protected abstract boolean canWriteLockNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders);
 
-  protected abstract boolean canWriteLockUpgradeNow(LockTransaction tx, String key, Set<LockTransaction> lockHolders);
+  protected abstract boolean canWriteLockUpgradeNow(LockTransaction tx, Key key, Set<LockTransaction> lockHolders);
 
-  protected abstract void recordHold(LockTransaction tx, String key);
+  protected abstract void recordHold(LockTransaction tx, Key key);
 
-  protected abstract void recordWait(LockTransaction tx, String key);
+  protected abstract void recordWait(LockTransaction tx, Key key);
 
 }

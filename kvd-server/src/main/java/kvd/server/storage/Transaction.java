@@ -19,20 +19,21 @@ import java.io.OutputStream;
 
 import kvd.common.KvdException;
 import kvd.common.Utils;
+import kvd.server.Key;
 
 public interface Transaction extends AutoCloseable {
 
-  AbortableOutputStream put(String key);
+  AbortableOutputStream put(Key key);
 
-  InputStream get(String key);
+  InputStream get(Key key);
 
-  boolean contains(String key);
+  boolean contains(Key key);
 
-  boolean remove(String key);
+  boolean remove(Key key);
 
-  boolean lock(String key);
+  boolean lock(Key key);
 
-  default void putBytes(String key, byte[] bytes) {
+  default void putBytes(Key key, byte[] bytes) {
     try(OutputStream out = put(key)) {
       out.write(bytes);
     } catch(IOException e) {
@@ -40,7 +41,7 @@ public interface Transaction extends AutoCloseable {
     }
   }
 
-  default byte[] getBytes(String key) {
+  default byte[] getBytes(Key key) {
     try(InputStream in = get(key)) {
       if(in != null) {
         return Utils.toByteArray(in);

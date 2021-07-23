@@ -209,8 +209,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
   }
 
   private void containsRequest(Packet packet) {
-    String key = packet.getStringBody().getStr();
-    if(Keys.isInternalKey(key)) {
+    Key key = new Key(packet.getByteBody().toByteArray());
+    if(key.isInternalKey()) {
       client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
     } else {
       int txId = packet.getTx();
@@ -225,7 +225,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
-  private void containsRequest(Packet packet, Transaction tx, String key) {
+  private void containsRequest(Packet packet, Transaction tx, Key key) {
     try {
       log.trace("execute contains, tx '{}', key '{}'", tx, key);
       boolean contains = contains(tx, key);
@@ -243,7 +243,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
-  private boolean contains(Transaction tx, String key) {
+  private boolean contains(Transaction tx, Key key) {
     if(tx!=null) {
       return tx.contains(key);
     } else {
@@ -252,8 +252,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
   }
 
   private void removeRequest(Packet packet) {
-    String key = packet.getStringBody().getStr();
-    if(Keys.isInternalKey(key)) {
+    Key key = new Key(packet.getByteBody().toByteArray());
+    if(key.isInternalKey()) {
       client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
     } else {
       int txId = packet.getTx();
@@ -268,7 +268,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
-  private void removeRequest(Packet packet, Transaction tx, String key) {
+  private void removeRequest(Packet packet, Transaction tx, Key key) {
     try {
       boolean removed = remove(tx, key);
       // race: if there was no outer transaction the step transaction must be committed before sending out the response
@@ -284,7 +284,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
-  private boolean remove(Transaction tx, String key) {
+  private boolean remove(Transaction tx, Key key) {
     if(tx!=null) {
       return tx.remove(key);
     } else {
@@ -293,8 +293,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
   }
 
   private void lockRequest(Packet packet) {
-    String key = packet.getStringBody().getStr();
-    if(Keys.isInternalKey(key)) {
+    Key key = new Key(packet.getByteBody().toByteArray());
+    if(key.isInternalKey()) {
       client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
     } else {
       int txId = packet.getTx();
@@ -309,7 +309,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
-  private void lockRequest(Packet packet, Transaction tx, String key) {
+  private void lockRequest(Packet packet, Transaction tx, Key key) {
     try {
       boolean locked = tx.lock(key);
       client.sendAsync(Packets.packet(PacketType.LOCK,

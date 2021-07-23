@@ -13,7 +13,9 @@
  */
 package kvd.server.storage.concurrent;
 
+import kvd.server.Key;
+
 interface LockStore {
-  void acquireWriteLock(LockTransaction tx, String key);
-  void acquireReadLock(LockTransaction tx, String key);
+  void acquireWriteLock(LockTransaction tx, Key key);
+  void acquireReadLock(LockTransaction tx, Key key);
 }
