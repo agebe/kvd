@@ -62,7 +62,7 @@ public class Key {
     } else {
       int max = 10;
       if(key.length > max) {
-        return BaseEncoding.base16().lowerCase().encode(key, 0, max);
+        return BaseEncoding.base16().lowerCase().encode(key, 0, max) + "...";
       } else {
         return BaseEncoding.base16().lowerCase().encode(key);
       }
