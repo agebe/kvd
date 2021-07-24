@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.client.KvdClient;
+import kvd.client.KvdTransaction;
 import kvd.common.KvdException;
 import kvd.server.Kvd;
 
@@ -379,6 +380,53 @@ public abstract class KvdTest {
       assertTrue(client.remove(key2));
       assertTrue(client.remove(key3));
     }
+  }
+
+  private void simpleKeyTest(String msg, byte[] key) {
+    log.info("{}", msg);
+    try(KvdClient client = client()) {
+      assertFalse(client.contains(key));
+      assertNull(client.getBytes(key));
+      assertFalse(client.remove(key));
+      client.putBytes(key, key);
+      assertTrue(client.contains(key));
+      assertArrayEquals(key, client.getBytes(key));
+      assertTrue(client.remove(key));
+      assertFalse(client.contains(key));
+    }
+  }
+
+  private void simpleKeyTestTx(String msg, byte[] key) {
+    try(KvdClient client = client()) {
+      try(KvdTransaction tx = client.beginTransaction()) {
+        assertFalse(tx.contains(key));
+        assertNull(tx.getBytes(key));
+        assertFalse(tx.remove(key));
+        tx.putBytes(key, key);
+        assertTrue(tx.contains(key));
+        assertArrayEquals(key, tx.getBytes(key));
+        assertTrue(tx.remove(key));
+        assertFalse(tx.contains(key));
+        tx.commit();
+      }
+      assertFalse(client.contains(key));
+    }
+  }
+
+  @Test
+  public void largeKeyTest() {
+    // 1KiB key
+    byte[] key = StringUtils.repeat("0123456789abcdef", 64).getBytes();
+    simpleKeyTest("largeKeyTest", key);
+    simpleKeyTestTx("largeKeyTestTx", key);
+  }
+
+  @Test
+  public void hugeKeyTest() {
+    // 1MiB key
+    byte[] key = StringUtils.repeat("0123456789abcdef", 64*1024).getBytes();
+    simpleKeyTest("hugeKeyTest", key);
+    simpleKeyTestTx("hugeKeyTestTx", key);
   }
 
 }

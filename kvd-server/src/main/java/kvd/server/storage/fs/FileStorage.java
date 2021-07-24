@@ -18,9 +18,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,12 +46,7 @@ class FileStorage {
   }
 
   InputStream get(String key) {
-    File f = new File(storage, key);
-    try {
-      return f.exists()?new BufferedInputStream(new FileInputStream(f)):null;
-    } catch(Exception e) {
-      throw new KvdException(String.format("failed to read '%s' from file store", key), e);
-    }
+    return getContent(key, new File(storage, key));
   }
 
   boolean contains(String key) {
@@ -66,6 +65,29 @@ class FileStorage {
       Files.move(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
     } catch (IOException e) {
       log.error("failed to move tx file to store, src '{}', dest '{}'", src.getAbsolutePath(), dest.getAbsolutePath());
+    }
+  }
+
+  // get the content only, remove the header if present
+  static InputStream getContent(String key, File f) {
+    try {
+      InputStream i = f.exists()?new BufferedInputStream(new FileInputStream(f)):null;
+      if(i == null) {
+        return null;
+      }
+      if(StringUtils.startsWith(key, "01")) {
+        // hashed file name contains a header that needs to be skipped here.
+        byte[] headerLength = new byte[4];
+        IOUtils.readFully(i, headerLength);
+        int length = ByteBuffer.wrap(headerLength).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        if(length <= 0) {
+          throw new KvdException(String.format("wrong header length '%s' on file '%s'", length, f.getAbsolutePath()));
+        }
+        IOUtils.skip(i, length);
+      }
+      return i;
+    } catch(Exception e) {
+      throw new KvdException(String.format("failed to read from file '%s'", f.getAbsolutePath()), e);
     }
   }
 

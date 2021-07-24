@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -34,10 +36,15 @@ import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
+
 import kvd.common.KvdException;
+import kvd.common.Utils;
 import kvd.server.Key;
 import kvd.server.storage.AbortableOutputStream;
 import kvd.server.storage.AbstractTransaction;
@@ -163,13 +170,22 @@ class FileTx extends AbstractTransaction {
     staging.clear();
   }
 
+  private String internalKey(byte[] key) {
+    Utils.checkKey(key);
+    if(key.length > 100) {
+      return "01" + Hashing.sha256().hashBytes(key).toString();
+    } else {
+      return "00" + BaseEncoding.base16().lowerCase().encode(key);
+    }
+  }
+
   @Override
   public AbortableOutputStream put(Key key) {
     checkClosed();
     String internalKey = null;
     wlock.lock();
     try {
-      internalKey = KeyUtils.internalKey(key.getKey());
+      internalKey = internalKey(key.getKey());
       String stageId = UUID.randomUUID().toString();
       File file = new File(fTxStage, stageId);
       AbortableOutputStream out = new AbortableOutputStream(
@@ -177,6 +193,14 @@ class FileTx extends AbstractTransaction {
           stageId,
           this::putCommit,
           this::putRollback);
+      if(StringUtils.startsWith(internalKey, "01")) {
+        // we have a hashed key, store the original key inside the file so it can be later recovered
+        byte[] lengthHeader = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(key.getKey().length+1).array();
+        out.write(lengthHeader);
+        // version
+        out.write(1);
+        out.write(key.getKey());
+      }
       Staging staging = new Staging(internalKey, file, out);
       this.staging.put(stageId, staging);
       log.debug("starting put, key '{}', tx '{}'", internalKey, stageId);
@@ -231,10 +255,10 @@ class FileTx extends AbstractTransaction {
     String internalKey = null;
     rlock.lock();
     try {
-      internalKey = KeyUtils.internalKey(key.getKey());
+      internalKey = internalKey(key.getKey());
       File f = new File(fTxStore, internalKey);
       if(f.exists()) {
-        return new BufferedInputStream(new FileInputStream(f));
+        return FileStorage.getContent(internalKey, f);
       } else {
         return store.get(internalKey);
       }
@@ -250,7 +274,7 @@ class FileTx extends AbstractTransaction {
     checkClosed();
     rlock.lock();
     try {
-      String internalKey = KeyUtils.internalKey(key.getKey());
+      String internalKey = internalKey(key.getKey());
       File f = new File(fTxStore, internalKey);
       if(f.exists()) {
         return true;
@@ -271,7 +295,7 @@ class FileTx extends AbstractTransaction {
     try {
       boolean contains = contains(key);
       if(contains) {
-        String internalKey = KeyUtils.internalKey(key.getKey());
+        String internalKey = internalKey(key.getKey());
         File f = new File(fTxStore, internalKey);
         if(f.exists()) {
           f.delete();
