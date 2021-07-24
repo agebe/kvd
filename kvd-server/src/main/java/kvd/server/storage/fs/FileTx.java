@@ -185,7 +185,7 @@ class FileTx extends AbstractTransaction {
     String internalKey = null;
     wlock.lock();
     try {
-      internalKey = internalKey(key.getKey());
+      internalKey = internalKey(key.getBytes());
       String stageId = UUID.randomUUID().toString();
       File file = new File(fTxStage, stageId);
       AbortableOutputStream out = new AbortableOutputStream(
@@ -195,11 +195,11 @@ class FileTx extends AbstractTransaction {
           this::putRollback);
       if(StringUtils.startsWith(internalKey, "01")) {
         // we have a hashed key, store the original key inside the file so it can be later recovered
-        byte[] lengthHeader = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(key.getKey().length+1).array();
+        byte[] lengthHeader = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(key.getBytes().length+1).array();
         out.write(lengthHeader);
         // version
         out.write(1);
-        out.write(key.getKey());
+        out.write(key.getBytes());
       }
       Staging staging = new Staging(internalKey, file, out);
       this.staging.put(stageId, staging);
@@ -255,7 +255,7 @@ class FileTx extends AbstractTransaction {
     String internalKey = null;
     rlock.lock();
     try {
-      internalKey = internalKey(key.getKey());
+      internalKey = internalKey(key.getBytes());
       File f = new File(fTxStore, internalKey);
       if(f.exists()) {
         return FileStorage.getContent(internalKey, f);
@@ -274,7 +274,7 @@ class FileTx extends AbstractTransaction {
     checkClosed();
     rlock.lock();
     try {
-      String internalKey = internalKey(key.getKey());
+      String internalKey = internalKey(key.getBytes());
       File f = new File(fTxStore, internalKey);
       if(f.exists()) {
         return true;
@@ -295,7 +295,7 @@ class FileTx extends AbstractTransaction {
     try {
       boolean contains = contains(key);
       if(contains) {
-        String internalKey = internalKey(key.getKey());
+        String internalKey = internalKey(key.getBytes());
         File f = new File(fTxStore, internalKey);
         if(f.exists()) {
           f.delete();

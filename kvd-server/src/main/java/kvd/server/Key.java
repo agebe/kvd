@@ -51,7 +51,7 @@ public class Key {
     return true;
   }
 
-  public byte[] getKey() {
+  public byte[] getBytes() {
     return key;
   }
 

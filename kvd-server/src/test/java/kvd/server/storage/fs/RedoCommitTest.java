@@ -47,7 +47,7 @@ public class RedoCommitTest {
         assertFalse(t.contains(key1));
         assertFalse(t.contains(key2));
         assertFalse(t.contains(key3));
-        t.putBytes(key1, key1.getKey());
+        t.putBytes(key1, key1.getBytes());
         t.commit();
       }
     }
@@ -62,8 +62,8 @@ public class RedoCommitTest {
       assertFalse(t2.contains(key2));
       assertFalse(t2.contains(key3));
       t1.remove(key1);
-      t1.putBytes(key2, key2.getKey());
-      t2.putBytes(key3, key3.getKey());
+      t1.putBytes(key2, key2.getBytes());
+      t2.putBytes(key3, key3.getBytes());
       assertFalse(t1.contains(key1));
       assertTrue(t1.contains(key2));
       assertFalse(t1.contains(key3));
