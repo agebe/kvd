@@ -42,7 +42,7 @@ $ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPT
 * Clone kvd from this repository
 * Make sure you have jdk 11+ installed.
 * Install recent version of [gradle](https://gradle.org/releases/)
-* Install [protoc](https://github.com/protocolbuffers/protobuf/releases/download/v3.15.7/protoc-3.15.7-linux-x86_64.zip) and make sure the protoc binary is on your $PATH
+* Install [protoc](https://github.com/protocolbuffers/protobuf/releases/) and make sure the protoc binary is on your $PATH
 * Change dir into ./kvd-server and execute:
 ```bash
 $ gradle run
