@@ -94,8 +94,7 @@ public class Kvd {
 
   private StorageBackend createDefaultDb(KvdOptions options) throws IOException {
     File dbDir = new File(options.datadir, "db");
-    // FIXME replace unsafe chars from defaultDbName (filename)
-    File defaultDb = new File(dbDir, options.defaultDbName);
+    File defaultDb = new File(dbDir, FNameUtils.stringToFilename(options.defaultDbName));
     FileUtils.forceMkdir(defaultDb);
     if(DbType.FILE.equals(options.defaultDbType)) {
       log.info("default db using file storage");
