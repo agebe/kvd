@@ -14,9 +14,11 @@
 package kvd.server;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.jar.Manifest;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +51,11 @@ public class Kvd {
     @Parameter(names="--port", description="port to listen on")
     public int port = 3030;
 
-    @Parameter(names="--storage", description="kvd storage backend, file:<directory> or mem:")
-    public String storage = "file:" + new File(Utils.getUserHome().getAbsolutePath(), ".kvd").getAbsolutePath();
+    @Parameter(names="--datadir", description="path to data directory")
+    public File datadir = new File(Utils.getUserHome().getAbsolutePath(), ".kvd");
+
+    @Parameter(names="--default-db-name", description="name of the default database")
+    public String defaultDbName = "default";
 
     @Parameter(names="--max-clients", description="maximum number of clients that can connect to the server at the same time")
     public int maxClients = 100;
@@ -58,9 +63,12 @@ public class Kvd {
     @Parameter(names="--log-level", description="logback log level (trace, debug, info, warn, error, all, off)")
     public String logLevel = "info";
 
-    @Parameter(names= {"--concurrency-control", "-cc"}, description="concurrency control: none,"
-        + " optimistic (OPTW or OPTRW), pessimistic (PESW or PESRW)")
+    @Parameter(names= {"--concurrency-control", "-cc"}, description="default concurrency control, options: NONE"
+        + " optimistic (non-blocking, OPTW or OPTRW), pessimistic (blocking, PESW or PESRW)")
     public ConcurrencyControl concurrency = ConcurrencyControl.NONE;
+
+    @Parameter(names="--default-db-type", description="type of database if nothing else is specified, FILE or MEM")
+    public DbType defaultDbType = DbType.FILE;
 
   }
 
@@ -84,16 +92,19 @@ public class Kvd {
     }
   }
 
-  private StorageBackend createStorageBackend(KvdOptions options) {
-    if(StringUtils.startsWith(options.storage, "file:")) {
-      String directory = StringUtils.removeStart(options.storage, "file:");
-      log.info("using file storage backend at directory '{}'", directory);
-      return new FileStorageBackend(new File(directory));
-    } else if(StringUtils.startsWith(options.storage, "mem:")) {
-      log.info("using mem storage backend");
+  private StorageBackend createDefaultDb(KvdOptions options) throws IOException {
+    File dbDir = new File(options.datadir, "db");
+    // FIXME replace unsafe chars from defaultDbName (filename)
+    File defaultDb = new File(dbDir, options.defaultDbName);
+    FileUtils.forceMkdir(defaultDb);
+    if(DbType.FILE.equals(options.defaultDbType)) {
+      log.info("default db using file storage");
+      return new FileStorageBackend(defaultDb);
+    } else if(DbType.MEM.equals(options.defaultDbType)) {
+      log.info("default db using mem storage");
       return new MemStorageBackend();
     } else {
-      throw new KvdException("unknown storage backend: "+ options.storage);
+      throw new KvdException("invalid default db type " + options.defaultDbType);
     }
   }
 
@@ -108,15 +119,41 @@ public class Kvd {
         maxMemString);
   }
 
-  public void run(KvdOptions options) {
+  private void setupDataDir(KvdOptions options) {
+    File f = options.datadir;
+    if(f == null) {
+      throw new KvdException("datadir is null");
+    }
+    if(!f.exists()) {
+      f.mkdirs();
+    }
+    if(!f.exists()) {
+      throw new KvdException("failed to create datadir");
+    }
+    File rwTest = new File(f, "rwtest");
+    try {
+      FileUtils.writeStringToFile(rwTest, "test", "UTF8");
+      if(!"test".equals(FileUtils.readFileToString(rwTest, "UTF8"))) {
+        throw new KvdException(String.format("failed datadir '%s' read/write test", f.getAbsolutePath()));
+      }
+    } catch(Exception e) {
+      throw new KvdException(String.format("failed datadir '%s' read/write test", f.getAbsolutePath(), e));
+    } finally {
+      FileUtils.deleteQuietly(rwTest);
+    }
+    log.info("setup data directory at '{}'", f.getAbsolutePath());
+  }
+
+  public void run(KvdOptions options) throws IOException {
     setLogLevel("kvd", options.logLevel);
     Version version = getVersion();
     if(version != null) {
       log.info("{}", version.version());
     }
     logJvmInfo();
+    setupDataDir(options);
     handler = new SocketConnectHandler(options.maxClients,
-        setupConcurrencyControl(options, createStorageBackend(options)));
+        setupConcurrencyControl(options, createDefaultDb(options)));
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);
@@ -149,7 +186,7 @@ public class Kvd {
     return null;
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     KvdOptions options = new KvdOptions();
     JCommander jcommander = JCommander.newBuilder().addObject(options).build();
     jcommander.setProgramName("kvd");

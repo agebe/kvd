@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import kvd.server.ConcurrencyControl;
+import kvd.server.DbType;
 import kvd.server.Kvd;
 
 public class TestUtils {
@@ -39,7 +40,8 @@ public class TestUtils {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
     Path tempDirWithPrefix = Files.createTempDirectory("kvd");
     options.port = 0;
-    options.storage = "file:"+tempDirWithPrefix.toFile().getAbsolutePath();
+    options.datadir = tempDirWithPrefix.toFile();
+    options.defaultDbType = DbType.FILE;
     options.logLevel = "warn";
     Kvd server = new Kvd();
     server.run(options);
@@ -51,14 +53,20 @@ public class TestUtils {
   }
 
   public static Kvd startMemServer(String loglevel, ConcurrencyControl cc) {
-    Kvd.KvdOptions options = new Kvd.KvdOptions();
-    options.port = 0;
-    options.storage = "mem:";
-    options.logLevel = loglevel;
-    options.concurrency = cc;
-    Kvd server = new Kvd();
-    server.run(options);
-    return server;
+    try {
+      Kvd.KvdOptions options = new Kvd.KvdOptions();
+      Path tempDirWithPrefix = Files.createTempDirectory("kvd");
+      options.port = 0;
+      options.datadir = tempDirWithPrefix.toFile();
+      options.defaultDbType = DbType.MEM;
+      options.logLevel = loglevel;
+      options.concurrency = cc;
+      Kvd server = new Kvd();
+      server.run(options);
+      return server;
+    } catch(IOException e) {
+      throw new RuntimeException("failed to start kvd server", e);
+    }
   }
 
 }
