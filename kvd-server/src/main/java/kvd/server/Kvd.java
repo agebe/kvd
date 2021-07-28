@@ -70,6 +70,11 @@ public class Kvd {
     @Parameter(names="--default-db-type", description="type of database if nothing else is specified, FILE or MEM")
     public DbType defaultDbType = DbType.FILE;
 
+    @Parameter(names="--socket-so-timeout", description="server socket so timeout in milliseconds")
+    public int soTimeoutMs = 1000;
+
+    @Parameter(names="--client-timeout", description="client timeout in seconds")
+    public int clientTimeoutSeconds = 10;
   }
 
   private SimpleSocketServer socketServer;
@@ -152,6 +157,8 @@ public class Kvd {
     logJvmInfo();
     setupDataDir(options);
     handler = new SocketConnectHandler(options.maxClients,
+        options.soTimeoutMs,
+        options.clientTimeoutSeconds,
         setupConcurrencyControl(options, createDefaultDb(options)));
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();

@@ -36,14 +36,23 @@ public class SocketConnectHandler implements Consumer<Socket> {
 
   private int maxClients;
 
+  private int socketSoTimeoutMs;
+
+  private int clientTimeoutSeconds;
+
   private StorageBackend storage;
 
-  public SocketConnectHandler(int maxClients, StorageBackend storage) {
+  public SocketConnectHandler(int maxClients,
+      int socketSoTimeoutMs,
+      int clientTimeoutSeconds,
+      StorageBackend storage) {
     super();
     if(maxClients <= 0) {
       throw new KvdException("invalid max clients " + maxClients);
     }
     this.maxClients = maxClients;
+    this.socketSoTimeoutMs = socketSoTimeoutMs;
+    this.clientTimeoutSeconds = clientTimeoutSeconds;
     this.storage = storage;
   }
 
@@ -52,7 +61,11 @@ public class SocketConnectHandler implements Consumer<Socket> {
     try {
       if(clients.size() < maxClients) {
         long clientId = clientIdCounter.getAndIncrement();
-        final ClientHandler client = new ClientHandler(clientId, socket, storage);
+        final ClientHandler client = new ClientHandler(clientId,
+            socketSoTimeoutMs,
+            clientTimeoutSeconds,
+            socket,
+            storage);
         clients.add(client);
         Thread t = new Thread(() -> {
           try {

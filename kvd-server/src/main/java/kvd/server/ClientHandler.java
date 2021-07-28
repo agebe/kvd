@@ -48,6 +48,10 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private long clientId;
 
+  private int socketSoTimeoutMs;
+
+  private int clientTimeoutSeconds;
+
   private Socket socket;
 
   private InputStream in;
@@ -88,8 +92,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private Map<Integer, ScheduledFuture<?>> txTimeouts = new HashMap<>();
 
-  public ClientHandler(long clientId, Socket socket, StorageBackend storage) {
+  public ClientHandler(long clientId,
+      int socketSoTimeoutMs,
+      int clientTimeoutSeconds,
+      Socket socket,
+      StorageBackend storage) {
     this.clientId = clientId;
+    this.socketSoTimeoutMs = socketSoTimeoutMs;
+    this.clientTimeoutSeconds = clientTimeoutSeconds;
     this.socket = socket;
     this.storage = storage;
   }
@@ -106,8 +116,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   public void run() {
     try {
-      // block on socket read for 1 sec only
-      socket.setSoTimeout(1000);
+      socket.setSoTimeout(socketSoTimeoutMs);
       log.info("client connect, id '{}'", clientId);
       in = socket.getInputStream();
       setupResponseHandler(socket.getOutputStream());
@@ -122,7 +131,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
             log.trace("received packet " + packet.getType());
             handlePacket(packet);
           } else {
-            if(Utils.isTimeout(lastReceiveNs, 10)) {
+            if(Utils.isTimeout(lastReceiveNs, clientTimeoutSeconds)) {
               log.info("client '{}' timeout", clientId);
               break;
             }
