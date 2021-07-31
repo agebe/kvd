@@ -145,6 +145,11 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
+  public void removeAll() {
+    backendTx.removeAll();
+  }
+
+  @Override
   public String toString() {
     return "tx:"+handle();
   }

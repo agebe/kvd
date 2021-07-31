@@ -86,6 +86,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
       .put(PacketType.TX_COMMIT, this::txCommit)
       .put(PacketType.TX_ROLLBACK, this::txRollback)
       .put(PacketType.LOCK, this::lockRequest)
+      .put(PacketType.REMOVEALL_REQUEST, this::removeAllRequest)
       .build();
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -330,6 +331,26 @@ public class ClientHandler implements Runnable, AutoCloseable {
         log.warn("remove failed", e);
       }
       client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
+    }
+  }
+
+  private void removeAllRequest(Packet packet) {
+    log.debug("remove all req");
+    pool.execute(() -> removeAll(packet));
+  }
+
+  private void removeAll(Packet packet) {
+    log.debug("remove all");
+    // TODO abort all transactions
+    try {
+      storage.withTransactionVoid(tx -> {
+        tx.removeAll();
+        boolean removed = true;
+        client.sendAsync(Packets.packet(PacketType.REMOVE_RESPONSE,
+            packet.getChannel(), new byte[] {(removed?(byte)1:(byte)0)}));
+      });
+    } catch(Exception e) {
+      client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
     }
   }
 

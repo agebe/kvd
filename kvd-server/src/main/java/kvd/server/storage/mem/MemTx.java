@@ -180,4 +180,9 @@ class MemTx extends AbstractTransaction {
     }
   }
 
+  @Override
+  public void removeAll() {
+    store.removeAll();
+  }
+
 }

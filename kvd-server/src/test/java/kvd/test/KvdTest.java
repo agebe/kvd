@@ -429,4 +429,17 @@ public abstract class KvdTest {
     simpleKeyTestTx("hugeKeyTestTx", key);
   }
 
+  @Test
+  public void removeAllTest() {
+    log.info("removeAllTest");
+    try(KvdClient client = client()) {
+      String key = "removeAllTest";
+      assertFalse(client.contains(key));
+      client.putString(key, key);
+      assertTrue(client.contains(key));
+      assertTrue(client.removeAll());
+      assertFalse(client.contains(key));
+    }
+  }
+
 }

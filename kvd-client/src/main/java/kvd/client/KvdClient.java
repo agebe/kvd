@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -275,6 +276,30 @@ public class KvdClient implements KvdOperations, AutoCloseable {
    */
   public long getTransactionDefaultTimeoutMs() {
     return transactionDefaultTimeoutMs;
+  }
+
+  /**
+   * Removes all keys and values from the database.
+   * @return {@code Future} which evaluates to {@code true} if when all key/values have been removed from the server,
+   *         {@code false} otherwise.
+   */
+  public Future<Boolean> removeAllAsync() {
+    checkClosed();
+    KvdRemoveAll removeAll = new KvdRemoveAll(backend, this::removeAbortable);
+    abortables.add(removeAll);
+    removeAll.start();
+    return removeAll.getFuture();
+  }
+
+  /**
+   * Remove all keys and values from the database.
+   */
+  public Boolean removeAll() {
+    try {
+      return removeAllAsync().get();
+    } catch(Exception e) {
+      throw new KvdException("failed to remove all key/values", e);
+    }
   }
 
 }

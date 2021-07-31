@@ -20,8 +20,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -88,6 +93,29 @@ class FileStorage {
       return i;
     } catch(Exception e) {
       throw new KvdException(String.format("failed to read from file '%s'", f.getAbsolutePath()), e);
+    }
+  }
+
+  void removeAll() {
+    try {
+      // from https://stackoverflow.com/a/27917071
+      Files.walkFileTree(storage.toPath(), new SimpleFileVisitor<Path>() {
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+          Files.delete(file);
+          return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+          if(!dir.equals(storage.toPath())) {
+            Files.delete(dir);
+          }
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } catch(IOException e) {
+      throw new KvdException("failed to remove all" , e);
     }
   }
 

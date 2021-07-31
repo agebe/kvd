@@ -34,6 +34,7 @@ enum PacketType {
   INVALID_REQUEST = 25;
   LOCK = 26;
   ABORT = 27;
+  REMOVEALL_REQUEST = 28;
 }
 
 message PutInitBody {

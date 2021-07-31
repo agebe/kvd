@@ -307,4 +307,9 @@ class FileTx extends AbstractTransaction {
       wlock.unlock();
     }
   }
+
+  @Override
+  public void removeAll() {
+    store.removeAll();
+  }
 }

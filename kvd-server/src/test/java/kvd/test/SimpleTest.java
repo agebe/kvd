@@ -16,6 +16,8 @@ public class SimpleTest {
       client.putString(largeKey, val);
       assertEquals(val, client.getString(largeKey));
       System.out.println(client.getString("simple"));
+      client.removeAll();
+      client.putString("foo", "bar");
     }
   }
 }

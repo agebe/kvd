@@ -70,4 +70,8 @@ class MemStorage {
     }
   }
 
+  void removeAll() {
+    store.clear();
+  }
+
 }
