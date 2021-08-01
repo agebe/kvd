@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
+import kvd.server.storage.trash.Trash;
 
 public class FileStorageBackend implements StorageBackend {
 
@@ -42,7 +43,7 @@ public class FileStorageBackend implements StorageBackend {
 
   private AtomicInteger txHandles = new AtomicInteger(1);
 
-  public FileStorageBackend(File base) {
+  public FileStorageBackend(File base, Trash trash) {
     super();
     this.base = base;
     this.storage = new File(base, "store");
@@ -50,7 +51,7 @@ public class FileStorageBackend implements StorageBackend {
     FileUtils.createDirIfMissing(base);
     FileUtils.createDirIfMissing(storage);
     FileUtils.createDirIfMissing(txBase);
-    store = new FileStorage(storage);
+    store = new FileStorage(storage, trash);
     start();
   }
 

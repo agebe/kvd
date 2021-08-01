@@ -20,13 +20,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.BasicFileAttributes;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -34,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
+import kvd.server.storage.trash.Trash;
 
 class FileStorage {
 
@@ -41,9 +37,12 @@ class FileStorage {
 
   private File storage;
 
-  public FileStorage(File storage) {
+  private Trash trash;
+
+  public FileStorage(File storage, Trash trash) {
     super();
     this.storage = storage;
+    this.trash = trash;
   }
 
   synchronized void commit(FileTx tx) {
@@ -61,7 +60,7 @@ class FileStorage {
 
   void remove(String key) {
     File f = new File(storage, key);
-    f.delete();
+    trash.remove(f);
   }
 
   void moveToStore(String key, File src) {
@@ -97,26 +96,8 @@ class FileStorage {
   }
 
   void removeAll() {
-    try {
-      // from https://stackoverflow.com/a/27917071
-      Files.walkFileTree(storage.toPath(), new SimpleFileVisitor<Path>() {
-        @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-          Files.delete(file);
-          return FileVisitResult.CONTINUE;
-        }
-
-        @Override
-        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-          if(!dir.equals(storage.toPath())) {
-            Files.delete(dir);
-          }
-          return FileVisitResult.CONTINUE;
-        }
-      });
-    } catch(IOException e) {
-      throw new KvdException("failed to remove all" , e);
-    }
+    trash.remove(storage);
+    FileUtils.createDirIfMissing(storage);
   }
 
 }

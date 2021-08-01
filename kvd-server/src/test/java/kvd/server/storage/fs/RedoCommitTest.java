@@ -27,6 +27,7 @@ import kvd.common.KvdException;
 import kvd.server.Key;
 import kvd.server.Kvd;
 import kvd.server.storage.Transaction;
+import kvd.server.storage.trash.SimpleTrash;
 
 public class RedoCommitTest {
 
@@ -42,7 +43,7 @@ public class RedoCommitTest {
     Key key3 = Key.of("key3");
     File fStore = Files.createTempDirectory("kvdfile").toFile();
     {
-      FileStorageBackend storage = new FileStorageBackend(fStore);
+      FileStorageBackend storage = new FileStorageBackend(fStore, new SimpleTrash());
       try(Transaction t = storage.begin()) {
         assertFalse(t.contains(key1));
         assertFalse(t.contains(key2));
@@ -52,7 +53,7 @@ public class RedoCommitTest {
       }
     }
     {
-      FileStorageBackend storage = new FileStorageBackend(fStore);
+      FileStorageBackend storage = new FileStorageBackend(fStore, new SimpleTrash());
       Transaction t1 = storage.begin();
       Transaction t2 = storage.begin();
       assertTrue(t1.contains(key1));
@@ -78,7 +79,7 @@ public class RedoCommitTest {
       assertFalse(new File(fStore, "transactions/2/"+FileTx.REMOVE).exists());
     }
     {
-      FileStorageBackend storage = new FileStorageBackend(fStore);
+      FileStorageBackend storage = new FileStorageBackend(fStore, new SimpleTrash());
       try(Transaction t = storage.begin()) {
         assertFalse(t.contains(key1));
         assertTrue(t.contains(key2));

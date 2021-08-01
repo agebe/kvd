@@ -38,6 +38,7 @@ import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.fs.FileStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
+import kvd.server.storage.trash.AsyncTrash;
 
 public class Kvd {
 
@@ -100,10 +101,12 @@ public class Kvd {
   private StorageBackend createDefaultDb(KvdOptions options) throws IOException {
     File dbDir = new File(options.datadir, "db");
     File defaultDb = new File(dbDir, FNameUtils.stringToFilename(options.defaultDbName));
+    File trashDir = new File(options.datadir, "trash");
     FileUtils.forceMkdir(defaultDb);
+    FileUtils.forceMkdir(trashDir);
     if(DbType.FILE.equals(options.defaultDbType)) {
       log.info("default db using file storage");
-      return new FileStorageBackend(defaultDb);
+      return new FileStorageBackend(defaultDb, new AsyncTrash(trashDir));
     } else if(DbType.MEM.equals(options.defaultDbType)) {
       log.info("default db using mem storage");
       return new MemStorageBackend();
