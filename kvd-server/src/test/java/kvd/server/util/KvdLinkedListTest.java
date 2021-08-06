@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import com.google.common.collect.ImmutableList;
 
 import kvd.common.Utils;
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 
@@ -50,7 +51,7 @@ public class KvdLinkedListTest {
   @BeforeAll
   public static void setup() throws Exception {
 //    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-//    storage = new FileStorage(tempDirWithPrefix.toFile());
+//    storage = new FileStorageBackend(tempDirWithPrefix.toFile(), new SimpleTrash());
     storage = new MemStorageBackend();
   }
 
@@ -234,6 +235,16 @@ public class KvdLinkedListTest {
       assertTrue(l.isEmpty());
       assertArrayEquals(new String[] {}, l.toArray(new String[0]));
     }
+    l.clear();
+    assertEquals(0, l.size());
+    assertTrue(l.isEmpty());
+    l.add("0");
+    l.add("1");
+    assertEquals(2, l.size());
+    assertFalse(l.isEmpty());
+    l.clear();
+    assertEquals(0, l.size());
+    assertTrue(l.isEmpty());
   }
 
   @Test
@@ -348,7 +359,7 @@ public class KvdLinkedListTest {
         "lookup1",
         Utils::toUTF8,
         Utils::fromUTF8,
-        s -> StringUtils.substring(s, 0, 1));
+        s -> Key.of(StringUtils.substring(s, 0, 1)));
     assertTrue(l.isEmpty());
     assertEquals(0, l.size());
     l.add("00");
@@ -358,12 +369,12 @@ public class KvdLinkedListTest {
     l.add("33");
     assertFalse(l.isEmpty());
     assertEquals(4, l.size());
-    assertEquals("11", l.lookup("1"));
-    assertNull(l.lookup("does not exist"));
-    assertEquals("22", l.lookupRemove("2"));
+    assertEquals("11", l.lookup(Key.of("1")));
+    assertNull(l.lookup(Key.of("does not exist")));
+    assertEquals("22", l.lookupRemove(Key.of("2")));
     assertArrayEquals(new String[] {"00", "11", "33"}, l.toArray(new String[0]));
-    assertEquals("00", l.lookupRemove("0"));
-    assertEquals("33", l.lookupRemove("3"));
+    assertEquals("00", l.lookupRemove(Key.of("0")));
+    assertEquals("33", l.lookupRemove(Key.of("3")));
     assertArrayEquals(new String[] {"11"}, l.toArray(new String[0]));
   }
 

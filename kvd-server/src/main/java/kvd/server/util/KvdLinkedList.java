@@ -21,11 +21,11 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Queue;
-import java.util.UUID;
 import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 
 /**
@@ -44,7 +44,7 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
 
   private Function<byte[], E> deserializer;
 
-  private Function<E, String> keyFunction;
+  private Function<E, Key> keyFunction;
 
   public KvdLinkedList(StorageBackend storage,
       String name,
@@ -54,14 +54,14 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
         name,
         serializer,
         deserializer,
-        element -> StringUtils.replaceChars(StringUtils.lowerCase(UUID.randomUUID().toString()), '-', '_'));
+        new RandomKeyFunction<>());
   }
 
   public KvdLinkedList(StorageBackend storage,
       String name,
       Function<E, byte[]> serializer,
       Function<byte[], E> deserializer,
-      Function<E, String> keyFunction) {
+      Function<E, Key> keyFunction) {
     super();
     if(storage == null) {
       throw new NullPointerException("storage is null");
@@ -287,11 +287,11 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
     };
   }
 
-  public E lookup(String key) {
+  public E lookup(Key key) {
     return listIterator(0l).lookup(key);
   }
 
-  public E lookupRemove(String key) {
+  public E lookupRemove(Key key) {
     return listIterator(0l).lookupRemove(key);
   }
 

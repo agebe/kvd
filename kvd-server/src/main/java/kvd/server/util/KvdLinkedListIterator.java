@@ -20,10 +20,9 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 
-import org.apache.commons.lang3.StringUtils;
+import com.google.common.primitives.Longs;
 
 import kvd.common.KvdException;
-import kvd.common.Utils;
 import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
@@ -38,7 +37,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
 
   private Function<byte[], E> deserializer;
 
-  private Function<E, String> keyFunction;
+  private Function<E, Key> keyFunction;
 
   private long index;
 
@@ -54,7 +53,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
       String name,
       Function<E, byte[]> serializer,
       Function<byte[], E> deserializer,
-      Function<E, String> keyFunction,
+      Function<E, Key> keyFunction,
       long index) {
     super();
     this.storage = storage;
@@ -150,13 +149,13 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
       throw new NullPointerException("null element not supported");
     }
     byte[] b = serializer.apply(e);
-    String nodeKey = newNodeKey(e);
+    Key nodeKey = newNodeKey(e);
     storage.withTransactionVoid(tx -> {
-      if(tx.contains(Key.of(nodeKey))) {
+      if(tx.contains(nodeKey)) {
         throw new DuplicateKeyException(String.format("key '%s' already in store", nodeKey));
       }
       if(isEmpty()) {
-        ListNode node = new ListNode(nodeKey, "", "", b);
+        ListNode node = new ListNode(nodeKey, null, null, b);
         putNode(tx, nodeKey, node);
         setFirstPointer(tx, nodeKey);
         setLastPointer(tx, nodeKey);
@@ -171,19 +170,19 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
         prev = node;
       } else if(next != null) {
         // add to front
-        String first = getFirstPointer(tx);
+        Key first = getFirstPointer(tx);
         next.setPrev(nodeKey);
         putNode(tx, first, next);
         setFirstPointer(tx, nodeKey);
-        ListNode node = new ListNode(nodeKey, "", first, b);
+        ListNode node = new ListNode(nodeKey, null, first, b);
         putNode(tx, nodeKey, node);
       } else if(prev != null) {
         // add to end
-        String last = getLastPointer(tx);
+        Key last = getLastPointer(tx);
         prev.setNext(nodeKey);
         putNode(tx, last, prev);
         setLastPointer(tx, nodeKey);
-        ListNode node = new ListNode(nodeKey, last, "", b);
+        ListNode node = new ListNode(nodeKey, last, null, b);
         putNode(tx, nodeKey, node);
       } else {
         throw new KvdException("unexpected case");
@@ -194,16 +193,16 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     });
   }
 
-  public E lookup(String key) {
-    String nodeKey = makeKey(key);
+  public E lookup(Key key) {
+    Key nodeKey = newNodeKey(key);
     return storage.withTransaction(tx -> {
       ListNode node = getNode(tx, nodeKey);
       return node!=null?deserializer.apply(node.getData()):null;
     });
   }
 
-  public E lookupRemove(String key) {
-    String nodeKey = makeKey(key);
+  public E lookupRemove(Key key) {
+    Key nodeKey = newNodeKey(key);
     return storage.withTransaction(tx -> {
       ListNode node = getNode(tx, nodeKey);
       if(node != null) {
@@ -217,35 +216,35 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     });
   }
 
-  private String listKey() {
-    return "__kvd_list_" + name;
+  private Key listKey() {
+    return Key.of("__kvd_list_" + name);
   }
 
-  private String makeKey(String key) {
-    return listKey() + "_" + key;
-  }
-
-  private String firstKey() {
+  private Key firstKey() {
     return listKey();
   }
 
-  private String lastKey() {
-    return makeKey("last");
+  private Key lastKey() {
+    return Key.of(listKey(), Key.of("_last"));
   }
 
-  private String sizeKey() {
-    return makeKey("size");
+  private Key sizeKey() {
+    return Key.of(listKey(), Key.of("_size"));
   }
 
-  private String newNodeKey(E element) {
-    return makeKey(keyFunction.apply(element));
+  private Key newNodeKey(Key elementKey) {
+    return Key.of(Key.of(listKey(), Key.of("_node_")), elementKey);
   }
 
-  private ListNode getNode(Transaction tx, String key) {
-    if(StringUtils.isBlank(key)) {
+  private Key newNodeKey(E element) {
+    return newNodeKey(keyFunction.apply(element));
+  }
+
+  private ListNode getNode(Transaction tx, Key key) {
+    if(key == null) {
       return null;
     } else {
-      try(InputStream in = tx.get(Key.of(key))) {
+      try(InputStream in = tx.get(key)) {
         return in!=null?ListNode.deserialize(in):null;
       } catch(IOException e) {
         throw new KvdException(String.format("list get node failed for '%s'", key), e);
@@ -253,44 +252,44 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     }
   }
 
-  private void putNode(Transaction tx, String key, ListNode node) {
-    try(OutputStream out = tx.put(Key.of(key))) {
+  private void putNode(Transaction tx, Key key, ListNode node) {
+    try(OutputStream out = tx.put(key)) {
       node.serialize(out);
     } catch(IOException e) {
       throw new KvdException(String.format("list put node failed for '%s'", key), e);
     }
   }
 
-  private void removeNode(Transaction tx, String key) {
-    tx.remove(Key.of(key));
+  private void removeNode(Transaction tx, Key key) {
+    tx.remove(key);
   }
 
-  private void setListPointer(Transaction tx, String key, String value) {
-    if(StringUtils.isBlank(value)) {
-      tx.remove(Key.of(key));
+  private void setListPointer(Transaction tx, Key key, Key value) {
+    if(value == null) {
+      tx.remove(key);
     } else {
-      tx.putBytes(Key.of(key), Utils.toUTF8(value));
+      tx.putBytes(key, value.getBytes());
     }
   }
 
-  private void setFirstPointer(Transaction tx, String nodeKey) {
+  private void setFirstPointer(Transaction tx, Key nodeKey) {
     setListPointer(tx, firstKey(), nodeKey);
   }
 
-  private void setLastPointer(Transaction tx, String nodeKey) {
+  private void setLastPointer(Transaction tx, Key nodeKey) {
     setListPointer(tx, lastKey(), nodeKey);
   }
 
-  private String getListPointer(Transaction tx, String key) {
-    byte[] b = tx.getBytes(Key.of(key));
-    return b!=null?Utils.fromUTF8(b):null;
+  private Key getListPointer(Transaction tx, Key key) {
+    byte[] b = tx.getBytes(key);
+    return b!=null?new Key(b):null;
   }
 
-  private String getFirstPointer(Transaction tx) {
+  private Key getFirstPointer(Transaction tx) {
     return getListPointer(tx, firstKey());
   }
 
-  private String getLastPointer(Transaction tx) {
+  private Key getLastPointer(Transaction tx) {
     return getListPointer(tx, lastKey());
   }
 
@@ -348,24 +347,33 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     }
   }
 
+  private void putSize(Transaction tx, long size) {
+    tx.putBytes(sizeKey(), Longs.toByteArray(size));
+  }
+
+  private Long getSize(Transaction tx) {
+    byte[] b = tx.getBytes(sizeKey());
+    return b!=null?Longs.fromByteArray(b):null;
+  }
+
   private void initSize(Transaction tx) {
-    String s = getListPointer(tx, sizeKey());
-    if(StringUtils.isBlank(s)) {
+    Long l = getSize(tx);
+    if(l == null) {
       size = 0;
-      setListPointer(tx, sizeKey(), Long.toString(size));
+      putSize(tx, size);
     } else {
-      size = Long.parseLong(s);
+      size = l;
     }
   }
 
   private void incSize(Transaction tx) {
     size++;
-    setListPointer(tx, sizeKey(), Long.toString(size));
+    putSize(tx, size);
   }
 
   private void decSize(Transaction tx) {
     size--;
-    setListPointer(tx, sizeKey(), Long.toString(size));
+    putSize(tx, size);
   }
 
   private boolean isEmpty() {
@@ -394,14 +402,14 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
       index = 0;
     } else if(node.isFirst()) {
       ListNode n2 = getNode(tx, node.getNext());
-      n2.setPrev("");
+      n2.setPrev(null);
       putNode(tx, node.getNext(), n2);
       setFirstPointer(tx, node.getNext());
       prev = null;
       next = n2;
     } else if(node.isLast()) {
       ListNode n2 = getNode(tx, node.getPrev());
-      n2.setNext("");
+      n2.setNext(null);
       putNode(tx, node.getPrev(), n2);
       setLastPointer(tx, node.getPrev());
       prev = n2;

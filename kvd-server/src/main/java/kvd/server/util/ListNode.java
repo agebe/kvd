@@ -15,24 +15,26 @@ package kvd.server.util;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.io.IOUtils;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 
 public class ListNode {
 
-  private String key;
+  private Key key;
 
-  private String prev;
+  private Key prev;
 
-  private String next;
+  private Key next;
 
   private byte[] data;
 
-  public ListNode(String key, String prev, String next, byte[] data) {
+  public ListNode(Key key, Key prev, Key next, byte[] data) {
     super();
     this.key = key;
     this.prev = prev;
@@ -40,23 +42,23 @@ public class ListNode {
     this.data = data;
   }
 
-  public String getKey() {
+  public Key getKey() {
     return key;
   }
 
-  public String getPrev() {
+  public Key getPrev() {
     return prev;
   }
 
-  public void setPrev(String prev) {
+  public void setPrev(Key prev) {
     this.prev = prev;
   }
 
-  public String getNext() {
+  public Key getNext() {
     return next;
   }
 
-  public void setNext(String next) {
+  public void setNext(Key next) {
     this.next = next;
   }
 
@@ -69,18 +71,18 @@ public class ListNode {
   }
 
   public boolean isFirst() {
-    return StringUtils.isBlank(prev);
+    return prev == null;
   }
 
   public boolean isLast() {
-    return StringUtils.isBlank(next);
+    return next == null;
   }
 
   public void serialize(OutputStream out) {
     try(DataOutputStream d = new DataOutputStream(out)) {
-      d.writeUTF(key);
-      d.writeUTF(prev);
-      d.writeUTF(next);
+      writeKey(d, key);
+      writeKey(d, prev);
+      writeKey(d, next);
       d.writeInt(data.length);
       d.write(data);
     } catch(Exception e) {
@@ -88,17 +90,38 @@ public class ListNode {
     }
   }
 
+  private static void writeKey(DataOutputStream out, Key key) throws IOException {
+    if(key != null) {
+      byte[] b = key.getBytes();
+      out.writeInt(b.length);
+      out.write(b);
+    } else {
+      out.writeInt(0);
+    }
+  }
+
   public static ListNode deserialize(InputStream in) {
     try(DataInputStream d = new DataInputStream(in)) {
-      String key = d.readUTF();
-      String prev = d.readUTF();
-      String next = d.readUTF();
+      Key key = readKey(d);
+      Key prev = readKey(d);
+      Key next = readKey(d);
       int length = d.readInt();
       byte[] data = new byte[length];
       d.read(data);
       return new ListNode(key, prev, next, data);
     } catch(Exception e) {
       throw new KvdException("failed to deserialize list node", e);
+    }
+  }
+
+  private static Key readKey(DataInputStream in) throws IOException {
+    int l = in.readInt();
+    if(l <= 0) {
+      return null;
+    } else {
+      byte[] buf = new byte[l];
+      IOUtils.readFully(in, buf);
+      return new Key(buf);
     }
   }
 

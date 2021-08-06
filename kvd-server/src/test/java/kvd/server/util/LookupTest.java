@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import kvd.common.Utils;
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 
@@ -25,18 +26,18 @@ public class LookupTest {
   public static void main(String[] args) throws Exception {
     StorageBackend storage;
 //    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-//    storage = new FileStorage(tempDirWithPrefix.toFile());
+//    storage = new FileStorageBackend(tempDirWithPrefix.toFile(), new SimpleTrash());
     storage = new MemStorageBackend();
     KvdLinkedList<String> l = new KvdLinkedList<>(storage,
         "lookup2",
         Utils::toUTF8,
         Utils::fromUTF8,
-        s -> s);
+        s -> Key.of(s));
     IntStream.range(0, 5_000).forEach(i -> l.add(Integer.toString(i)));
     {
       System.out.println("start lookups");
       long start = System.nanoTime();
-      IntStream.range(0, 1_000).forEach(i -> l.lookup("2500"));
+      IntStream.range(0, 1_000).forEach(i -> l.lookup(Key.of("2500")));
       long duration = System.nanoTime() - start;
       System.out.println(String.format("1000 lookups took %sms", TimeUnit.NANOSECONDS.toMillis(duration)));
     }

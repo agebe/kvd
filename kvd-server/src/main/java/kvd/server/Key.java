@@ -88,4 +88,11 @@ public class Key {
     return new Key(s.getBytes());
   }
 
+  public static Key of(Key base, Key k) {
+    byte[] buf = new byte[base.key.length + k.key.length];
+    System.arraycopy(base.key, 0, buf, 0, base.key.length);
+    System.arraycopy(k.key, 0, buf, base.key.length, k.key.length);
+    return new Key(buf);
+  }
+
 }
