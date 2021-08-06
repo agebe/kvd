@@ -19,7 +19,7 @@ import com.google.common.io.BaseEncoding;
 
 public class Key {
 
-  private static final byte[] INTERNAL_PREFIX = "__kvd_".getBytes();
+  public static final byte[] INTERNAL_PREFIX = "__kvd_".getBytes();
 
   private byte[] key;
 
