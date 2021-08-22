@@ -83,13 +83,13 @@ class MemTx extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream put(Key key) {
+  public AbortableOutputStream<?> put(Key key) {
     checkClosed();
     wlock.lock();
     try {
       String txId = UUID.randomUUID().toString();
       BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream(new BinaryLargeObject(64*1024), false);
-      AbortableOutputStream out = new AbortableOutputStream(
+      AbortableOutputStream<String> out = new AbortableOutputStream<String>(
           blobStream,
           txId,
           this::putCommit,

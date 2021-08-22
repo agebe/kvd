@@ -29,7 +29,7 @@ public class PutConsumer implements ChannelConsumer {
 
   private static final Logger log = LoggerFactory.getLogger(PutConsumer.class);
 
-  private AbortableOutputStream out;
+  private AbortableOutputStream<?> out;
 
   private ClientResponseHandler client;
 

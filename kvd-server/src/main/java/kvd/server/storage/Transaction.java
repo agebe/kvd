@@ -23,7 +23,7 @@ import kvd.server.Key;
 
 public interface Transaction extends AutoCloseable {
 
-  AbortableOutputStream put(Key key);
+  AbortableOutputStream<?> put(Key key);
 
   InputStream get(Key key);
 

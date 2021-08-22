@@ -180,7 +180,7 @@ class FileTx extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream put(Key key) {
+  public AbortableOutputStream<?> put(Key key) {
     checkClosed();
     String internalKey = null;
     wlock.lock();
@@ -188,7 +188,7 @@ class FileTx extends AbstractTransaction {
       internalKey = internalKey(key.getBytes());
       String stageId = UUID.randomUUID().toString();
       File file = new File(fTxStage, stageId);
-      AbortableOutputStream out = new AbortableOutputStream(
+      AbortableOutputStream<String> out = new AbortableOutputStream<>(
           new BufferedOutputStream(new FileOutputStream(file)),
           stageId,
           this::putCommit,

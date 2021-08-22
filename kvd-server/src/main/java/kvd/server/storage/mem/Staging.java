@@ -22,9 +22,9 @@ class Staging {
 
   private BinaryLargeObjectOutputStream blobStream;
 
-  private AbortableOutputStream out;
+  private AbortableOutputStream<?> out;
 
-  public Staging(Key key, BinaryLargeObjectOutputStream blobStream, AbortableOutputStream out) {
+  public Staging(Key key, BinaryLargeObjectOutputStream blobStream, AbortableOutputStream<?> out) {
     this.key = key;
     this.blobStream = blobStream;
     this.out = out;

@@ -38,6 +38,7 @@ import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.fs.FileStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
+import kvd.server.storage.timestamp.TimestampStorageBackend;
 import kvd.server.storage.trash.AsyncTrash;
 
 public class Kvd {
@@ -162,7 +163,7 @@ public class Kvd {
     handler = new SocketConnectHandler(options.maxClients,
         options.soTimeoutMs,
         options.clientTimeoutSeconds,
-        setupConcurrencyControl(options, createDefaultDb(options)));
+        setupConcurrencyControl(options, new TimestampStorageBackend(createDefaultDb(options))));
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);

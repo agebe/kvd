@@ -18,17 +18,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.function.Consumer;
 
-public class AbortableOutputStream extends FilterOutputStream {
+public class AbortableOutputStream<E> extends FilterOutputStream {
 
-  private String id;
+  private E id;
 
-  private Consumer<String> commit;
+  private Consumer<E> commit;
 
-  private Consumer<String> rollback;
+  private Consumer<E> rollback;
 
   private volatile boolean closed;
 
-  public AbortableOutputStream(OutputStream out, String id, Consumer<String> commit, Consumer<String> rollback) {
+  public AbortableOutputStream(OutputStream out, E id, Consumer<E> commit, Consumer<E> rollback) {
     super(out);
     this.id = id;
     this.commit = commit;

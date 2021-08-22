@@ -11,40 +11,25 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage.fs;
+package kvd.server.storage.timestamp;
 
-import java.io.File;
+import kvd.server.storage.StorageBackend;
+import kvd.server.storage.Transaction;
 
-import kvd.server.storage.AbortableOutputStream;
+public class TimestampStorageBackend implements StorageBackend {
 
-class Staging {
+  private StorageBackend backend;
 
-  private String key;
+  private TimestampStore store;
 
-  private File file;
-
-  private AbortableOutputStream<?> out;
-
-  public Staging(String key, File file, AbortableOutputStream<?> out) {
-    this.key = key;
-    this.file = file;
-    this.out = out;
+  public TimestampStorageBackend(StorageBackend backend) {
+    this.backend = backend;
+    store = new TimestampStore(backend);
   }
 
-  public String getKey() {
-    return key;
-  }
-
-  public File getFile() {
-    return file;
-  }
-
-  public AbortableOutputStream<?> getOut() {
-    return out;
-  }
-
-  public void abort() {
-    out.abort();
+  @Override
+  public Transaction begin() {
+    return new TimestampTransaction(backend.begin(), store);
   }
 
 }
