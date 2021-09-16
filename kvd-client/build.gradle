@@ -7,7 +7,7 @@ sourceSets {
 }
 
 dependencies {
-  api 'com.google.protobuf:protobuf-java:3.17.3'
+  api 'com.google.protobuf:protobuf-java:3.18.0'
 }
 
 javadoc {
