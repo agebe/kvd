@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/agebe/kvd.svg?branch=main)](https://travis-ci.com/agebe/kvd)
+[![Build Status](https://app.travis-ci.com/agebe/kvd.svg?branch=main)](https://app.travis-ci.com/github/agebe/kvd/builds)
 
 # kvd
 
