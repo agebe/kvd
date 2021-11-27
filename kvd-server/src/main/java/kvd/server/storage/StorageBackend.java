@@ -1,5 +1,4 @@
-/*
- * Copyright 2020 Andre Gebers
+/* * Copyright 2020 Andre Gebers
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -18,12 +17,13 @@ public interface StorageBackend {
   Transaction begin();
 
   default void withTransactionVoid(VoidWork work) {
-    try(Transaction tx = begin()) {
+    withTransaction(tx -> {
       work.run(tx);
-      tx.commit();
-    }
+      return null;
+    });
   }
 
+  // TODO move this into an abstract class and use ThreadLocals to join already running transactions
   default <E> E withTransaction(Work<E> work) {
     try(Transaction tx = begin()) {
       E e = work.run(tx);
