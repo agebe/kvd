@@ -15,6 +15,8 @@ package kvd.server;
 
 import java.util.Arrays;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.google.common.io.BaseEncoding;
 
 public class Key {
@@ -60,12 +62,8 @@ public class Key {
     if(key == null) {
       return "null";
     } else {
-      int max = 10;
-      if(key.length > max) {
-        return BaseEncoding.base16().lowerCase().encode(key, 0, max) + "...";
-      } else {
-        return BaseEncoding.base16().lowerCase().encode(key);
-      }
+      return StringUtils.substring(new String(key), 0, 20) + "/" +
+          StringUtils.substring(BaseEncoding.base16().lowerCase().encode(key), 0, 20);
     }
   }
 

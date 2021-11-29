@@ -16,6 +16,7 @@ package kvd.server;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.Manifest;
 
 import org.apache.commons.io.FileUtils;
@@ -40,6 +41,7 @@ import kvd.server.storage.fs.FileStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 import kvd.server.storage.timestamp.TimestampStorageBackend;
 import kvd.server.storage.trash.AsyncTrash;
+import kvd.server.util.HumanReadable;
 
 public class Kvd {
 
@@ -77,6 +79,16 @@ public class Kvd {
 
     @Parameter(names="--client-timeout", description="client timeout in seconds")
     public int clientTimeoutSeconds = 10;
+
+    @Parameter(names="--expire-after-access", description="removes entries from the database after no access "
+        + "within this fixed duration. Defaults to never expire. Duration unit can be specified ms, s, m, h, d, "
+        + "defaults to seconds.")
+    public String expireAfterAccess;
+
+    @Parameter(names="--expire-after-write", description="removes entries from the database after creation "
+        + " fixed duration. Defaults to never expire. Duration unit can be specified ms, s, m, h, d, "
+        + "defaults to seconds.")
+    public String expireAfterWrite;
   }
 
   private SimpleSocketServer socketServer;
@@ -163,7 +175,10 @@ public class Kvd {
     handler = new SocketConnectHandler(options.maxClients,
         options.soTimeoutMs,
         options.clientTimeoutSeconds,
-        setupConcurrencyControl(options, new TimestampStorageBackend(createDefaultDb(options))));
+        setupConcurrencyControl(options, new TimestampStorageBackend(
+            createDefaultDb(options),
+            HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
+            HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS))));
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);

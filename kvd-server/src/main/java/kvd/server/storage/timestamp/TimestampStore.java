@@ -13,9 +13,14 @@
  */
 package kvd.server.storage.timestamp;
 
+import java.time.Instant;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.storage.StorageBackend;
 import kvd.server.util.KvdLinkedList;
 
@@ -36,6 +41,39 @@ public class TimestampStore {
         Timestamp::serialize,
         Timestamp::deserialize,
         Timestamp::getKey);
+  }
+
+  synchronized Set<Key> getExpired(Long expireAfterAccess, Long expireAfterWrite, int limit) {
+    Instant now = Instant.now();
+    Set<Key> expired = new HashSet<>();
+    if(limit <= 0) {
+      throw new KvdException("wrong limit (needs to be positive int), " + limit);
+    }
+    if(expireAfterAccess != null) {
+      getExpired(accessed, now, expireAfterAccess, expired, limit);
+    }
+    if(expireAfterWrite != null) {
+      getExpired(created, now, expireAfterWrite, expired, limit);
+    }
+    return expired;
+  }
+
+  private synchronized void getExpired(KvdLinkedList<Timestamp> list,
+      Instant now,
+      long expiredDuration,
+      Set<Key> expired,
+      int limit) {
+    Iterator<Timestamp> iter = list.iterator();
+    for(int i=0;(i<limit)&&iter.hasNext();i++) {
+      Timestamp ts = iter.next();
+      Instant instant = Instant.ofEpochMilli(ts.getTimestamp());
+      if(now.isAfter(instant.plusMillis(expiredDuration))) {
+        expired.add(ts.getKey());
+      } else {
+        // list is ordered by timestamps
+        break;
+      }
+    }
   }
 
   synchronized void recordChanges(Collection<TimestampRecord> c) {
