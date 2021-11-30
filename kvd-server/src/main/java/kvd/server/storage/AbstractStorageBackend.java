@@ -1,4 +1,5 @@
-/* * Copyright 2020 Andre Gebers
+/*
+ * Copyright 2021 Andre Gebers
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -12,17 +13,24 @@
  */
 package kvd.server.storage;
 
-public interface StorageBackend {
+public abstract class AbstractStorageBackend implements StorageBackend {
 
-  Transaction begin();
+  private ThreadLocal<Transaction> transactions = new ThreadLocal<>();
 
-  default void withTransactionVoid(VoidWork work) {
-    withTransaction(tx -> {
-      work.run(tx);
-      return null;
-    });
+  public <E> E withTransaction(Work<E> work) {
+    Transaction tx = transactions.get();
+    return tx!=null?work.run(tx):withNewTransaction(work);
   }
 
-  <E> E withTransaction(Work<E> work);
+  private <E> E withNewTransaction(Work<E> work) {
+    try(Transaction tx = begin()) {
+      transactions.set(tx);
+      E e = work.run(tx);
+      tx.commit();
+      return e;
+    } finally {
+      transactions.remove();
+    }
+  }
 
 }

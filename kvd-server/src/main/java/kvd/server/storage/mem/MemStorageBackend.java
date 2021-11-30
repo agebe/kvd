@@ -18,10 +18,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import kvd.server.storage.StorageBackend;
+import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.Transaction;
 
-public class MemStorageBackend implements StorageBackend {
+public class MemStorageBackend extends AbstractStorageBackend {
 
   private AtomicInteger txCounter = new AtomicInteger(1);
 

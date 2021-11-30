@@ -20,11 +20,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import kvd.server.Key;
+import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
 import kvd.server.util.HumanReadable;
 
-public class TimestampStorageBackend implements StorageBackend {
+public class TimestampStorageBackend extends AbstractStorageBackend {
 
   private static final Logger log = LoggerFactory.getLogger(TimestampStorageBackend.class);
 

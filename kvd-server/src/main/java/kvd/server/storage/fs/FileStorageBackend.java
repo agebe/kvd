@@ -23,11 +23,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import kvd.server.storage.StorageBackend;
+import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.Transaction;
 import kvd.server.storage.trash.Trash;
 
-public class FileStorageBackend implements StorageBackend {
+public class FileStorageBackend extends AbstractStorageBackend {
 
   private static final Logger log = LoggerFactory.getLogger(FileStorageBackend.class);
 

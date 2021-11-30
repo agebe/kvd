@@ -24,10 +24,11 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
+import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.StorageBackend;
 import kvd.server.storage.Transaction;
 
-public abstract class AbstractLockStorageBackend implements StorageBackend {
+public abstract class AbstractLockStorageBackend extends AbstractStorageBackend {
 
   private static final Logger log = LoggerFactory.getLogger(AbstractLockStorageBackend.class);
 
