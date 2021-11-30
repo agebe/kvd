@@ -21,8 +21,8 @@ import java.util.Set;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
+import kvd.server.list.KvdLinkedList;
 import kvd.server.storage.StorageBackend;
-import kvd.server.util.KvdLinkedList;
 
 public class TimestampStore {
 
