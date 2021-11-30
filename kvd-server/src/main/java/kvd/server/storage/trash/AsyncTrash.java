@@ -38,6 +38,7 @@ public class AsyncTrash implements Trash {
     super();
     this.trashDir = trashDir;
     trashCollector = new Thread(this::trashCollectorLoop, "trash-collector");
+    trashCollector.setDaemon(true);
     trashCollector.start();
   }
 
