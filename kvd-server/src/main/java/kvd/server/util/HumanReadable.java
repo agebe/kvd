@@ -81,7 +81,7 @@ public class HumanReadable {
   public static String formatDuration(long duration, TimeUnit unit) {
     long ms = unit.toMillis(duration);
     if((ms < 1000) && (ms > 0)) {
-      return ms + "millisecond" + (duration==1?"":"s");
+      return ms + " millisecond" + (duration==1?"":"s");
     } else {
       return formatDuration(ms/1000);
     }

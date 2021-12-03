@@ -36,13 +36,18 @@ public class TestUtils {
     return new String(hexChars);
   }
 
-  public static Kvd startFileServer() throws IOException {
+  public static Kvd.KvdOptions prepareFileServer() throws IOException {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
     Path tempDirWithPrefix = Files.createTempDirectory("kvd");
     options.port = 0;
     options.datadir = tempDirWithPrefix.toFile();
     options.defaultDbType = DbType.FILE;
     options.logLevel = "warn";
+    return options;
+  }
+
+  public static Kvd startFileServer() throws IOException {
+    Kvd.KvdOptions options = prepareFileServer();
     Kvd server = new Kvd();
     server.run(options);
     return server;

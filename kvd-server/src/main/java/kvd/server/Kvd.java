@@ -39,6 +39,7 @@ import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.fs.FileStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
+import kvd.server.storage.timestamp.ExpiredKeysRemover;
 import kvd.server.storage.timestamp.TimestampStorageBackend;
 import kvd.server.storage.trash.AsyncTrash;
 import kvd.server.util.HumanReadable;
@@ -74,9 +75,11 @@ public class Kvd {
     @Parameter(names="--default-db-type", description="type of database if nothing else is specified, FILE or MEM")
     public DbType defaultDbType = DbType.FILE;
 
+    // TODO add optional unit to parameter as with e.g. expireAfterAccess
     @Parameter(names="--socket-so-timeout", description="server socket so timeout in milliseconds")
     public int soTimeoutMs = 1000;
 
+    // TODO add optional unit to parameter as with e.g. expireAfterAccess
     @Parameter(names="--client-timeout", description="client timeout in seconds")
     public int clientTimeoutSeconds = 10;
 
@@ -89,6 +92,10 @@ public class Kvd {
         + " fixed duration. Defaults to never expire. Duration unit can be specified ms, s, m, h, d, "
         + "defaults to seconds.")
     public String expireAfterWrite;
+
+    @Parameter(names="--expire-check-interval", description="how often to check for expired keys."
+        + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
+    public String expireCheckInterval;
   }
 
   private SimpleSocketServer socketServer;
@@ -172,13 +179,19 @@ public class Kvd {
     }
     logJvmInfo();
     setupDataDir(options);
-    handler = new SocketConnectHandler(options.maxClients,
+    TimestampStorageBackend tsb = new TimestampStorageBackend(createDefaultDb(options));
+    StorageBackend sb = setupConcurrencyControl(options, tsb);
+    new ExpiredKeysRemover(
+        HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
+        HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
+        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
+        sb,
+        tsb.getStore()).start();
+    handler = new SocketConnectHandler(
+        options.maxClients,
         options.soTimeoutMs,
         options.clientTimeoutSeconds,
-        setupConcurrencyControl(options, new TimestampStorageBackend(
-            createDefaultDb(options),
-            HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
-            HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS))));
+        sb);
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);

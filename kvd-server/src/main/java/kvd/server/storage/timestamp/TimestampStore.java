@@ -15,8 +15,8 @@ package kvd.server.storage.timestamp;
 
 import java.time.Instant;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import kvd.common.KvdException;
@@ -45,7 +45,7 @@ public class TimestampStore {
 
   synchronized Set<Key> getExpired(Long expireAfterAccess, Long expireAfterWrite, int limit) {
     Instant now = Instant.now();
-    Set<Key> expired = new HashSet<>();
+    Set<Key> expired = new LinkedHashSet<>();
     if(limit <= 0) {
       throw new KvdException("wrong limit (needs to be positive int), " + limit);
     }
@@ -53,7 +53,7 @@ public class TimestampStore {
       getExpired(accessed, now, expireAfterAccess, expired, limit);
     }
     if(expireAfterWrite != null) {
-      getExpired(created, now, expireAfterWrite, expired, limit);
+      getExpired(created, now, expireAfterWrite, expired, limit - expired.size());
     }
     return expired;
   }
