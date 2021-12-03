@@ -138,7 +138,7 @@ $ ... --storage mem:
 ```
 
 ## Future work
-* let the server cleanup (delete) values that come with expiry information (TTL)
+* write a storage backend that is more efficient, especially with small key/values
 * configurable max size for single values
 * configurable max size for database. This might automatically drop values to make room for new values (LRU)
 * client/server network transport encryption
