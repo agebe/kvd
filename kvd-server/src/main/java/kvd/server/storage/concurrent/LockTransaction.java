@@ -144,6 +144,13 @@ class LockTransaction extends AbstractTransaction {
     return true;
   }
 
+  public void writeLockNowOrFail(Key key) {
+    checkClosed();
+    lockStore.acquireWriteLockNowOrFail(this, key);
+    checkClosed();
+    checkHasWriteLock(key);
+  }
+
   @Override
   public void removeAll() {
     backendTx.removeAll();

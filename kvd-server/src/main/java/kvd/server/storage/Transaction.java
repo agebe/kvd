@@ -33,6 +33,10 @@ public interface Transaction extends AutoCloseable {
 
   boolean lock(Key key);
 
+  // get a write lock on the key without waiting or throw exception
+  // also succeeds if locks are not supported (concurrency NONE)
+  default void writeLockNowOrFail(Key key) {}
+
   void removeAll();
 
   default void putBytes(Key key, byte[] bytes) {

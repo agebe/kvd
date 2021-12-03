@@ -17,5 +17,6 @@ import kvd.server.Key;
 
 interface LockStore {
   void acquireWriteLock(LockTransaction tx, Key key);
+  void acquireWriteLockNowOrFail(LockTransaction tx, Key key);
   void acquireReadLock(LockTransaction tx, Key key);
 }

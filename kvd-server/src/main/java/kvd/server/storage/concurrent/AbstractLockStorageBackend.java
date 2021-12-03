@@ -70,6 +70,11 @@ public abstract class AbstractLockStorageBackend extends AbstractStorageBackend 
             if(LockMode.READWRITE.equals(mode)) {
               AbstractLockStorageBackend.this.acquireReadLock(tx, key);
             }
+          }
+
+          @Override
+          public void acquireWriteLockNowOrFail(LockTransaction tx, Key key) {
+            AbstractLockStorageBackend.this.acquireWriteLockNowOrFail(tx, key);
           }},
         mode);
     // slight race here but the close listener is not called before we put the transaction into the map
@@ -125,6 +130,31 @@ public abstract class AbstractLockStorageBackend extends AbstractStorageBackend 
             break;
           }
         }
+      }
+    } else if(LockType.WRITE.equals(hasLock)) {
+      // transaction already has write lock on the key, all good
+    } else {
+      throw new KvdException("unexpected lock type " + hasLock);
+    }
+  }
+
+  protected synchronized void acquireWriteLockNowOrFail(LockTransaction tx, Key key) {
+    LockType hasLock = tx.getLock(key);
+    if(hasLock == null) {
+      // transaction has no lock on this key yet
+      Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
+      if(canWriteLockNow(tx, key, lockHolders)) {
+        acquireWriteLock(tx, key);
+      } else {
+        throw new LockException("failed to write lock key '"+key+"' now, already locked");
+      }
+    } else if(LockType.READ.equals(hasLock)) {
+      // transaction requires a lock upgrade
+      Set<LockTransaction> lockHolders = locks.computeIfAbsent(key, k -> new HashSet<>());
+      if(canWriteLockUpgradeNow(tx, key, lockHolders)) {
+        acquireWriteLock(tx, key);
+      } else {
+        throw new LockException("failed to write lock key '"+key+"' now (upgrade from read lock), already locked");
       }
     } else if(LockType.WRITE.equals(hasLock)) {
       // transaction already has write lock on the key, all good

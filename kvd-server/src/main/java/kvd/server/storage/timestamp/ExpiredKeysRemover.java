@@ -126,8 +126,14 @@ public class ExpiredKeysRemover {
     return storage.withTransaction(tx -> {
       Set<Key> expired = timestampStore.getExpired(expireAfterAccessMs, expireAfterWriteMs, EXPIRE_LIMIT_PER_TX);
       expired.forEach(key -> {
-        log.info("remove expired key '{}'", key);
-        tx.remove(key);
+        try {
+          tx.writeLockNowOrFail(key);
+          tx.remove(key);
+          log.info("removed expired key '{}'", key);
+        } catch(Exception e) {
+          // writeLockNowOrFail throws exception if key is already locked, simply skip the key and try again later
+          log.debug("remove expired key '{}' failed", key, e);
+        }
       });
       log.trace("expired.size '{}'", expired.size());
       return expired.size() >= EXPIRE_LIMIT_PER_TX;
