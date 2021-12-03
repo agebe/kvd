@@ -31,6 +31,10 @@ public class HumanReadable {
     }
   }
 
+  public static long parseDuration(String s, TimeUnit defaultTimeUnit, TimeUnit targetUnit) {
+    return targetUnit.convert(parseDurationToMillis(s, defaultTimeUnit), TimeUnit.MILLISECONDS);
+  }
+
   /**
    * Parse duration with time unit modifier and return the duration in Milliseconds.
    * Modifiers are: ms, s, m, h, d

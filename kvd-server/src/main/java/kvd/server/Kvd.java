@@ -75,13 +75,13 @@ public class Kvd {
     @Parameter(names="--default-db-type", description="type of database if nothing else is specified, FILE or MEM")
     public DbType defaultDbType = DbType.FILE;
 
-    // TODO add optional unit to parameter as with e.g. expireAfterAccess
-    @Parameter(names="--socket-so-timeout", description="server socket so timeout in milliseconds")
-    public int soTimeoutMs = 1000;
+    @Parameter(names="--socket-so-timeout", description="server socket so timeout."
+        + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
+    public String soTimeoutMs = "1s";
 
-    // TODO add optional unit to parameter as with e.g. expireAfterAccess
-    @Parameter(names="--client-timeout", description="client timeout in seconds")
-    public int clientTimeoutSeconds = 10;
+    @Parameter(names="--client-timeout", description="client timeout."
+        + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
+    public String clientTimeoutSeconds = "10s";
 
     @Parameter(names="--expire-after-access", description="removes entries from the database after no access "
         + "within this fixed duration. Defaults to never expire. Duration unit can be specified ms, s, m, h, d, "
@@ -189,8 +189,8 @@ public class Kvd {
         tsb.getStore()).start();
     handler = new SocketConnectHandler(
         options.maxClients,
-        options.soTimeoutMs,
-        options.clientTimeoutSeconds,
+        (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS),
+        (int)HumanReadable.parseDuration(options.clientTimeoutSeconds, TimeUnit.SECONDS, TimeUnit.SECONDS),
         sb);
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();

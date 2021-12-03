@@ -16,6 +16,7 @@ package kvd.server;
 import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.server.storage.StorageBackend;
+import kvd.server.util.HumanReadable;
 
 public class SocketConnectHandler implements Consumer<Socket> {
 
@@ -54,6 +56,10 @@ public class SocketConnectHandler implements Consumer<Socket> {
     this.socketSoTimeoutMs = socketSoTimeoutMs;
     this.clientTimeoutSeconds = clientTimeoutSeconds;
     this.storage = storage;
+    log.info("{}", clientTimeoutSeconds);
+    log.info("client timeout '{}', socket so timeout '{}'",
+        HumanReadable.formatDuration(clientTimeoutSeconds, TimeUnit.SECONDS),
+        HumanReadable.formatDuration(socketSoTimeoutMs, TimeUnit.MILLISECONDS));
   }
 
   @Override
