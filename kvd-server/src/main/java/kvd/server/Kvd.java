@@ -68,7 +68,7 @@ public class Kvd {
     @Parameter(names="--log-level", description="logback log level (trace, debug, info, warn, error, all, off)")
     public String logLevel = "info";
 
-    @Parameter(names= {"--concurrency-control", "-cc"}, description="default concurrency control, options: NONE"
+    @Parameter(names= {"--concurrency-control", "-cc"}, description="default concurrency control, options: NONE,"
         + " optimistic (non-blocking, OPTW or OPTRW), pessimistic (blocking, PESW or PESRW)")
     public ConcurrencyControl concurrency = ConcurrencyControl.NONE;
 
