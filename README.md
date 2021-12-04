@@ -2,7 +2,7 @@
 
 # kvd
 
-kvd is a simple streaming key value database that follows a client/server model. kvd supports following operations:
+kvd is a simple streaming key value client/server database with support for large values. kvd supports following operations:
 
 * **put**, add/replace a key/value pair
 * **get**, get a value
@@ -11,7 +11,10 @@ kvd is a simple streaming key value database that follows a client/server model.
 
 See example code below.
 
-A key feature of kvd is that values are streamed into and out of the data store with support for large values (tested with single value up to 8GiB).
+Features:
+* values are streamed in/out of the database (tested with single values of multiple GiB in size)
+* transaction support, optionally with optimistic/pessimistic concurrency control
+* optional key expiry and removeable, either after write (create) or last access, or both.
 
 kvd client and server are written in Java.
 
@@ -23,18 +26,18 @@ I've written kvd to cache calculation results that take quite some time to compu
 
 kvd can be started with --help that prints out all options.
 
-The server listens by default on TCP port 3030 and writes to $HOME/.kvd
+The server listens by default on TCP port 3030 and the default data directory is $HOME/.kvd
 
 ### Docker
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.3.0
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.4.0
 ```
 
 Otherwise you might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v /my/volume:/storage -p 3030:3030 -e JAVA_OPTS="-verbose:gc -XX:+UnlockExperimentalVMOptions -XX:+UseZGC" agebe/kvd:0.3.0 --storage file:/storage --log-level debug
+$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.4.0 --datadir /datadir
 ```
 
 ### Running the server from source
@@ -56,7 +59,7 @@ For the example below to work you need to add the kvd-client library as a depend
 Gradle:
 ```gradle
 dependencies {
-  implementation 'io.github.agebe:kvd-client:0.3.0'
+  implementation 'io.github.agebe:kvd-client:0.4.0'
 }
 ```
 
@@ -65,28 +68,30 @@ Maven:
 <dependency>
   <groupId>io.github.agebe</groupId>
   <artifactId>kvd-client</artifactId>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
 </dependency>
 ```
 
 The examples below show how to use the client API to access the database
 
-### Write a value to the database
+### Simple example
+```java
+    try(KvdClient client = new KvdClient("localhost:3030")) {
+      client.putString("my-key", "my-value");
+      System.out.println(client.getString("my-key"));
+    }
+```
+
+### Stream example
 ```java
     try(KvdClient client = new KvdClient("localhost:3030")) {
       try(DataOutputStream out = new DataOutputStream(client.put("simplestream"))) {
         out.writeLong(42);
       }
-    }
-```
-
-### Read a value from the database
-```java
-    try(KvdClient client = new KvdClient("localhost:3030")) {
       InputStream i = client.get("simplestream");
       if(i != null) {
         try(DataInputStream in = new DataInputStream(i)) {
-         assertEquals(42, in.readLong());
+          System.out.println(in.readLong());
         }
       } else {
         throw new RuntimeException("value missing");
@@ -104,7 +109,7 @@ kvd does not bring its own serialization support but put- and get-operations are
 kvd currently brings 2 storage backends. One is file based and survives server restarts and the other storage backend is memory based, great for nice to haves caches.
 
 ### File Storage Backend
-kvd has a quite simple filesystem based storage backend. Each key/value pair is stored into a separate file with the key being the filename and the value the content of the file. Since filesystems have restrictions on filenames only lowercase letters, digits and underscores are used as is. If keys contain other characters, only the hash of the key is used as a filename (and the original key is discarded). The key is also hashed if it contains more than 200 characters.
+kvd has a simple filesystem based storage backend. Each key/value pair is stored into a separate file with the filename being derived from the key.
 
 All files are stored in a single directory and this can work quite nicely depending on your filesystem support for large directories. I've tested this on an ext4 filesystem and put/get/contains/remove operations remain fast even with millions of entries. The feature that makes this work on the ext3/ext4 filesystem is dir_index (man ext4):
 
@@ -123,7 +128,7 @@ Also consider that files are stored in blocks so they consume more space on disk
 
 The File Storage Backend is the default in kvd. The storage directory can be passed in via command line options on server startup like so:
 ```bash
-$ ... --storage file:/my/storage/directory
+$ ... --datadir /var/lib/kvd
 ```
 
 ### Memory Storage Backend
@@ -134,7 +139,7 @@ $ java -XX:+UseContainerSupport -XX:InitialRAMPercentage=40.0 -XX:MinRAMPercenta
 
 To enable the memory storage backend start with this option:
 ```bash
-$ ... --storage mem:
+$ ... --default-db-type MEM
 ```
 
 ## Future work
