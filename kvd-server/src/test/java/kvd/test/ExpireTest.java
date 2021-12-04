@@ -20,16 +20,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import kvd.client.KvdClient;
 import kvd.server.ConcurrencyControl;
 import kvd.server.Kvd;
 
 public class ExpireTest {
-
-  private static final Logger log = LoggerFactory.getLogger(ExpireTest.class);
 
   @Test
   public void writeExpireTest() throws Exception {
@@ -77,7 +73,7 @@ public class ExpireTest {
         assertTrue(client.contains(key));
         Thread.sleep(500);
       }
-      Thread.sleep(5000);
+      Thread.sleep(30_000);
       assertFalse(client.contains(key));
     } finally {
       if(server != null) {
@@ -140,9 +136,17 @@ public class ExpireTest {
       client.withTransactionVoid(tx -> {
         assertTrue(tx.contains(key1));
         try {
-          log.info("waiting");
-          Thread.sleep(5000);
-          log.info("done waiting");
+          long now = System.nanoTime();
+          for(;;) {
+            if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+              fail("timeout reached, key should have expired by now");
+            }
+            if(client.contains(key2)) {
+              Thread.sleep(100);
+            } else {
+              break;
+            }
+          }
         } catch (InterruptedException e) {
           throw new RuntimeException("interrupted", e);
         }
@@ -151,7 +155,17 @@ public class ExpireTest {
         // key2 is expired and removed
         assertFalse(tx.contains(key2));
       });
-      Thread.sleep(1000);
+      long now = System.nanoTime();
+      for(;;) {
+        if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+          fail("timeout reached, key should have expired by now");
+        }
+        if(client.contains(key1)) {
+          Thread.sleep(100);
+        } else {
+          break;
+        }
+      }
       assertFalse(client.contains(key1));
       assertFalse(client.contains(key2));
     } finally {
