@@ -14,7 +14,7 @@ See example code below.
 Features:
 * values are streamed in/out of the database (tested with single values of multiple GiB in size)
 * transaction support, optionally with optimistic/pessimistic concurrency control
-* optional key expiry and removeable, either after write (create) or last access, or both.
+* optional key expiry and removal, either after write (create) or last access, or both.
 
 kvd client and server are written in Java.
 
