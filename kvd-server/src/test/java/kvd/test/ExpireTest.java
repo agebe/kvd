@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -54,6 +55,31 @@ public class ExpireTest {
           break;
         }
       }
+    } finally {
+      if(server != null) {
+        server.shutdown();
+      }
+    }
+  }
+
+  @Test
+  public void accessExpireTest() throws Exception {
+    Kvd server = null;
+    try {
+      Kvd.KvdOptions options = TestUtils.prepareFileServer();
+      options.expireAfterAccess = "2s";
+      options.logLevel = "info";
+      server = new Kvd();
+      server.run(options);
+      KvdClient client = server.newLocalClient();
+      final String key = "accessExpireTest";
+      client.putString(key, key);
+      for(int i=0;i<10;i++) {
+        assertTrue(client.contains(key));
+        Thread.sleep(500);
+      }
+      Thread.sleep(5000);
+      assertFalse(client.contains(key));
     } finally {
       if(server != null) {
         server.shutdown();
