@@ -17,15 +17,39 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
 import kvd.client.KvdClient;
 import kvd.server.ConcurrencyControl;
+import kvd.server.Key;
 import kvd.server.Kvd;
 
 public class ExpireTest {
+
+  private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
+
+  private boolean isTimeout(long nowNs, long startNs, long timeoutNs) {
+    return (nowNs - startNs) >= timeoutNs;
+  }
+
+  private boolean isTimeout(long startNs, long timeoutNs) {
+    return isTimeout(System.nanoTime(), startNs, timeoutNs);
+  }
+
+  @Test
+  public void testTimeout() throws Exception {
+    long startNs = System.nanoTime();
+    for(;;) {
+      if(isTimeout(startNs, TimeUnit.MILLISECONDS.toNanos(50))) {
+        break;
+      } else {
+        Thread.sleep(1);
+      }
+    }
+  }
 
   @Test
   public void writeExpireTest() throws Exception {
@@ -39,9 +63,9 @@ public class ExpireTest {
       KvdClient client = server.newLocalClient();
       final String key = "writeExpireTest";
       client.putString(key, key);
-      long now = System.nanoTime();
+      long startNs = System.nanoTime();
       for(;;) {
-        if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+        if(isTimeout(startNs, TIMEOUT_NANOS)) {
           fail("timeout reached, key should have expired by now");
         }
         if(client.contains(key)) {
@@ -59,22 +83,28 @@ public class ExpireTest {
 
   @Test
   public void accessExpireTest() throws Exception {
+    final Key key = Key.of("accessExpireTest");
+    final CompletableFuture<Boolean> removedFuture = new CompletableFuture<>();
     Kvd server = null;
     try {
       Kvd.KvdOptions options = TestUtils.prepareFileServer();
-      options.expireAfterAccess = "2s";
+      options.expireAfterAccess = "1s";
       options.logLevel = "info";
       server = new Kvd();
       server.run(options);
+      server.getExpiredKeysRemover().registerRemovalListener(k -> {
+        if(key.equals(k)) {
+          removedFuture.complete(true);
+        }
+      });
       KvdClient client = server.newLocalClient();
-      final String key = "accessExpireTest";
-      client.putString(key, key);
+      client.putBytes(key.getBytes(), key.getBytes());
       for(int i=0;i<10;i++) {
-        assertTrue(client.contains(key));
-        Thread.sleep(500);
+        assertTrue(client.contains(key.getBytes()));
+        Thread.sleep(250);
       }
-      Thread.sleep(30_000);
-      assertFalse(client.contains(key));
+      removedFuture.get(TIMEOUT_NANOS, TimeUnit.NANOSECONDS);
+      assertFalse(client.contains(key.getBytes()));
     } finally {
       if(server != null) {
         server.shutdown();
@@ -87,7 +117,7 @@ public class ExpireTest {
     Kvd server = null;
     try {
       Kvd.KvdOptions options = TestUtils.prepareFileServer();
-      options.expireAfterWrite = "2s";
+      options.expireAfterWrite = "500ms";
       options.logLevel = "info";
       options.concurrency = ConcurrencyControl.PESRW;
       server = new Kvd();
@@ -97,14 +127,14 @@ public class ExpireTest {
       client.withTransactionVoid(tx -> {
         tx.putString(key, key);
       });
-      long now = System.nanoTime();
+      long startNs = System.nanoTime();
       for(;;) {
-        if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+        if(isTimeout(startNs, TIMEOUT_NANOS)) {
           fail("timeout reached, key should have expired by now");
         }
         boolean contains = client.withTransaction(tx -> tx.contains(key));
         if(contains) {
-          Thread.sleep(100);
+          Thread.sleep(25);
         } else {
           break;
         }
@@ -121,7 +151,7 @@ public class ExpireTest {
     Kvd server = null;
     try {
       Kvd.KvdOptions options = TestUtils.prepareFileServer();
-      options.expireAfterWrite = "2s";
+      options.expireAfterWrite = "500ms";
       options.logLevel = "info";
       options.concurrency = ConcurrencyControl.PESRW;
       server = new Kvd();
@@ -136,13 +166,13 @@ public class ExpireTest {
       client.withTransactionVoid(tx -> {
         assertTrue(tx.contains(key1));
         try {
-          long now = System.nanoTime();
+          long startNs = System.nanoTime();
           for(;;) {
-            if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+            if(isTimeout(startNs, TIMEOUT_NANOS)) {
               fail("timeout reached, key should have expired by now");
             }
             if(client.contains(key2)) {
-              Thread.sleep(100);
+              Thread.sleep(25);
             } else {
               break;
             }
@@ -155,13 +185,13 @@ public class ExpireTest {
         // key2 is expired and removed
         assertFalse(tx.contains(key2));
       });
-      long now = System.nanoTime();
+      long startNs = System.nanoTime();
       for(;;) {
-        if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+        if(isTimeout(startNs, TIMEOUT_NANOS)) {
           fail("timeout reached, key should have expired by now");
         }
         if(client.contains(key1)) {
-          Thread.sleep(100);
+          Thread.sleep(25);
         } else {
           break;
         }
@@ -192,9 +222,9 @@ public class ExpireTest {
           tx.putString("key"+i, "test");
         }
       });
-      long now = System.nanoTime();
+      long startNs = System.nanoTime();
       for(;;) {
-        if(now + TimeUnit.SECONDS.toNanos(30) < System.nanoTime()) {
+        if(isTimeout(startNs, TIMEOUT_NANOS)) {
           fail("timeout reached, key should have expired by now");
         }
         boolean contains = client.withTransaction(tx -> tx.contains("key249"));

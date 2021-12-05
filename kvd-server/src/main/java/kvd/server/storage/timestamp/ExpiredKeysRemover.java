@@ -13,8 +13,11 @@
  */
 package kvd.server.storage.timestamp;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +44,8 @@ public class ExpiredKeysRemover {
 
   private Thread removeExpiredThread;
 
+  private List<Consumer<Key>> listeners = new ArrayList<>();
+
   public ExpiredKeysRemover(
       Long expireAfterAccessMs,
       Long expireAfterWriteMs,
@@ -57,6 +62,7 @@ public class ExpiredKeysRemover {
 
   public synchronized void start() {
     if(removeExpiredThread == null) {
+      this.registerRemovalListener(k -> log.info("removed expired key '{}'", k));
       removeExpiredThread = setupRemoveExpiredThread();
       removeExpiredThread.start();
     }
@@ -123,21 +129,36 @@ public class ExpiredKeysRemover {
   }
 
   private boolean invalidateExpiredTx() {
-    return storage.withTransaction(tx -> {
+    final List<Key> removed = new ArrayList<>();
+    boolean result = storage.withTransaction(tx -> {
       Set<Key> expired = timestampStore.getExpired(expireAfterAccessMs, expireAfterWriteMs, EXPIRE_LIMIT_PER_TX);
       expired.forEach(key -> {
         try {
           tx.writeLockNowOrFail(key);
           tx.remove(key);
-          log.info("removed expired key '{}'", key);
+          removed.add(key);
         } catch(Exception e) {
           // writeLockNowOrFail throws exception if key is already locked, simply skip the key and try again later
-          log.debug("remove expired key '{}' failed", key, e);
+          log.trace("remove expired key '{}' failed", key, e);
         }
       });
       log.trace("expired.size '{}'", expired.size());
       return expired.size() >= EXPIRE_LIMIT_PER_TX;
     });
+    removed.forEach(this::notifyListeners);
+    return result;
+  }
+
+  public synchronized void registerRemovalListener(Consumer<Key> listener) {
+    listeners.add(listener);
+  }
+
+  public synchronized void unregisterRemovalListener(Consumer<Key> listener) {
+    listeners.remove(listener);
+  }
+
+  private synchronized void notifyListeners(Key key) {
+    listeners.forEach(c -> c.accept(key));
   }
 
 }

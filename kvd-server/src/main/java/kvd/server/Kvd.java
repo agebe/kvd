@@ -102,6 +102,8 @@ public class Kvd {
 
   private SocketConnectHandler handler;
 
+  private ExpiredKeysRemover expiredKeysRemover;
+
   private StorageBackend setupConcurrencyControl(KvdOptions options, StorageBackend downstream) {
     if(options.concurrency == null || ConcurrencyControl.NONE.equals(options.concurrency)) {
       return downstream;
@@ -181,12 +183,13 @@ public class Kvd {
     setupDataDir(options);
     TimestampStorageBackend tsb = new TimestampStorageBackend(createDefaultDb(options));
     StorageBackend sb = setupConcurrencyControl(options, tsb);
-    new ExpiredKeysRemover(
+    expiredKeysRemover = new ExpiredKeysRemover(
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
         HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
         sb,
-        tsb.getStore()).start();
+        tsb.getStore());
+    expiredKeysRemover.start();
     handler = new SocketConnectHandler(
         options.maxClients,
         (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS),
@@ -199,6 +202,10 @@ public class Kvd {
 
   private SimpleSocketServer getSocketServer() {
     return socketServer;
+  }
+
+  public ExpiredKeysRemover getExpiredKeysRemover() {
+    return expiredKeysRemover;
   }
 
   public void shutdown() {
