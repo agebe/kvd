@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.storage.trash.Trash;
+import kvd.server.util.FileUtils;
 
 class FileStorage {
 

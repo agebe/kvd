@@ -16,5 +16,6 @@ package kvd.server;
 public enum DbType {
   FILE,
   MEM,
+  MAPDB,
   ;
 }

@@ -14,7 +14,7 @@
 package kvd.server.storage.mem;
 
 import kvd.server.Key;
-import kvd.server.storage.AbortableOutputStream;
+import kvd.server.storage.AbortableOutputStream2;
 
 class Staging {
 
@@ -22,9 +22,9 @@ class Staging {
 
   private BinaryLargeObjectOutputStream blobStream;
 
-  private AbortableOutputStream<?> out;
+  private AbortableOutputStream2<?> out;
 
-  public Staging(Key key, BinaryLargeObjectOutputStream blobStream, AbortableOutputStream<?> out) {
+  public Staging(Key key, BinaryLargeObjectOutputStream blobStream, AbortableOutputStream2<?> out) {
     this.key = key;
     this.blobStream = blobStream;
     this.out = out;

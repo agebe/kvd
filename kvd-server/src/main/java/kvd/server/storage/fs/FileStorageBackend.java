@@ -30,6 +30,7 @@ import kvd.common.KvdException;
 import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.Transaction;
 import kvd.server.storage.trash.Trash;
+import kvd.server.util.FileUtils;
 
 public class FileStorageBackend extends AbstractStorageBackend {
 

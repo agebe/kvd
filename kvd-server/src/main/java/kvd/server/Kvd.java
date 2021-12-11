@@ -38,6 +38,7 @@ import kvd.server.storage.concurrent.LockMode;
 import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.fs.FileStorageBackend;
+import kvd.server.storage.mapdb.MapdbStorageBackend;
 import kvd.server.storage.mem.MemStorageBackend;
 import kvd.server.storage.timestamp.ExpiredKeysRemover;
 import kvd.server.storage.timestamp.TimestampStorageBackend;
@@ -72,8 +73,8 @@ public class Kvd {
         + " optimistic (non-blocking, OPTW or OPTRW), pessimistic (blocking, PESW or PESRW)")
     public ConcurrencyControl concurrency = ConcurrencyControl.NONE;
 
-    @Parameter(names="--default-db-type", description="type of database if nothing else is specified, FILE or MEM")
-    public DbType defaultDbType = DbType.FILE;
+    @Parameter(names="--default-db-type", description="type of database, MAPDB, FILE, or MEM")
+    public DbType defaultDbType = DbType.MAPDB;
 
     @Parameter(names="--socket-so-timeout", description="server socket so timeout."
         + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
@@ -132,6 +133,9 @@ public class Kvd {
     } else if(DbType.MEM.equals(options.defaultDbType)) {
       log.info("default db using mem storage");
       return new MemStorageBackend();
+    } else if(DbType.MAPDB.equals(options.defaultDbType)) {
+      log.info("default db using mapdb storage");
+      return new MapdbStorageBackend(defaultDb);
     } else {
       throw new KvdException("invalid default db type " + options.defaultDbType);
     }

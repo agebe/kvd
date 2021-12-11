@@ -21,9 +21,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import kvd.client.KvdClient;
 import kvd.server.ConcurrencyControl;
+import kvd.server.DbType;
 import kvd.server.Key;
 import kvd.server.Kvd;
 
@@ -51,11 +54,12 @@ public class ExpireTest {
     }
   }
 
-  @Test
-  public void writeExpireTest() throws Exception {
+  @ParameterizedTest
+  @EnumSource(DbType.class)
+  public void writeExpireTest(DbType type) throws Exception {
     Kvd server = null;
     try {
-      Kvd.KvdOptions options = TestUtils.prepareFileServer();
+      Kvd.KvdOptions options = TestUtils.prepareServer(type);
       options.expireAfterWrite = "2s";
       options.logLevel = "info";
       server = new Kvd();
@@ -81,13 +85,14 @@ public class ExpireTest {
     }
   }
 
-  @Test
-  public void accessExpireTest() throws Exception {
+  @ParameterizedTest
+  @EnumSource(DbType.class)
+  public void accessExpireTest(DbType type) throws Exception {
     final Key key = Key.of("accessExpireTest");
     final CompletableFuture<Boolean> removedFuture = new CompletableFuture<>();
     Kvd server = null;
     try {
-      Kvd.KvdOptions options = TestUtils.prepareFileServer();
+      Kvd.KvdOptions options = TestUtils.prepareServer(type);
       options.expireAfterAccess = "1s";
       options.logLevel = "info";
       server = new Kvd();
@@ -112,11 +117,12 @@ public class ExpireTest {
     }
   }
 
-  @Test
-  public void writeExpireTestTx() throws Exception {
+  @ParameterizedTest
+  @EnumSource(DbType.class)
+  public void writeExpireTestTx(DbType type) throws Exception {
     Kvd server = null;
     try {
-      Kvd.KvdOptions options = TestUtils.prepareFileServer();
+      Kvd.KvdOptions options = TestUtils.prepareServer(type);
       options.expireAfterWrite = "500ms";
       options.logLevel = "info";
       options.concurrency = ConcurrencyControl.PESRW;
@@ -146,11 +152,12 @@ public class ExpireTest {
     }
   }
 
-  @Test
-  public void writeExpireTestTxLocked() throws Exception {
+  @ParameterizedTest
+  @EnumSource(DbType.class)
+  public void writeExpireTestTxLocked(DbType type) throws Exception {
     Kvd server = null;
     try {
-      Kvd.KvdOptions options = TestUtils.prepareFileServer();
+      Kvd.KvdOptions options = TestUtils.prepareServer(type);
       options.expireAfterWrite = "500ms";
       options.logLevel = "info";
       options.concurrency = ConcurrencyControl.PESRW;
@@ -205,11 +212,12 @@ public class ExpireTest {
     }
   }
 
-  @Test
-  public void writeExpireTestTxMany() throws Exception {
+  @ParameterizedTest
+  @EnumSource(DbType.class)
+  public void writeExpireTestTxMany(DbType type) throws Exception {
     Kvd server = null;
     try {
-      Kvd.KvdOptions options = TestUtils.prepareFileServer();
+      Kvd.KvdOptions options = TestUtils.prepareServer(type);
       options.expireAfterWrite = "2s";
       options.expireCheckInterval = "5s";
       options.logLevel = "info";

@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
-import kvd.server.storage.AbortableOutputStream;
+import kvd.server.storage.AbortableOutputStream2;
 import kvd.server.storage.AbstractTransaction;
 
 class MemTx extends AbstractTransaction {
@@ -83,13 +83,13 @@ class MemTx extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream<?> put(Key key) {
+  public AbortableOutputStream2<?> put(Key key) {
     checkClosed();
     wlock.lock();
     try {
       String txId = UUID.randomUUID().toString();
       BinaryLargeObjectOutputStream blobStream = new BinaryLargeObjectOutputStream(new BinaryLargeObject(64*1024), false);
-      AbortableOutputStream<String> out = new AbortableOutputStream<String>(
+      AbortableOutputStream2<String> out = new AbortableOutputStream2<String>(
           blobStream,
           txId,
           this::putCommit,

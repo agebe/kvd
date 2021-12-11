@@ -11,10 +11,11 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.server.storage.mapdb;
 
-import java.io.OutputStream;
-
-public abstract class AbortableOutputStream extends OutputStream {
-  public abstract void abort();
+public enum ValueType {
+  INLINE,
+  BLOB,
+  REMOVE,
+  ;
 }

@@ -46,8 +46,9 @@ import com.google.common.io.BaseEncoding;
 import kvd.common.KvdException;
 import kvd.common.Utils;
 import kvd.server.Key;
-import kvd.server.storage.AbortableOutputStream;
+import kvd.server.storage.AbortableOutputStream2;
 import kvd.server.storage.AbstractTransaction;
+import kvd.server.util.FileUtils;
 
 class FileTx extends AbstractTransaction {
 
@@ -180,7 +181,7 @@ class FileTx extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream<?> put(Key key) {
+  public AbortableOutputStream2<?> put(Key key) {
     checkClosed();
     String internalKey = null;
     wlock.lock();
@@ -188,7 +189,7 @@ class FileTx extends AbstractTransaction {
       internalKey = internalKey(key.getBytes());
       String stageId = UUID.randomUUID().toString();
       File file = new File(fTxStage, stageId);
-      AbortableOutputStream<String> out = new AbortableOutputStream<>(
+      AbortableOutputStream2<String> out = new AbortableOutputStream2<>(
           new BufferedOutputStream(new FileOutputStream(file)),
           stageId,
           this::putCommit,

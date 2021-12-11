@@ -56,7 +56,6 @@ public class SocketConnectHandler implements Consumer<Socket> {
     this.socketSoTimeoutMs = socketSoTimeoutMs;
     this.clientTimeoutSeconds = clientTimeoutSeconds;
     this.storage = storage;
-    log.info("{}", clientTimeoutSeconds);
     log.info("client timeout '{}', socket so timeout '{}'",
         HumanReadable.formatDuration(clientTimeoutSeconds, TimeUnit.SECONDS),
         HumanReadable.formatDuration(socketSoTimeoutMs, TimeUnit.MILLISECONDS));

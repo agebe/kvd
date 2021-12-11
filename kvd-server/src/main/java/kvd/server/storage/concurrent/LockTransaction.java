@@ -100,7 +100,7 @@ class LockTransaction extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream<?> put(Key key) {
+  public AbortableOutputStream put(Key key) {
     checkClosed();
     lockStore.acquireWriteLock(this, key);
     checkClosed();

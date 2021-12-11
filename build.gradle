@@ -78,6 +78,7 @@ subprojects {
   dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.32'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.8.2'
   }
 
   java {

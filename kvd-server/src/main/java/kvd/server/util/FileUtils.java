@@ -11,7 +11,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage.fs;
+package kvd.server.util;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,9 +21,9 @@ import java.util.Comparator;
 
 import kvd.common.KvdException;
 
-class FileUtils {
+public class FileUtils {
 
-  static void createDirIfMissing(File d) {
+  public static void createDirIfMissing(File d) {
     if(!d.exists()) {
       if(!d.mkdirs()) {
         throw new KvdException(String.format("'%s' does not exist and failed to create", d.getAbsolutePath()));
@@ -35,7 +35,7 @@ class FileUtils {
     // TODO write test
   }
 
-  static void deleteDirQuietly(File d) {
+  public static void deleteDirQuietly(File d) {
     try {
       Files.walk(d.toPath())
       .sorted(Comparator.reverseOrder())

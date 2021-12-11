@@ -36,14 +36,18 @@ public class TestUtils {
     return new String(hexChars);
   }
 
-  public static Kvd.KvdOptions prepareFileServer() throws IOException {
+  public static Kvd.KvdOptions prepareServer(DbType type) throws IOException {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
     Path tempDirWithPrefix = Files.createTempDirectory("kvd");
     options.port = 0;
     options.datadir = tempDirWithPrefix.toFile();
-    options.defaultDbType = DbType.FILE;
+    options.defaultDbType = type;
     options.logLevel = "warn";
     return options;
+  }
+
+  public static Kvd.KvdOptions prepareFileServer() throws IOException {
+    return prepareServer(DbType.FILE);
   }
 
   public static Kvd startFileServer() throws IOException {
@@ -72,6 +76,13 @@ public class TestUtils {
     } catch(IOException e) {
       throw new RuntimeException("failed to start kvd server", e);
     }
+  }
+
+  public static Kvd startMapdbServer() throws IOException {
+    Kvd.KvdOptions options = prepareServer(DbType.MAPDB);
+    Kvd server = new Kvd();
+    server.run(options);
+    return server;
   }
 
 }

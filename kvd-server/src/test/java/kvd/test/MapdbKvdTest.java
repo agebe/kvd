@@ -11,10 +11,21 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage;
+package kvd.test;
 
-import java.io.OutputStream;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
-public abstract class AbortableOutputStream extends OutputStream {
-  public abstract void abort();
+public class MapdbKvdTest extends KvdTest {
+
+  @BeforeAll
+  public static void setup() throws Exception {
+    server = TestUtils.startMapdbServer();
+  }
+
+  @AfterAll
+  public static void done() {
+    server.shutdown();
+  }
+
 }

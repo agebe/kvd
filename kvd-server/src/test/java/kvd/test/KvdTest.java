@@ -220,12 +220,14 @@ public abstract class KvdTest {
       r.nextBytes(buf);
       String key = "multithreadedtest_threadid_" + threadId + "_" + i;
       String val = TestUtils.bytesToHex(buf);
-      assertFalse(client.contains(key));
-      client.putString(key, val);
-      assertTrue(client.contains(key));
-      assertEquals(val, client.getString(key));
-      assertTrue(client.remove(key));
-      assertFalse(client.contains(key));
+      client.withTransactionVoid(tx -> {
+        assertFalse(tx.contains(key));
+        tx.putString(key, val);
+        assertTrue(tx.contains(key));
+        assertEquals(val, tx.getString(key));
+        assertTrue(tx.remove(key));
+        assertFalse(tx.contains(key));
+      });
     });
   }
 

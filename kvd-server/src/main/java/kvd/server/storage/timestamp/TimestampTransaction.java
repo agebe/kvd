@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 
 import kvd.server.Key;
 import kvd.server.storage.AbortableOutputStream;
+import kvd.server.storage.AbortableOutputStream2;
 import kvd.server.storage.AbstractTransaction;
 import kvd.server.storage.Transaction;
 
@@ -42,9 +43,9 @@ public class TimestampTransaction extends AbstractTransaction {
   }
 
   @Override
-  public AbortableOutputStream<?> put(Key key) {
-    AbortableOutputStream<?> downstreamOut = backendTx.put(key);
-    return new AbortableOutputStream<Key>(
+  public AbortableOutputStream put(Key key) {
+    AbortableOutputStream downstreamOut = backendTx.put(key);
+    return new AbortableOutputStream2<Key>(
         downstreamOut,
         key,
         k -> updateMap(TimestampRecord.putTimestamps(k)),
@@ -86,8 +87,8 @@ public class TimestampTransaction extends AbstractTransaction {
 
   @Override
   protected synchronized void commitInternal() {
-    backendTx.commit();
     store.recordChanges(tmap.values());
+    backendTx.commit();
     tmap.clear();
   }
 

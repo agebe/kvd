@@ -11,40 +11,30 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage.fs;
+package kvd.server.storage.mapdb;
 
 import java.io.File;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import kvd.server.storage.AbortableOutputStream2;
+import kvd.server.storage.AbstractStorageBackend;
+import kvd.server.storage.Transaction;
 
-class Staging {
+public class MapdbStorageBackend extends AbstractStorageBackend {
 
-  private String key;
+  private MapdbStorage store;
 
-  private File file;
+  private AtomicInteger txHandles = new AtomicInteger(1);
 
-  private AbortableOutputStream2<?> out;
-
-  public Staging(String key, File file, AbortableOutputStream2<?> out) {
-    this.key = key;
-    this.file = file;
-    this.out = out;
+  public MapdbStorageBackend(File base) {
+    super();
+    this.store = new MapdbStorage(base);
   }
 
-  public String getKey() {
-    return key;
-  }
-
-  public File getFile() {
-    return file;
-  }
-
-  public AbortableOutputStream2<?> getOut() {
-    return out;
-  }
-
-  public void abort() {
-    out.abort();
+  @Override
+  public Transaction begin() {
+    txHandles.compareAndSet(Integer.MAX_VALUE, 1);
+    int txHandle = txHandles.getAndIncrement();
+    return new MapdbTx(txHandle, store);
   }
 
 }
