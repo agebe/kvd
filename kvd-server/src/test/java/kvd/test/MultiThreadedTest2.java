@@ -36,7 +36,7 @@ public class MultiThreadedTest2 {
 
   private static final Logger log = LoggerFactory.getLogger(MultiThreadedTest2.class);
 
-  private Kvd server = TestUtils.startMemServer("info", ConcurrencyControl.NONE);
+  private Kvd server = TestUtils.startServer("info", ConcurrencyControl.NONE);
 
   private KvdClient client() {
     return server.newLocalClient();

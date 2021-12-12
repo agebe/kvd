@@ -38,7 +38,7 @@ public class ConcurrencyControlOptRWTest {
 
   @BeforeAll
   public static void setup() {
-    server = TestUtils.startMemServer("warn", ConcurrencyControl.OPTRW);
+    server = TestUtils.startServer("warn", ConcurrencyControl.OPTRW);
   }
 
   @AfterAll

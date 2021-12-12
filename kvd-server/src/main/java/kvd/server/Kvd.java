@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.jar.Manifest;
 
 import org.apache.commons.io.FileUtils;
@@ -37,12 +38,7 @@ import kvd.server.storage.StorageBackend;
 import kvd.server.storage.concurrent.LockMode;
 import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
-import kvd.server.storage.fs.FileStorageBackend;
 import kvd.server.storage.mapdb.MapdbStorageBackend;
-import kvd.server.storage.mem.MemStorageBackend;
-import kvd.server.storage.timestamp.ExpiredKeysRemover;
-import kvd.server.storage.timestamp.TimestampStorageBackend;
-import kvd.server.storage.trash.AsyncTrash;
 import kvd.server.util.HumanReadable;
 
 public class Kvd {
@@ -73,16 +69,13 @@ public class Kvd {
         + " optimistic (non-blocking, OPTW or OPTRW), pessimistic (blocking, PESW or PESRW)")
     public ConcurrencyControl concurrency = ConcurrencyControl.NONE;
 
-    @Parameter(names="--default-db-type", description="type of database, MAPDB, FILE, or MEM")
-    public DbType defaultDbType = DbType.MAPDB;
-
     @Parameter(names="--socket-so-timeout", description="server socket so timeout."
         + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
-    public String soTimeoutMs = "1s";
+    public String soTimeoutMs = "1m";
 
     @Parameter(names="--client-timeout", description="client timeout."
         + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
-    public String clientTimeoutSeconds = "10s";
+    public String clientTimeoutSeconds = "1m";
 
     @Parameter(names="--expire-after-access", description="removes entries from the database after no access "
         + "within this fixed duration. Defaults to never expire. Duration unit can be specified ms, s, m, h, d, "
@@ -103,7 +96,7 @@ public class Kvd {
 
   private SocketConnectHandler handler;
 
-  private ExpiredKeysRemover expiredKeysRemover;
+  private MapdbStorageBackend mapdb;
 
   private StorageBackend setupConcurrencyControl(KvdOptions options, StorageBackend downstream) {
     if(options.concurrency == null || ConcurrencyControl.NONE.equals(options.concurrency)) {
@@ -121,24 +114,18 @@ public class Kvd {
     }
   }
 
-  private StorageBackend createDefaultDb(KvdOptions options) throws IOException {
+  private MapdbStorageBackend createDefaultDb(KvdOptions options) throws IOException {
     File dbDir = new File(options.datadir, "db");
     File defaultDb = new File(dbDir, FNameUtils.stringToFilename(options.defaultDbName));
     File trashDir = new File(options.datadir, "trash");
     FileUtils.forceMkdir(defaultDb);
     FileUtils.forceMkdir(trashDir);
-    if(DbType.FILE.equals(options.defaultDbType)) {
-      log.info("default db using file storage");
-      return new FileStorageBackend(defaultDb, new AsyncTrash(trashDir));
-    } else if(DbType.MEM.equals(options.defaultDbType)) {
-      log.info("default db using mem storage");
-      return new MemStorageBackend();
-    } else if(DbType.MAPDB.equals(options.defaultDbType)) {
-      log.info("default db using mapdb storage");
-      return new MapdbStorageBackend(defaultDb);
-    } else {
-      throw new KvdException("invalid default db type " + options.defaultDbType);
-    }
+    log.info("default db using mapdb storage");
+    return new MapdbStorageBackend(
+        defaultDb,
+        HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
+        HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
+        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS));
   }
 
   private void logJvmInfo() {
@@ -185,15 +172,8 @@ public class Kvd {
     }
     logJvmInfo();
     setupDataDir(options);
-    TimestampStorageBackend tsb = new TimestampStorageBackend(createDefaultDb(options));
-    StorageBackend sb = setupConcurrencyControl(options, tsb);
-    expiredKeysRemover = new ExpiredKeysRemover(
-        HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
-        HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
-        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
-        sb,
-        tsb.getStore());
-    expiredKeysRemover.start();
+    mapdb = createDefaultDb(options);
+    StorageBackend sb = setupConcurrencyControl(options, mapdb);
     handler = new SocketConnectHandler(
         options.maxClients,
         (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS),
@@ -208,8 +188,8 @@ public class Kvd {
     return socketServer;
   }
 
-  public ExpiredKeysRemover getExpiredKeysRemover() {
-    return expiredKeysRemover;
+  public void registerExpireListener(Consumer<Key> listener) {
+    mapdb.getStore().registerExpireListener(listener);
   }
 
   public void shutdown() {

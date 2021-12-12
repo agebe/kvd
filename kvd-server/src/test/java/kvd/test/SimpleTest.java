@@ -13,6 +13,7 @@ import kvd.client.KvdClient;
 public class SimpleTest {
   public static void main(String[] args) throws Exception {
     // test README.md examples
+
     try(KvdClient client = new KvdClient("localhost:3030")) {
       client.putString("my-key", "my-value");
       System.out.println(client.getString("my-key"));

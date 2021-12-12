@@ -42,7 +42,7 @@ public class ConcurrencyControlOptWTest {
 
   @BeforeAll
   public static void setup() {
-    server = TestUtils.startMemServer("warn", ConcurrencyControl.OPTW);
+    server = TestUtils.startServer("warn", ConcurrencyControl.OPTW);
   }
 
   @AfterAll

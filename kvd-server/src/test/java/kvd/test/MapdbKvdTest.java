@@ -20,7 +20,7 @@ public class MapdbKvdTest extends KvdTest {
 
   @BeforeAll
   public static void setup() throws Exception {
-    server = TestUtils.startMapdbServer();
+    server = TestUtils.startServer();
   }
 
   @AfterAll

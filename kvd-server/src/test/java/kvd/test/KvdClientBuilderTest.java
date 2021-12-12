@@ -27,7 +27,7 @@ public class KvdClientBuilderTest {
 
   @Test
   public void test() {
-    Kvd server = TestUtils.startMemServer();
+    Kvd server = TestUtils.startServer();
     try(KvdClient client = new KvdClientBuilder()
         .setTransactionDefaultTimeoutMs(2500)
         .create("localhost:"+server.getLocalPort())) {

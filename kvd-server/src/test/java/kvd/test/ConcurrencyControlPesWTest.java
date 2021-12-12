@@ -41,7 +41,7 @@ public class ConcurrencyControlPesWTest {
 
   @BeforeAll
   public static void setup() {
-    server = TestUtils.startMemServer("warn", ConcurrencyControl.PESW);
+    server = TestUtils.startServer("warn", ConcurrencyControl.PESW);
   }
 
   @AfterAll

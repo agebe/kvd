@@ -25,7 +25,7 @@ public class JsonTest {
 
   @BeforeAll
   public static void setup() {
-    server = TestUtils.startMemServer();
+    server = TestUtils.startServer();
   }
 
   @AfterAll

@@ -41,33 +41,17 @@ public class TestUtils {
     Path tempDirWithPrefix = Files.createTempDirectory("kvd");
     options.port = 0;
     options.datadir = tempDirWithPrefix.toFile();
-    options.defaultDbType = type;
     options.logLevel = "warn";
     return options;
   }
 
-  public static Kvd.KvdOptions prepareFileServer() throws IOException {
-    return prepareServer(DbType.FILE);
+  public static Kvd startServer() {
+    return startServer("warn", ConcurrencyControl.NONE);
   }
 
-  public static Kvd startFileServer() throws IOException {
-    Kvd.KvdOptions options = prepareFileServer();
-    Kvd server = new Kvd();
-    server.run(options);
-    return server;
-  }
-
-  public static Kvd startMemServer() {
-    return startMemServer("warn", ConcurrencyControl.NONE);
-  }
-
-  public static Kvd startMemServer(String loglevel, ConcurrencyControl cc) {
+  public static Kvd startServer(String loglevel, ConcurrencyControl cc) {
     try {
-      Kvd.KvdOptions options = new Kvd.KvdOptions();
-      Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-      options.port = 0;
-      options.datadir = tempDirWithPrefix.toFile();
-      options.defaultDbType = DbType.MEM;
+      Kvd.KvdOptions options = prepareServer(DbType.MAPDB);
       options.logLevel = loglevel;
       options.concurrency = cc;
       Kvd server = new Kvd();
@@ -76,13 +60,6 @@ public class TestUtils {
     } catch(IOException e) {
       throw new RuntimeException("failed to start kvd server", e);
     }
-  }
-
-  public static Kvd startMapdbServer() throws IOException {
-    Kvd.KvdOptions options = prepareServer(DbType.MAPDB);
-    Kvd server = new Kvd();
-    server.run(options);
-    return server;
   }
 
 }

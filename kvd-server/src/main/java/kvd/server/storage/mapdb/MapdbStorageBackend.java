@@ -25,9 +25,13 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
 
   private AtomicInteger txHandles = new AtomicInteger(1);
 
-  public MapdbStorageBackend(File base) {
+  public MapdbStorageBackend(
+      File base,
+      Long expireAfterAccessMs,
+      Long expireAfterWriteMs,
+      Long expireIntervalMs) {
     super();
-    this.store = new MapdbStorage(base);
+    this.store = new MapdbStorage(base, expireAfterAccessMs, expireAfterWriteMs, expireIntervalMs);
   }
 
   @Override
@@ -35,6 +39,10 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
     txHandles.compareAndSet(Integer.MAX_VALUE, 1);
     int txHandle = txHandles.getAndIncrement();
     return new MapdbTx(txHandle, store);
+  }
+
+  public MapdbStorage getStore() {
+    return store;
   }
 
 }
