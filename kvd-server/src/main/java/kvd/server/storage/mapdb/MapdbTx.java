@@ -61,7 +61,7 @@ public class MapdbTx extends AbstractTransaction {
     staging.remove(out);
     // TODO also support BLOBS
     ByteArrayOutputStream b = (ByteArrayOutputStream)out.getWrapped();
-    Value v = new Value(ValueType.INLINE, b.toByteArray());
+    Value v = Value.inline(b.toByteArray());
     map.put(k, v);
   }
 
@@ -76,7 +76,7 @@ public class MapdbTx extends AbstractTransaction {
     if(v != null) {
       ValueType vt = v.getType();
       if(ValueType.INLINE.equals(vt)) {
-        return new ByteArrayInputStream(v.getValue());
+        return new ByteArrayInputStream(v.inline());
       } else if(ValueType.BLOB.equals(vt)) {
         // FIXME
         throw new KvdException("blob support not implemented yet");
@@ -108,7 +108,7 @@ public class MapdbTx extends AbstractTransaction {
   public synchronized boolean remove(Key key) {
     checkClosed();
     boolean contains = contains(key);
-    map.put(key, new Value(ValueType.REMOVE, null));
+    map.put(key, Value.remove());
     return contains;
   }
 

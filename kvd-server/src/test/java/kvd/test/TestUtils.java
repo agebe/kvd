@@ -13,9 +13,9 @@
  */
 package kvd.test;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import kvd.server.ConcurrencyControl;
 import kvd.server.DbType;
@@ -36,11 +36,14 @@ public class TestUtils {
     return new String(hexChars);
   }
 
+  public static File createTempDirectory(String prefix) throws IOException {
+    return Files.createTempDirectory(prefix).toFile();
+  }
+
   public static Kvd.KvdOptions prepareServer(DbType type) throws IOException {
     Kvd.KvdOptions options = new Kvd.KvdOptions();
-    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
     options.port = 0;
-    options.datadir = tempDirWithPrefix.toFile();
+    options.datadir = createTempDirectory("kvd");
     options.logLevel = "warn";
     return options;
   }

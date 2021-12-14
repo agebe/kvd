@@ -16,7 +16,6 @@ package kvd.server.storage.mapdb;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -109,7 +108,7 @@ public class MapdbStorage {
       log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
       if(triggered) {
         log.info("key expired '{}'", key);
-        deleteExpiredBlob(key, deserialize(ov));
+        deleteExpiredBlob(key, Value.deserialize(ov));
         notifyExpireListeners(key);
       }
     });
@@ -142,49 +141,19 @@ public class MapdbStorage {
   }
 
   synchronized InputStream get(Key key) {
-    return toInputStream(deserialize(map.get(key.getBytes())));
+    return toInputStream(Value.deserialize(map.get(key.getBytes())));
   }
 
   private InputStream toInputStream(Value v) {
     if(v != null) {
       ValueType vt = v.getType();
       if(ValueType.INLINE.equals(vt)) {
-        return new ByteArrayInputStream(v.getValue());
+        return new ByteArrayInputStream(v.inline());
       } else if(ValueType.BLOB.equals(vt)) {
         throw new KvdException("blob support not implemented yet"); 
       } else {
         throw new KvdException("invalid value type " + vt);
       }
-    } else {
-      return null;
-    }
-  }
-
-  private Value deserialize(byte[] buf) {
-    if(buf != null) {
-      try {
-        ByteBuffer b = ByteBuffer.wrap(buf);
-        int type = b.getInt();
-        ValueType vt = ValueType.values()[type];
-        int len = b.getInt();
-        byte[] val = new byte[len];
-        b.get(val);
-        return new Value(vt, val);
-      } catch(Exception e) {
-        throw new KvdException("failed to deserialize", e);
-      }
-    } else {
-      return null;
-    }
-  }
-
-  private byte[] serialize(Value v) {
-    if(v != null) {
-      ByteBuffer b = ByteBuffer.allocate(4+4+v.getValue().length);
-      b.putInt(v.getType().ordinal());
-      b.putInt(v.getValue().length);
-      b.put(v.getValue());
-      return b.array();
     } else {
       return null;
     }
@@ -205,7 +174,7 @@ public class MapdbStorage {
         if(ValueType.REMOVE.equals(v.getType())) {
           map.remove(k.getBytes());
         } else {
-          map.put(k.getBytes(), serialize(v));
+          map.put(k.getBytes(), Value.serialize(v));
         }
       });
       db.commit();
