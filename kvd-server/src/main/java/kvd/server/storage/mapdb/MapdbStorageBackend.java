@@ -16,29 +16,48 @@ package kvd.server.storage.mapdb;
 import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.Transaction;
+import kvd.server.util.HumanReadableBytes;
 
 public class MapdbStorageBackend extends AbstractStorageBackend {
+
+  private static final Logger log = LoggerFactory.getLogger(MapdbStorageBackend.class);
 
   private MapdbStorage store;
 
   private AtomicInteger txHandles = new AtomicInteger(1);
 
+  private int blobThreshold;
+
+  private long blobSplitThreshold;
+
   public MapdbStorageBackend(
       File base,
       Long expireAfterAccessMs,
       Long expireAfterWriteMs,
-      Long expireIntervalMs) {
+      Long expireIntervalMs,
+      int blobThreshold,
+      long blobSplitThreshold) {
     super();
     this.store = new MapdbStorage(base, expireAfterAccessMs, expireAfterWriteMs, expireIntervalMs);
+    this.blobThreshold = blobThreshold;
+    this.blobSplitThreshold = blobSplitThreshold;
+    log.info("blob threshold {}/{}, split at {}/{}",
+        HumanReadableBytes.formatSI(blobThreshold),
+        HumanReadableBytes.formatBin(blobThreshold),
+        HumanReadableBytes.formatSI(blobSplitThreshold),
+        HumanReadableBytes.formatBin(blobSplitThreshold));
   }
 
   @Override
   public Transaction begin() {
     txHandles.compareAndSet(Integer.MAX_VALUE, 1);
     int txHandle = txHandles.getAndIncrement();
-    return new MapdbTx(txHandle, store);
+    return new MapdbTx(txHandle, store, blobThreshold, blobSplitThreshold);
   }
 
   public MapdbStorage getStore() {

@@ -13,8 +13,8 @@
  */
 package kvd.server.storage.mapdb;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,16 +108,35 @@ public class MapdbStorage {
       log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
       if(triggered) {
         log.info("key expired '{}'", key);
-        deleteExpiredBlob(key, Value.deserialize(ov));
+        deleteBlob(key, Value.deserialize(nv));
         notifyExpireListeners(key);
+      } else {
+        log.trace("ov {}, nv {}", ov, nv);
+        if(nv != null) {
+          deleteBlob(key, Value.deserialize(nv));
+        }
       }
     });
     builder.expireExecutor(executor);
     builder.expireExecutorPeriod(intervalMs);
   }
 
-  private void deleteExpiredBlob(Key k, Value v) {
-    // TODO
+  private void deleteBlob(Key k, Value v) {
+    if(!v.isBlob()) {
+      return;
+    }
+    if(v.blobs() == null) {
+      return;
+    }
+    for(String s : v.blobs()) {
+      File f = new File(getBlobs(), s);
+      if(!f.exists()) {
+        continue;
+      }
+      if(!f.delete()) {
+        // TODO try to delete again later
+      }
+    }
   }
 
   public synchronized void registerExpireListener(Consumer<Key> listener) {
@@ -146,13 +165,14 @@ public class MapdbStorage {
 
   private InputStream toInputStream(Value v) {
     if(v != null) {
-      ValueType vt = v.getType();
-      if(ValueType.INLINE.equals(vt)) {
-        return new ByteArrayInputStream(v.inline());
-      } else if(ValueType.BLOB.equals(vt)) {
-        throw new KvdException("blob support not implemented yet"); 
+      if(v.isInline() || v.isBlob()) {
+        try {
+          return new BinaryLargeObjectInputStream(getBlobs(), v);
+        } catch (IOException e) {
+          throw new KvdException("failed to open blob stream", e);
+        }
       } else {
-        throw new KvdException("invalid value type " + vt);
+        throw new KvdException("invalid value type " + v.getType());
       }
     } else {
       return null;
@@ -182,6 +202,10 @@ public class MapdbStorage {
       log.error("failed to write key/values into mapdb, rollback transaction", t);
       db.rollback();
     }
+  }
+
+  File getBlobs() {
+    return blobs;
   }
 
 }

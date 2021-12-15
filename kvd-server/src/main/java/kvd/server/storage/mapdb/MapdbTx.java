@@ -13,8 +13,7 @@
  */
 package kvd.server.storage.mapdb;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,15 +39,24 @@ public class MapdbTx extends AbstractTransaction {
 
   private List<CompletableOutputStream> staging = new ArrayList<>();
 
-  public MapdbTx(int handle, MapdbStorage store) {
+  private int blobThreshold;
+
+  private long blobSplitThreshold;
+
+  public MapdbTx(int handle, MapdbStorage store, int blobThreshold, long blobSplitThreshold) {
     super(handle);
     this.store = store;
+    this.blobThreshold = blobThreshold;
+    this.blobSplitThreshold = blobSplitThreshold;
   }
 
   @Override
   public synchronized AbortableOutputStream put(Key key) {
     checkClosed();
-    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+    BinaryLargeObjectOutputStream stream = new BinaryLargeObjectOutputStream(
+        store.getBlobs(),
+        blobThreshold,
+        blobSplitThreshold);
     CompletableOutputStream out = new CompletableOutputStream(
         stream,
         o -> putComplete(o, key),
@@ -59,10 +67,8 @@ public class MapdbTx extends AbstractTransaction {
 
   private synchronized void putComplete(CompletableOutputStream out, Key k) {
     staging.remove(out);
-    // TODO also support BLOBS
-    ByteArrayOutputStream b = (ByteArrayOutputStream)out.getWrapped();
-    Value v = Value.inline(b.toByteArray());
-    map.put(k, v);
+    BinaryLargeObjectOutputStream b = (BinaryLargeObjectOutputStream)out.getWrapped();
+    map.put(k, b.toValue());
   }
 
   private synchronized void putAbort(CompletableOutputStream out) {
@@ -75,18 +81,19 @@ public class MapdbTx extends AbstractTransaction {
     Value v = map.get(key);
     if(v != null) {
       ValueType vt = v.getType();
-      if(ValueType.INLINE.equals(vt)) {
-        return new ByteArrayInputStream(v.inline());
-      } else if(ValueType.BLOB.equals(vt)) {
-        // FIXME
-        throw new KvdException("blob support not implemented yet");
+      if(v.isInline() || v.isBlob()) {
+        try {
+          return new BinaryLargeObjectInputStream(store.getBlobs(), v);
+        } catch (IOException e) {
+          throw new KvdException("failed to open blob input stream", e);
+        }
       } else if(ValueType.REMOVE.equals(vt)) {
         return null;
       } else {
         throw new KvdException("unknown value type " + vt);
       }
     } else {
-      // TODO maybe store value in tx map, expiry??
+      // TODO maybe store value in tx map, expire?
       return store.get(key);
     }
   }
@@ -99,7 +106,7 @@ public class MapdbTx extends AbstractTransaction {
       ValueType vt = v.getType();
       return !ValueType.REMOVE.equals(vt);
     } else {
-   // TODO maybe store value in tx map, expiry??
+   // TODO maybe store value in tx map, expire?
       return store.contains(key);
     }
   }

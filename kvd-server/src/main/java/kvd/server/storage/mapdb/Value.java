@@ -154,4 +154,13 @@ public class Value {
     return v!=null?v.serialize():null;
   }
 
+  @Override
+  public String toString() {
+    if(isInline()) {
+      return type.toString();
+    } else {
+      return type.toString() + "/" + blobs!=null?blobs.toString():"";
+    }
+  }
+
 }

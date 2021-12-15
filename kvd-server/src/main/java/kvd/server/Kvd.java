@@ -40,6 +40,7 @@ import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.mapdb.MapdbStorageBackend;
 import kvd.server.util.HumanReadable;
+import kvd.server.util.HumanReadableBytes;
 
 public class Kvd {
 
@@ -90,6 +91,14 @@ public class Kvd {
     @Parameter(names="--expire-check-interval", description="how often to check for expired keys."
         + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
     public String expireCheckInterval;
+
+    @Parameter(names="--blob-threshold", description="from which size store values external to the tree."
+        + " Unit can be specified (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti)")
+    public String blobThreshold = "64ki";
+
+    @Parameter(names="--blob-split-threshold", description="from which size split blobs into multiple files."
+        + " Unit can be specified (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti).")
+    public String blobSplitThreshold = "16ti";
   }
 
   private SimpleSocketServer socketServer;
@@ -125,7 +134,9 @@ public class Kvd {
         defaultDb,
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
-        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS));
+        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
+        HumanReadableBytes.parseInt(options.blobThreshold),
+        HumanReadableBytes.parseLong(options.blobSplitThreshold));
   }
 
   private void logJvmInfo() {
