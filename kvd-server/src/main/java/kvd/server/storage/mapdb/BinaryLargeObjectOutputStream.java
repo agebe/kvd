@@ -19,6 +19,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -27,9 +28,16 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import kvd.common.IOStreamUtils;
 import kvd.common.KvdException;
+import kvd.server.Key;
 
 @NotThreadSafe
 public class BinaryLargeObjectOutputStream extends OutputStream {
+
+  static final byte[] BLOB_MAGIC = "KVDBLOB".getBytes(StandardCharsets.US_ASCII);
+
+  static final int BLOB_VERSION = 1;
+
+  private Key key;
 
   private ByteBuffer buf;
 
@@ -45,21 +53,19 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   private List<String> blobs = new ArrayList<>();
 
-  public BinaryLargeObjectOutputStream(File blobBase) {
-    this(blobBase, 64*1024, Long.MAX_VALUE);
+  public BinaryLargeObjectOutputStream(Key key, File blobBase) {
+    this(key, blobBase, 64*1024, Long.MAX_VALUE);
   }
 
-  public BinaryLargeObjectOutputStream(File blobBase, int blobThreshold) {
-    this(blobBase, blobThreshold, Long.MAX_VALUE);
+  public BinaryLargeObjectOutputStream(Key key, File blobBase, int blobThreshold) {
+    this(key, blobBase, blobThreshold, Long.MAX_VALUE);
   }
 
-  public BinaryLargeObjectOutputStream(File blobBase,
+  public BinaryLargeObjectOutputStream(Key key, File blobBase,
       int blobThreshold,
       long blobSplitThreshold) {
     super();
-    if(blobSplitThreshold < blobThreshold) {
-      throw new KvdException("split size needs to be >= blob threshold");
-    }
+    this.key = key;
     this.blobSplitThreshold = blobSplitThreshold;
     buf = ByteBuffer.allocate(blobThreshold);
     this.blobBase = blobBase;
@@ -114,8 +120,29 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
     String name = UUID.randomUUID().toString();
     File f = new File(blobBase, name);
     blobStream = new BufferedOutputStream(new FileOutputStream(f));
-    blobSize = 0;
+    ByteBuffer header = ByteBuffer.allocate(BLOB_MAGIC.length+16+key.getBytes().length);
+    header.put(BLOB_MAGIC);
+    // header size without magic number
+    header.putInt(16+key.getBytes().length);
+    //version
+    header.putInt(BLOB_VERSION);
+    // blob index
+    header.putInt(blobs.size());
+    // key length
+    header.putInt(key.getBytes().length);
+    // key
+    header.put(key.getBytes());
+    header.flip();
+    byte[] hbuf = new byte[header.limit()];
+    header.get(hbuf);
+    blobSize = hbuf.length;
+    blobStream.write(hbuf);
     blobs.add(name);
+    if(blobSplitThreshold < hbuf.length) {
+      // silently increase the split size so we can put some content into the file
+      // this should be a edge case when either the split size is tiny or the keys are huge or both
+      blobSplitThreshold = hbuf.length + 64*1024;
+    }
   }
 
   public Value toValue() {
@@ -144,4 +171,9 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
       blobStream = null;
     }
   }
+
+  Key getKey() {
+    return key;
+  }
+
 }

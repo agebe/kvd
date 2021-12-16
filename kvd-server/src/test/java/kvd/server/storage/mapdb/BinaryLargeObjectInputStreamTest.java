@@ -24,10 +24,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import kvd.server.Key;
 import kvd.server.util.FileUtils;
 import kvd.test.TestUtils;
 
 public class BinaryLargeObjectInputStreamTest {
+
+  private static final Key KEY = Key.of("k");
+
   private static File blobBase; 
 
   @BeforeEach 
@@ -44,7 +48,7 @@ public class BinaryLargeObjectInputStreamTest {
   public void inline() throws IOException {
     byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
     Value v;
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase)) {
       out.write(b);;
       out.close();
       v = out.toValue();
@@ -59,7 +63,7 @@ public class BinaryLargeObjectInputStreamTest {
   public void blob() throws IOException {
     byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
     Value v;
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase, 3)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase, 3)) {
       out.write(b);
       out.close();
       v = out.toValue();
@@ -74,7 +78,7 @@ public class BinaryLargeObjectInputStreamTest {
   public void blobSplit() throws IOException {
     byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
     Value v;
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase, 0, 3)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase, 0, 24+3)) {
       out.write(b);
       out.close();
       v = out.toValue();

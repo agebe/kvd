@@ -54,21 +54,22 @@ public class MapdbTx extends AbstractTransaction {
   public synchronized AbortableOutputStream put(Key key) {
     checkClosed();
     BinaryLargeObjectOutputStream stream = new BinaryLargeObjectOutputStream(
+        key,
         store.getBlobs(),
         blobThreshold,
         blobSplitThreshold);
     CompletableOutputStream out = new CompletableOutputStream(
         stream,
-        o -> putComplete(o, key),
+        this::putComplete,
         this::putAbort);
     staging.add(out);
     return out;
   }
 
-  private synchronized void putComplete(CompletableOutputStream out, Key k) {
+  private synchronized void putComplete(CompletableOutputStream out) {
     staging.remove(out);
     BinaryLargeObjectOutputStream b = (BinaryLargeObjectOutputStream)out.getWrapped();
-    map.put(k, b.toValue());
+    map.put(b.getKey(), b.toValue());
   }
 
   private synchronized void putAbort(CompletableOutputStream out) {

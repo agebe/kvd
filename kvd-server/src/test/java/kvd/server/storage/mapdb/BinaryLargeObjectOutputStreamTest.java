@@ -13,6 +13,7 @@
  */
 package kvd.server.storage.mapdb;
 
+import static kvd.server.storage.mapdb.BinaryLargeObjectOutputStream.BLOB_MAGIC;
 import static org.apache.commons.io.FileUtils.readFileToByteArray;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,10 +33,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import kvd.common.KvdException;
+import kvd.server.Key;
 import kvd.server.util.FileUtils;
 import kvd.test.TestUtils;
 
 public class BinaryLargeObjectOutputStreamTest {
+
+  private static final Key KEY = Key.of("k");
 
   private static File blobBase; 
 
@@ -50,7 +55,7 @@ public class BinaryLargeObjectOutputStreamTest {
 
   @Test
   public void inline() throws IOException {
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase, 6)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase, 6)) {
       byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
       out.write(b, 0, 2);
       out.write(b, 2, 3);
@@ -65,7 +70,7 @@ public class BinaryLargeObjectOutputStreamTest {
 
   @Test
   public void blob() throws IOException {
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase, 5)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase, 5)) {
       byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
       out.write(b);
       out.close();
@@ -73,18 +78,30 @@ public class BinaryLargeObjectOutputStreamTest {
       assertEquals(ValueType.BLOB, v.getType());
       assertEquals(1, blobBase.list().length);
       assertEquals(blobBase.list()[0], v.blobs().get(0));
-      assertArrayEquals(b, readFileToByteArray(new File(blobBase, v.blobs().get(0))));
+      assertArrayEquals(b, getContentFromBlob(new File(blobBase, v.blobs().get(0))));
       byte[] buf = v.serialize();
       Value v2 = Value.deserialize(buf);
       assertEquals(ValueType.BLOB, v2.getType());
       assertEquals(blobBase.list()[0], v2.blobs().get(0));
-      assertArrayEquals(b, readFileToByteArray(new File(blobBase, v2.blobs().get(0))));
+      assertArrayEquals(b, getContentFromBlob(new File(blobBase, v2.blobs().get(0))));
     }
+  }
+
+  private byte[] getContentFromBlob(File blob) throws IOException {
+    ByteBuffer bytebuf = ByteBuffer.wrap(readFileToByteArray(blob));
+    bytebuf.position(BLOB_MAGIC.length);
+    int hl = bytebuf.getInt();
+//    System.out.println(bytebuf.array().length);
+//    System.out.println(BLOB_MAGIC.length);
+//    System.out.println(hl);
+    byte[] content = new byte[bytebuf.array().length - BLOB_MAGIC.length - hl];
+    System.arraycopy(bytebuf.array(), BLOB_MAGIC.length + hl, content, 0, content.length);
+    return content;
   }
 
   @Test
   public void blobSplit() throws IOException {
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase, 0, 3)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase, 0, 24+3)) {
       byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
       out.write(b);
       out.close();
@@ -96,10 +113,10 @@ public class BinaryLargeObjectOutputStreamTest {
       assertTrue(files.contains(blobBase.list()[1]));
       assertTrue(files.contains(blobBase.list()[2]));
       assertTrue(files.contains(blobBase.list()[3]));
-      assertArrayEquals(new byte[] {1,2,3}, readFileToByteArray(new File(blobBase, v.blobs().get(0))));
-      assertArrayEquals(new byte[] {4,5,6}, readFileToByteArray(new File(blobBase, v.blobs().get(1))));
-      assertArrayEquals(new byte[] {7,8,9}, readFileToByteArray(new File(blobBase, v.blobs().get(2))));
-      assertArrayEquals(new byte[] {10}, readFileToByteArray(new File(blobBase, v.blobs().get(3))));
+      assertArrayEquals(new byte[] {1,2,3}, getContentFromBlob(new File(blobBase, v.blobs().get(0))));
+      assertArrayEquals(new byte[] {4,5,6}, getContentFromBlob(new File(blobBase, v.blobs().get(1))));
+      assertArrayEquals(new byte[] {7,8,9}, getContentFromBlob(new File(blobBase, v.blobs().get(2))));
+      assertArrayEquals(new byte[] {10}, getContentFromBlob(new File(blobBase, v.blobs().get(3))));
       byte[] buf = v.serialize();
       Value v2 = Value.deserialize(buf);
       assertEquals(4, v2.blobs().size());
@@ -113,7 +130,7 @@ public class BinaryLargeObjectOutputStreamTest {
 
   @Test
   public void notClosed() throws IOException {
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(blobBase)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase)) {
       assertThrows(KvdException.class, () -> out.toValue());
     }
   }
