@@ -85,7 +85,7 @@ public class KvdClient implements KvdOperations, AutoCloseable {
       HostAndPort hp = HostAndPort.fromString(builder.getServerAddress()).withDefaultPort(3030);
       log.trace("connecting to '{}'", hp);
       Socket socket = new Socket(InetAddress.getByName(hp.getHost()), hp.getPort());
-      socket.setSoTimeout(1000);
+      socket.setSoTimeout(builder.getSocketSoTimeoutMs());
       backend = new ClientBackend(socket, () -> {
         try {
           log.debug("client backend close notification");

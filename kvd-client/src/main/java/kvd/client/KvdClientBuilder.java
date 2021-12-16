@@ -13,6 +13,8 @@
  */
 package kvd.client;
 
+import java.util.concurrent.TimeUnit;
+
 import kvd.common.KvdException;
 
 /**
@@ -21,9 +23,11 @@ import kvd.common.KvdException;
  */
 public class KvdClientBuilder {
 
-  private long transactionDefaultTimeoutMs;
+  private long transactionDefaultTimeoutMs = TimeUnit.MINUTES.toMillis(1);
 
   private String serverAddress;
+
+  private int socketSoTimeoutMs = (int)TimeUnit.MINUTES.toMillis(1);
 
   public KvdClientBuilder() {
     super();
@@ -44,6 +48,11 @@ public class KvdClientBuilder {
     return this;
   }
 
+  public KvdClientBuilder setSocketSoTimeoutMs(int socketSoTimeoutMs) {
+    this.socketSoTimeoutMs = socketSoTimeoutMs;
+    return this;
+  }
+
   /**
    * Create the KvdClient connecting to the given server.
    * @param serverAddress The serverAddress is in the form 
@@ -61,6 +70,10 @@ public class KvdClientBuilder {
 
   String getServerAddress() {
     return serverAddress;
+  }
+
+  int getSocketSoTimeoutMs() {
+    return socketSoTimeoutMs;
   }
 
 }
