@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.stream.Stream;
 
 import kvd.common.KvdException;
 
@@ -36,8 +37,8 @@ public class FileUtils {
   }
 
   public static void deleteDirQuietly(File d) {
-    try {
-      Files.walk(d.toPath())
+    try(Stream<Path> stream = Files.walk(d.toPath())) {
+      stream
       .sorted(Comparator.reverseOrder())
       .map(Path::toFile)
       .forEach(File::delete);

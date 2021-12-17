@@ -102,7 +102,7 @@ public class MapdbStorage {
       builder.expireAfterCreate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
       builder.expireAfterUpdate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
     }
-    ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
+    ScheduledExecutorService executor = Executors.newScheduledThreadPool(4);
     builder.modificationListener((k, nv, ov, triggered) -> {
       Key key = new Key(k);
       log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
@@ -111,7 +111,7 @@ public class MapdbStorage {
         deleteBlob(key, Value.deserialize(nv));
         notifyExpireListeners(key);
       } else {
-        log.trace("ov {}, nv {}", ov, nv);
+        log.trace("map modification, key {}, ov {}, nv {}", key, ov, nv);
         if(nv != null) {
           deleteBlob(key, Value.deserialize(nv));
         }
@@ -119,7 +119,57 @@ public class MapdbStorage {
     });
     builder.expireExecutor(executor);
     builder.expireExecutorPeriod(intervalMs);
+    // could work if there is a way to get values from the HTreeMap without changing the access time.
+//    executor.scheduleWithFixedDelay(this::deleteOrphanedBlobs, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
   }
+
+//  private void deleteOrphanedBlobs() {
+//    try(Stream<Path> stream = Files.walk(blobs.toPath())) {
+//      stream
+//      .filter(Files::isRegularFile)
+//      .map(Path::toFile)
+//      .forEach(this::checkOrphanedBlob);
+//    } catch(Throwable t) {
+//      log.error("failed to check/delete orphaned blob files", t);
+//    }
+//  }
+//
+//  private void checkOrphanedBlob(File f) {
+//    try(InputStream in = new BufferedInputStream(new FileInputStream(f))) {
+//      BlobHeader header;
+//      try {
+//        header = BlobHeader.fromInputStream(in);
+//      } catch(Exception e) {
+//        // the blob directory should only contain blobs. if the header can't be loaded ignore the file
+//        log.debug("failed to load header from blob file '{}', msg '{}'",
+//            f.getAbsolutePath(), ExceptionUtils.getRootCauseMessage(e));
+//        return;
+//      }
+//      if(header.getKey() == null) {
+//        log.debug("no key stored in blob header '{}'", f.getAbsolutePath());
+//        return;
+//      }
+//      Value v = getValue(header.getKey());
+//      if((v == null) || (!checkIndex(f.getName(), header, v))) {
+//        boolean deleted = f.delete();
+//        if(deleted) {
+//          log.info("deleted orphaned blob '{}'", f.getName());
+//        }
+//      }
+//    } catch(Exception e) {
+//      log.error("failed to check blob file '{}'", f.getAbsolutePath(), e);
+//    }
+//  }
+//
+//  private boolean checkIndex(String blobName, BlobHeader header, Value v) {
+//    if(v.blobs() == null) {
+//      return false;
+//    }
+//    if(v.blobs().size() <= header.getIndex()) {
+//      return false;
+//    }
+//    return StringUtils.equals(blobName, v.blobs().get(header.getIndex()));
+//  }
 
   private void deleteBlob(Key k, Value v) {
     if(!v.isBlob()) {
@@ -159,8 +209,12 @@ public class MapdbStorage {
     }
   }
 
+  private synchronized Value getValue(Key key) {
+    return Value.deserialize(map.get(key.getBytes()));
+  }
+
   synchronized InputStream get(Key key) {
-    return toInputStream(Value.deserialize(map.get(key.getBytes())));
+    return toInputStream(getValue(key));
   }
 
   private InputStream toInputStream(Value v) {
@@ -180,7 +234,7 @@ public class MapdbStorage {
   }
 
   synchronized boolean contains(Key key) {
-    return map.containsKey(key.getBytes());
+    return getValue(key) != null;
   }
 
   synchronized void removeAll() {

@@ -19,7 +19,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -32,10 +31,6 @@ import kvd.server.Key;
 
 @NotThreadSafe
 public class BinaryLargeObjectOutputStream extends OutputStream {
-
-  static final byte[] BLOB_MAGIC = "KVDBLOB".getBytes(StandardCharsets.US_ASCII);
-
-  static final int BLOB_VERSION = 1;
 
   private Key key;
 
@@ -120,28 +115,13 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
     String name = UUID.randomUUID().toString();
     File f = new File(blobBase, name);
     blobStream = new BufferedOutputStream(new FileOutputStream(f));
-    ByteBuffer header = ByteBuffer.allocate(BLOB_MAGIC.length+16+key.getBytes().length);
-    header.put(BLOB_MAGIC);
-    // header size without magic number
-    header.putInt(16+key.getBytes().length);
-    //version
-    header.putInt(BLOB_VERSION);
-    // blob index
-    header.putInt(blobs.size());
-    // key length
-    header.putInt(key.getBytes().length);
-    // key
-    header.put(key.getBytes());
-    header.flip();
-    byte[] hbuf = new byte[header.limit()];
-    header.get(hbuf);
-    blobSize = hbuf.length;
-    blobStream.write(hbuf);
+    BlobHeader header = new BlobHeader(blobs.size(), key);
+    blobSize = header.writeToStream(blobStream);
     blobs.add(name);
-    if(blobSplitThreshold < hbuf.length) {
+    if(blobSplitThreshold < blobSize) {
       // silently increase the split size so we can put some content into the file
       // this should be a edge case when either the split size is tiny or the keys are huge or both
-      blobSplitThreshold = hbuf.length + 64*1024;
+      blobSplitThreshold = blobSize + 64*1024;
     }
   }
 

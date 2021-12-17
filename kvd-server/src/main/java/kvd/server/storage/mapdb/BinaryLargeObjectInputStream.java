@@ -13,8 +13,7 @@
  */
 package kvd.server.storage.mapdb;
 
-import static kvd.server.storage.mapdb.BinaryLargeObjectOutputStream.BLOB_MAGIC;
-import static kvd.server.storage.mapdb.BinaryLargeObjectOutputStream.BLOB_VERSION;
+import static kvd.server.storage.mapdb.BlobHeader.BLOB_VERSION;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -22,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -63,44 +61,19 @@ public class BinaryLargeObjectInputStream extends KvdInputStream {
     File f = new File(blobBase, filename);
     blobStream = new BufferedInputStream(new FileInputStream(f));
     // read header
-    checkMagic(blobStream.readNBytes(BLOB_MAGIC.length));
-    int headerLength = headerLength(blobStream.readNBytes(4));
-    if(headerLength <= 0) {
-      throw new KvdException("invalid header on BLOB file (wrong length)");
-    }
-    checkVersion(blobStream.readNBytes(4));
-    checkBlobIndex(blob, blobStream.readNBytes(4));
-    int keyLength = headerLength(blobStream.readNBytes(4));
-    if(keyLength <= 0) {
-      throw new KvdException("invalid header on BLOB file (wrong key length)");
-    }
-    this.key = new Key(blobStream.readNBytes(keyLength));
-  }
-
-  private void checkMagic(byte[] buf) {
-    for(int i=0;i<BLOB_MAGIC.length;i++) {
-      if(buf[i] != BLOB_MAGIC[i]) {
-        throw new KvdException("invalid header on BLOB file (magic number mismatch)");
-      }
-    }
-  }
-
-  private int headerLength(byte[] buf) {
-    ByteBuffer b = ByteBuffer.wrap(buf);
-    return b.getInt();
-  }
-
-  private void checkVersion(byte[] buf) {
-    ByteBuffer b = ByteBuffer.wrap(buf);
-    if(b.getInt() != BLOB_VERSION) {
+    BlobHeader header = BlobHeader.fromInputStream(blobStream);
+    if(header.getVersion() != BLOB_VERSION) {
       throw new KvdException("invalid header on BLOB file (wrong version)");
     }
-  }
-
-  private void checkBlobIndex(int blobIndex, byte[] buf) {
-    ByteBuffer b = ByteBuffer.wrap(buf);
-    if(b.getInt() != blobIndex) {
+    if(header.getIndex() != blob) {
       throw new KvdException("invalid header on BLOB file (wrong index)");
+    }
+    if(this.key == null) {
+      this.key = header.getKey();
+    } else {
+      if(!key.equals(header.getKey())) {
+        throw new KvdException("invalid header on BLOB file (key mismatch)");
+      }
     }
   }
 

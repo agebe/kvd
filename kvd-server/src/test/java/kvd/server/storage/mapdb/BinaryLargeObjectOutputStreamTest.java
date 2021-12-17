@@ -13,7 +13,7 @@
  */
 package kvd.server.storage.mapdb;
 
-import static kvd.server.storage.mapdb.BinaryLargeObjectOutputStream.BLOB_MAGIC;
+import static kvd.server.storage.mapdb.BlobHeader.BLOB_MAGIC;
 import static org.apache.commons.io.FileUtils.readFileToByteArray;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
