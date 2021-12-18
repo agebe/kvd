@@ -22,8 +22,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
-import com.google.protobuf.ByteString;
-
 import kvd.common.Utils;
 
 public class PacketTest {

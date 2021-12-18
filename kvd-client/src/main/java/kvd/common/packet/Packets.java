@@ -16,10 +16,9 @@ package kvd.common.packet;
 import java.io.IOException;
 import java.io.InputStream;
 
-import com.google.protobuf.ByteString;
-
 import kvd.common.KvdException;
 import kvd.common.Utils;
+import kvd.common.packet.proto.ByteString;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 

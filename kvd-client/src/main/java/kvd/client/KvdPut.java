@@ -18,10 +18,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-import com.google.protobuf.ByteString;
-
 import kvd.common.KvdException;
 import kvd.common.packet.Packets;
+import kvd.common.packet.proto.ByteString;
 import kvd.common.packet.proto.Packet;
 import kvd.common.packet.proto.PacketType;
 import kvd.common.packet.proto.PutInitBody;
