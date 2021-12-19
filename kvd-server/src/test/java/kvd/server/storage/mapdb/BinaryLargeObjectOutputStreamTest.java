@@ -13,16 +13,15 @@
  */
 package kvd.server.storage.mapdb;
 
-import static kvd.server.storage.mapdb.BlobHeader.BLOB_MAGIC;
-import static org.apache.commons.io.FileUtils.readFileToByteArray;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -88,20 +87,16 @@ public class BinaryLargeObjectOutputStreamTest {
   }
 
   private byte[] getContentFromBlob(File blob) throws IOException {
-    ByteBuffer bytebuf = ByteBuffer.wrap(readFileToByteArray(blob));
-    bytebuf.position(BLOB_MAGIC.length);
-    int hl = bytebuf.getInt();
-//    System.out.println(bytebuf.array().length);
-//    System.out.println(BLOB_MAGIC.length);
-//    System.out.println(hl);
-    byte[] content = new byte[bytebuf.array().length - BLOB_MAGIC.length - hl];
-    System.arraycopy(bytebuf.array(), BLOB_MAGIC.length + hl, content, 0, content.length);
-    return content;
+    try(InputStream in = new FileInputStream(blob)) {
+      BlobHeader.fromInputStream(in);
+      return in.readAllBytes();
+    }
   }
 
   @Test
   public void blobSplit() throws IOException {
-    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(KEY, blobBase, 0, 24+3)) {
+    try(BinaryLargeObjectOutputStream out = new BinaryLargeObjectOutputStream(
+        KEY, blobBase, 0, BlobHeader.headerLength(KEY)+3)) {
       byte[] b = new byte[] {1,2,3,4,5,6,7,8,9, 10};
       out.write(b);
       out.close();

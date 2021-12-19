@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
@@ -27,8 +28,6 @@ class BlobHeader {
   static final byte[] BLOB_MAGIC = "KVDBLOB".getBytes(StandardCharsets.US_ASCII);
 
   static final int BLOB_VERSION = 1;
-
-//  private int length;
 
   private int version;
 
@@ -40,20 +39,14 @@ class BlobHeader {
     this.index = index;
     this.key = key;
     version = BLOB_VERSION;
-//    length = -1;
   }
 
-  private BlobHeader(int length, int version, int index, Key key) {
+  private BlobHeader(int version, int index, Key key) {
     super();
-//    this.length = length;
     this.version = version;
     this.index = index;
     this.key = key;
   }
-
-//  int getLength() {
-//    return length;
-//  }
 
   int getVersion() {
     return version;
@@ -68,15 +61,20 @@ class BlobHeader {
   }
 
   int writeToStream(OutputStream blobStream) throws IOException {
-    ByteBuffer header = ByteBuffer.allocate(BLOB_MAGIC.length+16+key.getBytes().length);
+    int headerLength = headerLength(key);
+    ByteBuffer header = ByteBuffer.allocate(headerLength);
     header.put(BLOB_MAGIC);
-    // header size without magic number
-    int length = 16+key.getBytes().length;
-    header.putInt(length);
+    // header size
+    header.putInt(headerLength);
     //version
     header.putInt(BLOB_VERSION);
     // blob index
     header.putInt(index);
+    // creation time
+    Instant now = Instant.now();
+    header.putLong(now.getEpochSecond());
+    // add again as reserved field, might use it as access time later
+    header.putLong(now.getEpochSecond());
     // key length
     header.putInt(key.getBytes().length);
     // key
@@ -96,12 +94,19 @@ class BlobHeader {
     }
     int version = getInt(blobStream.readNBytes(4));
     int index = getInt(blobStream.readNBytes(4));
+//    long created =
+        getLong(blobStream.readNBytes(8));
+//    long reserved =
+        getLong(blobStream.readNBytes(8));
     int keyLength = getInt(blobStream.readNBytes(4));
     if(keyLength <= 0) {
       throw new KvdException("invalid header on BLOB file (wrong key length)");
     }
+    if(headerLength != (BLOB_MAGIC.length+32+keyLength)) {
+      throw new KvdException("invalid header on BLOB file (length mismatch)");
+    }
     Key key = new Key(blobStream.readNBytes(keyLength));
-    return new BlobHeader(headerLength, version, index, key);
+    return new BlobHeader(version, index, key);
   }
 
   private static void checkMagic(byte[] buf) {
@@ -115,6 +120,15 @@ class BlobHeader {
   private static int getInt(byte[] buf) {
     ByteBuffer b = ByteBuffer.wrap(buf);
     return b.getInt();
+  }
+
+  private static long getLong(byte[] buf) {
+    ByteBuffer b = ByteBuffer.wrap(buf);
+    return b.getLong();
+  }
+
+  public static int headerLength(Key key) {
+    return BLOB_MAGIC.length+32+key.getBytes().length;
   }
 
 }
