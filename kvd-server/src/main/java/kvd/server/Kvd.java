@@ -135,7 +135,7 @@ public class Kvd {
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
         HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
-        HumanReadableBytes.parseInt(options.blobThreshold),
+        HumanReadableBytes.parseLong(options.blobThreshold),
         HumanReadableBytes.parseLong(options.blobSplitThreshold));
   }
 

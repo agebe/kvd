@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import kvd.common.KvdException;
 import kvd.server.storage.AbstractStorageBackend;
 import kvd.server.storage.Transaction;
 import kvd.server.util.HumanReadableBytes;
@@ -40,11 +41,17 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
       Long expireAfterAccessMs,
       Long expireAfterWriteMs,
       Long expireIntervalMs,
-      int blobThreshold,
+      long blobThreshold,
       long blobSplitThreshold) {
     super();
+    if(blobThreshold < 0) {
+      throw new KvdException("blob threshold needs to be positive int");
+    }
+    if(blobThreshold > 1072693248l) {
+      throw new KvdException("blob threshold needs to be <= 1072693248 bytes");
+    }
     this.store = new MapdbStorage(base, expireAfterAccessMs, expireAfterWriteMs, expireIntervalMs);
-    this.blobThreshold = blobThreshold;
+    this.blobThreshold = (int)blobThreshold;
     this.blobSplitThreshold = blobSplitThreshold;
     log.info("blob threshold {}/{}, split at {}/{}",
         HumanReadableBytes.formatSI(blobThreshold),
