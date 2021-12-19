@@ -71,6 +71,7 @@ public class MapdbStorage {
     // TODO test corrupted database
     // maybe add try catch, if opening fails delete the folders and try again
     // data seems to be lost so it might be better to automatically start with a clean db
+    // or try to rebuild the database from the blob files
     db = DBMaker
         .fileDB(new File(mapdb, "map"))
         .transactionEnable()
@@ -86,6 +87,20 @@ public class MapdbStorage {
   }
 
   private void setupExpire(HashMapMaker<byte[],byte[]> builder) {
+    builder.modificationListener((k, nv, ov, triggered) -> {
+      Key key = new Key(k);
+      log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
+      if(triggered) {
+        log.info("key expired '{}'", key);
+        deleteBlob(key, Value.deserialize(nv));
+        notifyExpireListeners(key);
+      } else {
+        log.trace("map modification, key {}, ov {}, nv {}", key, ov, nv);
+        if(nv != null) {
+          deleteBlob(key, Value.deserialize(nv));
+        }
+      }
+    });
     if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
       log.info("keys never expire");
       return;
@@ -103,20 +118,6 @@ public class MapdbStorage {
       builder.expireAfterUpdate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
     }
     ScheduledExecutorService executor = Executors.newScheduledThreadPool(4);
-    builder.modificationListener((k, nv, ov, triggered) -> {
-      Key key = new Key(k);
-      log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
-      if(triggered) {
-        log.info("key expired '{}'", key);
-        deleteBlob(key, Value.deserialize(nv));
-        notifyExpireListeners(key);
-      } else {
-        log.trace("map modification, key {}, ov {}, nv {}", key, ov, nv);
-        if(nv != null) {
-          deleteBlob(key, Value.deserialize(nv));
-        }
-      }
-    });
     builder.expireExecutor(executor);
     builder.expireExecutorPeriod(intervalMs);
     // could work if there is a way to get values from the HTreeMap without changing the access time.
