@@ -48,6 +48,8 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   private List<String> blobs = new ArrayList<>();
 
+  private String blobBaseName = UUID.randomUUID().toString();
+
   public BinaryLargeObjectOutputStream(Key key, File blobBase) {
     this(key, blobBase, 64*1024, Long.MAX_VALUE);
   }
@@ -112,10 +114,11 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
   }
 
   private void newBlob() throws IOException {
-    String name = UUID.randomUUID().toString();
+    int index = blobs.size();
+    String name = blobBaseName + "." + index;
     File f = new File(blobBase, name);
     blobStream = new BufferedOutputStream(new FileOutputStream(f));
-    BlobHeader header = new BlobHeader(blobs.size(), key);
+    BlobHeader header = new BlobHeader(index, key);
     blobSize = header.writeToStream(blobStream);
     blobs.add(name);
     if(blobSplitSize < blobSize) {
