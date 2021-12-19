@@ -126,9 +126,7 @@ public class Kvd {
   private MapdbStorageBackend createDefaultDb(KvdOptions options) throws IOException {
     File dbDir = new File(options.datadir, "db");
     File defaultDb = new File(dbDir, FNameUtils.stringToFilename(options.defaultDbName));
-    File trashDir = new File(options.datadir, "trash");
     FileUtils.forceMkdir(defaultDb);
-    FileUtils.forceMkdir(trashDir);
     log.info("default db using mapdb storage");
     return new MapdbStorageBackend(
         defaultDb,
