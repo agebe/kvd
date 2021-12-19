@@ -41,13 +41,13 @@ public class MapdbTx extends AbstractTransaction {
 
   private int blobThreshold;
 
-  private long blobSplitThreshold;
+  private long blobSplitSize;
 
-  public MapdbTx(int handle, MapdbStorage store, int blobThreshold, long blobSplitThreshold) {
+  public MapdbTx(int handle, MapdbStorage store, int blobThreshold, long blobSplitSize) {
     super(handle);
     this.store = store;
     this.blobThreshold = blobThreshold;
-    this.blobSplitThreshold = blobSplitThreshold;
+    this.blobSplitSize = blobSplitSize;
   }
 
   @Override
@@ -57,7 +57,7 @@ public class MapdbTx extends AbstractTransaction {
         key,
         store.getBlobs(),
         blobThreshold,
-        blobSplitThreshold);
+        blobSplitSize);
     CompletableOutputStream out = new CompletableOutputStream(
         stream,
         this::putComplete,

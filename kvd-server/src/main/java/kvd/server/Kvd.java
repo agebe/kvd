@@ -92,13 +92,13 @@ public class Kvd {
         + " Unit can be specified ms, s, m, h, d, defaults to seconds.")
     public String expireCheckInterval;
 
-    @Parameter(names="--blob-threshold", description="from which size store values external to the tree."
+    @Parameter(names="--blob-threshold", description="store values external to MapDB when they reach this size."
         + " Unit can be specified (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti)")
     public String blobThreshold = "64ki";
 
-    @Parameter(names="--blob-split-threshold", description="from which size split blobs into multiple files."
+    @Parameter(names="--blob-split-size", description="split blob files when they reach this size."
         + " Unit can be specified (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti).")
-    public String blobSplitThreshold = "16ti";
+    public String blobSplitSize = "16ti";
   }
 
   private SimpleSocketServer socketServer;
@@ -136,7 +136,7 @@ public class Kvd {
         HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
         HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
         HumanReadableBytes.parseLong(options.blobThreshold),
-        HumanReadableBytes.parseLong(options.blobSplitThreshold));
+        HumanReadableBytes.parseLong(options.blobSplitSize));
   }
 
   private void logJvmInfo() {

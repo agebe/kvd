@@ -42,7 +42,7 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   private long blobSize;
 
-  private long blobSplitThreshold;
+  private long blobSplitSize;
 
   private boolean closed;
 
@@ -58,10 +58,10 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
 
   public BinaryLargeObjectOutputStream(Key key, File blobBase,
       int blobThreshold,
-      long blobSplitThreshold) {
+      long blobSplitSize) {
     super();
     this.key = key;
-    this.blobSplitThreshold = blobSplitThreshold;
+    this.blobSplitSize = blobSplitSize;
     buf = ByteBuffer.allocate(blobThreshold);
     this.blobBase = blobBase;
   }
@@ -96,9 +96,9 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
     if(blobStream == null) {
       newBlob();
     }
-    if((blobSize+len) > blobSplitThreshold) {
+    if((blobSize+len) > blobSplitSize) {
       // fill up the blob to capacity
-      int len2 = (int)(blobSplitThreshold - blobSize);
+      int len2 = (int)(blobSplitSize - blobSize);
       blobStream.write(b, off, len2);
       blobStream.close();
       newBlob();
@@ -118,10 +118,10 @@ public class BinaryLargeObjectOutputStream extends OutputStream {
     BlobHeader header = new BlobHeader(blobs.size(), key);
     blobSize = header.writeToStream(blobStream);
     blobs.add(name);
-    if(blobSplitThreshold < blobSize) {
+    if(blobSplitSize < blobSize) {
       // silently increase the split size so we can put some content into the file
       // this should be a edge case when either the split size is tiny or the keys are huge or both
-      blobSplitThreshold = blobSize + 64*1024;
+      blobSplitSize = blobSize + 64*1024;
     }
   }
 

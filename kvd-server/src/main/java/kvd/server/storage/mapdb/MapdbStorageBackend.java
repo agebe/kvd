@@ -34,7 +34,7 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
 
   private int blobThreshold;
 
-  private long blobSplitThreshold;
+  private long blobSplitSize;
 
   public MapdbStorageBackend(
       File base,
@@ -42,7 +42,7 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
       Long expireAfterWriteMs,
       Long expireIntervalMs,
       long blobThreshold,
-      long blobSplitThreshold) {
+      long blobSplitSize) {
     super();
     if(blobThreshold < 0) {
       throw new KvdException("blob threshold needs to be positive int");
@@ -52,19 +52,19 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
     }
     this.store = new MapdbStorage(base, expireAfterAccessMs, expireAfterWriteMs, expireIntervalMs);
     this.blobThreshold = (int)blobThreshold;
-    this.blobSplitThreshold = blobSplitThreshold;
+    this.blobSplitSize = blobSplitSize;
     log.info("blob threshold {}/{}, split at {}/{}",
         HumanReadableBytes.formatSI(blobThreshold),
         HumanReadableBytes.formatBin(blobThreshold),
-        HumanReadableBytes.formatSI(blobSplitThreshold),
-        HumanReadableBytes.formatBin(blobSplitThreshold));
+        HumanReadableBytes.formatSI(blobSplitSize),
+        HumanReadableBytes.formatBin(blobSplitSize));
   }
 
   @Override
   public Transaction begin() {
     txHandles.compareAndSet(Integer.MAX_VALUE, 1);
     int txHandle = txHandles.getAndIncrement();
-    return new MapdbTx(txHandle, store, blobThreshold, blobSplitThreshold);
+    return new MapdbTx(txHandle, store, blobThreshold, blobSplitSize);
   }
 
   public MapdbStorage getStore() {
