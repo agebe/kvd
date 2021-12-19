@@ -26,18 +26,71 @@ I've written kvd to cache calculation results that take quite some time to compu
 
 kvd can be started with --help that prints out all options.
 
-The server listens by default on TCP port 3030 and the default data directory is $HOME/.kvd
+```
+Usage: kvd [options]
+  Options:
+    --blob-split-size
+      split blob files when they reach this size. Unit can be specified 
+      (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti). 
+      Default: 16ti
+    --blob-threshold
+      store values external to MapDB when they reach this size. Unit can be 
+      specified (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti)
+      Default: 64ki
+    --client-timeout
+      client timeout. Unit can be specified ms, s, m, h, d, defaults to 
+      seconds. 
+      Default: 1m
+    --concurrency-control, -cc
+      default concurrency control, options: NONE, optimistic (non-blocking, 
+      OPTW or OPTRW), pessimistic (blocking, PESW or PESRW)
+      Default: NONE
+      Possible Values: [NONE, OPTW, OPTRW, PESW, PESRW]
+    --datadir
+      path to data directory
+      Default: $HOME/.kvd
+    --default-db-name
+      name of the default database
+      Default: default
+    --expire-after-access
+      removes entries from the database after no access within this fixed 
+      duration. Defaults to never expire. Duration unit can be specified ms, 
+      s, m, h, d, defaults to seconds.
+    --expire-after-write
+      removes entries from the database after creation  fixed duration. 
+      Defaults to never expire. Duration unit can be specified ms, s, m, h, d, 
+      defaults to seconds.
+    --expire-check-interval
+      how often to check for expired keys. Unit can be specified ms, s, m, h, 
+      d, defaults to seconds.
+    --help
+      show usage
+    --log-level
+      logback log level (trace, debug, info, warn, error, all, off)
+      Default: info
+    --max-clients
+      maximum number of clients that can connect to the server at the same 
+      time 
+      Default: 100
+    --port
+      port to listen on
+      Default: 3030
+    --socket-so-timeout
+      server socket so timeout. Unit can be specified ms, s, m, h, d, defaults 
+      to seconds.
+      Default: 1m
+```
 
 ### Docker
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.4.0
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.5.0
 ```
 
-Otherwise you might want to keep the database files between restarts or change some JVM settings etc. do this:
+You might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.4.0 --datadir /datadir
+$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.5.0 --datadir /datadir
 ```
 
 ### Running the server from source
@@ -45,7 +98,6 @@ $ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS=
 * Clone kvd from this repository
 * Make sure you have jdk 11+ installed.
 * Install recent version of [gradle](https://gradle.org/releases/)
-* Install [protoc](https://github.com/protocolbuffers/protobuf/releases/) and make sure the protoc binary is on your $PATH
 * Change dir into ./kvd-server and execute:
 ```bash
 $ gradle run
@@ -54,12 +106,12 @@ In this case the database is written to $HOME/.kvd
 
 ## Client examples
 
-For the example below to work you need to add the kvd-client library as a dependency in your project. The kvd-client library depends on slf4j, google protobuf and java 1.8+.
+For the example below to work you need to add the kvd-client library as a dependency in your project. The kvd-client library depends on slf4j and java 1.8+.
 
 Gradle:
 ```gradle
 dependencies {
-  implementation 'io.github.agebe:kvd-client:0.4.0'
+  implementation 'io.github.agebe:kvd-client:0.5.0'
 }
 ```
 
@@ -68,7 +120,7 @@ Maven:
 <dependency>
   <groupId>io.github.agebe</groupId>
   <artifactId>kvd-client</artifactId>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
 </dependency>
 ```
 
@@ -99,52 +151,17 @@ The examples below show how to use the client API to access the database
     }
 ```
 
-kvd does not bring its own serialization support but put- and get-operations are based on Java IO streams so integration with your serialization system should be easy ([json example](https://github.com/agebe/kvd/blob/main/kvd-server/src/test/java/kvd/test/JsonTest.java))
+kvd does not bring its own serialization support but put- and get-operations are based on Java IO streams so integration with your serialization system should be straightforward ([json example](https://github.com/agebe/kvd/blob/main/kvd-server/src/test/java/kvd/test/JsonTest.java))
 
 [KvdClient API Javadoc](https://javadoc.io/doc/io.github.agebe/kvd-client/latest/kvd/client/KvdClient.html)
 
 [![javadoc](https://javadoc.io/badge2/io.github.agebe/kvd-client/javadoc.svg)](https://javadoc.io/doc/io.github.agebe/kvd-client)
 
 ## Storage Backend
-kvd currently brings 2 storage backends. One is file based and survives server restarts and the other storage backend is memory based, great for nice to haves caches.
-
-### File Storage Backend
-kvd has a simple filesystem based storage backend. Each key/value pair is stored into a separate file with the filename being derived from the key.
-
-All files are stored in a single directory and this can work quite nicely depending on your filesystem support for large directories. I've tested this on an ext4 filesystem and put/get/contains/remove operations remain fast even with millions of entries. The feature that makes this work on the ext3/ext4 filesystem is dir_index (man ext4):
-
-> dir_index - Use hashed b-trees to speed up name lookups in large directories.  This feature is supported by ext3 and ext4 file systems, and is ignored by ext2 file systems.
-
-You can check which ext fs features are enabled with
-```bash
-$ sudo dumpe2fs /dev/<my-ext-block-device>  | less
-```
-
-If you are planing to use kvd with large amounts of entries please also read up on filesystem limitations. Ext uses 1 inode per file so make sure your filesystem has enough inodes to support your anticipated database entry size. 
-
-Also consider that files are stored in blocks so they consume more space on disk than their actual size. On ext4 this is usally 4 KiB. If your values are mostly small (<=128 byte) you might want to consider creating your filesystem with the inline_data feature (man ext4):
-
-> inline_data - Allow data to be stored in the inode and extended attribute area.
-
-The File Storage Backend is the default in kvd. The storage directory can be passed in via command line options on server startup like so:
-```bash
-$ ... --datadir /var/lib/kvd
-```
-
-### Memory Storage Backend
-All key/value pairs are stored in JVM memory inside a HashMap. Values are stored as binary large objects which grow as needed and above the 2 GiB limit of java byte arrays. Make sure you start the server with enough heap space to support your in memory data store size (e.g. -Xmx8g or -XX:MaxRAMPercentage=80.0), check like so:
-```bash
-$ java -XX:+UseContainerSupport -XX:InitialRAMPercentage=40.0 -XX:MinRAMPercentage=20.0 -XX:MaxRAMPercentage=80.0 -XX:+PrintFlagsFinal -XshowSettings:vm -version
-```
-
-To enable the memory storage backend start with this option:
-```bash
-$ ... --default-db-type MEM
-```
+kvd uses [MapDB](https://mapdb.org/) to store key/values. Values are either stored inline in MapDB or as an external file depending on size (--blob-threshold CLI option).
 
 ## Future work
-* write a storage backend that is more efficient, especially with small key/values
 * configurable max size for single values
 * configurable max size for database. This might automatically drop values to make room for new values (LRU)
 * client/server network transport encryption
-* server authentication
+* client/server authentication
