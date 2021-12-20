@@ -87,13 +87,17 @@ public class MapdbStorage {
   }
 
   private void setupExpire(HashMapMaker<byte[],byte[]> builder) {
+    final ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
+    // when the HTreeMap calls into the modification listener it holds onto locks internally.
+    // make sure that we only call into synchronized methods async to avoid deadlocks.
     builder.modificationListener((k, nv, ov, triggered) -> {
       Key key = new Key(k);
       log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
       if(triggered) {
         log.info("key expired '{}'", key);
         deleteBlob(key, Value.deserialize(nv));
-        notifyExpireListeners(key);
+        // call notifyExpireListeners async to avoid deadlock
+        executor.execute(() -> notifyExpireListeners(key));
       } else {
         log.trace("map modification, key {}, ov {}, nv {}", key, ov, nv);
         if(nv != null) {
@@ -117,7 +121,6 @@ public class MapdbStorage {
       builder.expireAfterCreate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
       builder.expireAfterUpdate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
     }
-    ScheduledExecutorService executor = Executors.newScheduledThreadPool(4);
     builder.expireExecutor(executor);
     builder.expireExecutorPeriod(intervalMs);
     // could work if there is a way to get values from the HTreeMap without changing the access time.
