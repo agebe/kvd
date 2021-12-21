@@ -15,6 +15,8 @@ package kvd.server.storage.mapdb;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,23 +26,53 @@ public class Value {
 
   private ValueType type;
 
+  private Instant created;
+
+  private Instant accessed;
+
   private byte[] inline;
 
   private List<String> blobs;
 
-  private Value(ValueType type, byte[] inline) {
+  private Value(ValueType type) {
     super();
     this.type = type;
+  }
+
+  private Value(Instant created, Instant accessed, byte[] inline) {
+    super();
+    this.type = ValueType.INLINE;
+    this.created = created;
+    this.accessed = accessed;
     this.inline = inline;
   }
 
-  private Value(List<String> blobs) {
-    type = ValueType.BLOB;
+  private Value(Instant created, Instant accessed, List<String> blobs) {
+    super();
+    this.type = ValueType.BLOB;
+    this.created = created;
+    this.accessed = accessed;
     this.blobs = blobs;
   }
 
   public ValueType getType() {
     return type;
+  }
+
+  Instant getCreated() {
+    return created;
+  }
+
+  void setCreated(Instant created) {
+    this.created = created;
+  }
+
+  Instant getAccessed() {
+    return accessed;
+  }
+
+  void setAccessed(Instant accessed) {
+    this.accessed = accessed;
   }
 
   public byte[] serialize() {
@@ -54,25 +86,29 @@ public class Value {
   }
 
   private byte[] toBytes(byte[] content) {
-    ByteBuffer b = ByteBuffer.allocate(4+4+content.length);
+    ByteBuffer b = ByteBuffer.allocate(4+8+8+4+content.length);
     b.putInt(type.ordinal());
+    b.putLong(created.getEpochSecond());
+    b.putLong(accessed.getEpochSecond());
     b.putInt(content.length);
     b.put(content);
     return b.array();
   }
 
   private byte[] serializeBlob() {
-    ByteBuffer buf = ByteBuffer.allocate(blobs.size() * blobs.get(0).length() * 10);
-    buf.putInt(blobs.size());
-    blobs.forEach(s -> {
-      byte[] b = s.getBytes(StandardCharsets.UTF_8);
-      buf.putInt(b.length);
-      buf.put(b);
-    });
-    buf.flip();
-    byte[] result = new byte[buf.limit()];
-    buf.get(result);
-    return result;
+    List<byte[]> lb = blobs.stream()
+        .map(s -> {
+          byte[] sb = s.getBytes(StandardCharsets.UTF_8);
+          ByteBuffer buf = ByteBuffer.allocate(4+sb.length);
+          buf.putInt(sb.length);
+          buf.put(sb);
+          return buf.array();
+        })
+        .toList();
+    ByteBuffer buf = ByteBuffer.allocate(4+lb.stream().mapToInt(b -> b.length).sum());
+    buf.putInt(lb.size());
+    lb.forEach(buf::put);
+    return buf.array();
   }
 
   public boolean isInline() {
@@ -99,16 +135,22 @@ public class Value {
     }
   }
 
+  private static Instant now() {
+    return Instant.now().truncatedTo(ChronoUnit.SECONDS);
+  }
+
   public static Value inline(byte[] bytes) {
-    return new Value(ValueType.INLINE, bytes);
+    Instant now = now();
+    return new Value(now, now, bytes);
   }
 
   public static Value blob(List<String> blobs) {
-    return new Value(blobs);
+    Instant now = now();
+    return new Value(now, now, blobs);
   }
 
   public static Value remove() {
-    return new Value(ValueType.REMOVE, null);
+    return new Value(ValueType.REMOVE);
   }
 
   public static Value deserialize(byte[] buf) {
@@ -117,13 +159,15 @@ public class Value {
         ByteBuffer b = ByteBuffer.wrap(buf);
         int type = b.getInt();
         ValueType vt = ValueType.values()[type];
+        Instant created = Instant.ofEpochSecond(b.getLong());
+        Instant accessed = Instant.ofEpochSecond(b.getLong());
         if(ValueType.INLINE.equals(vt)) {
           int len = b.getInt();
-          byte[] val = new byte[len];
-          b.get(val);
-          return inline(val);
+          byte[] inline = new byte[len];
+          b.get(inline);
+          return new Value(created, accessed, inline);
         } else if(ValueType.BLOB.equals(vt)) {
-          return deserializeBlob(b);
+          return new Value(created, accessed, deserializeBlob(b));
         } else {
           throw new KvdException("deserialize not supported for type, " + vt);
         }
@@ -135,19 +179,19 @@ public class Value {
     }
   }
 
-  private static Value deserializeBlob(ByteBuffer b) {
+  private static List<String> deserializeBlob(ByteBuffer b) {
     // pop the overall length, not needed here.
     b.getInt();
-    int len = b.getInt();
-    List<String> blobs = new ArrayList<>();
-    for(int i=0;i<len;i++) {
+    int size = b.getInt();
+    List<String> blobs = new ArrayList<>(size);
+    for(int i=0;i<size;i++) {
       int blen = b.getInt();
       byte[] buf = new byte[blen];
       b.get(buf);
       String s = new String(buf, StandardCharsets.UTF_8);
       blobs.add(s);
     }
-    return blob(blobs);
+    return blobs;
   }
 
   public static byte[] serialize(Value v) {
