@@ -15,6 +15,7 @@ package kvd.server;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.management.ThreadInfo;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -39,6 +40,7 @@ import kvd.server.storage.concurrent.LockMode;
 import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.mapdb.MapdbStorageBackend;
+import kvd.server.util.DeadlockDetector;
 import kvd.server.util.HumanReadable;
 import kvd.server.util.HumanReadableBytes;
 
@@ -99,6 +101,17 @@ public class Kvd {
     @Parameter(names="--blob-split-size", description="split blob files when they reach this size."
         + " Unit can be specified (k,kb,ki,m,mb,mi,g,gb,gi,t,tb,ti).")
     public String blobSplitSize = "16ti";
+
+    @Parameter(names="--disable-deadlock-detector", description="disable thread deadlock detector")
+    public boolean disableDeadlockDetector;
+
+    public long deadlockDetectorIntervalMs = TimeUnit.MINUTES.toMillis(1);
+
+    public Consumer<ThreadInfo[]> deadlockDectorAction = ti -> {
+      // not sure if deadlocks are recoverable. exit the jvm, docker, systemd etc need to restart us
+      Runtime.getRuntime().exit(1);
+    };
+
   }
 
   private SimpleSocketServer socketServer;
@@ -106,6 +119,8 @@ public class Kvd {
   private SocketConnectHandler handler;
 
   private MapdbStorageBackend mapdb;
+
+  private DeadlockDetector deadlockDetector = new DeadlockDetector();
 
   private StorageBackend setupConcurrencyControl(KvdOptions options, StorageBackend downstream) {
     if(options.concurrency == null || ConcurrencyControl.NONE.equals(options.concurrency)) {
@@ -180,6 +195,11 @@ public class Kvd {
       log.info("{}", version.version());
     }
     logJvmInfo();
+    if(!options.disableDeadlockDetector) {
+      deadlockDetector.start(options.deadlockDetectorIntervalMs, options.deadlockDectorAction);
+    } else {
+      log.info("deadlock detector disabled");
+    }
     setupDataDir(options);
     mapdb = createDefaultDb(options);
     StorageBackend sb = setupConcurrencyControl(options, mapdb);
