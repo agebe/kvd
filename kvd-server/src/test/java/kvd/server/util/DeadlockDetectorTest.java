@@ -61,10 +61,14 @@ public class DeadlockDetectorTest {
       rlock2.lockInterruptibly();
       log.info("got lock2");
     } catch(InterruptedException e) {
-      throw new RuntimeException(e);
+      // ignore
     } finally {
-      rlock1.unlock();
-      rlock2.unlock();
+      if(rlock1.isHeldByCurrentThread()) {
+        rlock1.unlock();
+      }
+      if(rlock2.isHeldByCurrentThread()) {
+        rlock2.unlock();
+      }
     }
   }
 
@@ -81,10 +85,14 @@ public class DeadlockDetectorTest {
       rlock1.lockInterruptibly();
       log.info("got lock1");
     } catch(InterruptedException e) {
-      throw new RuntimeException(e);
+      // ignore
     } finally {
-      rlock1.unlock();
-      rlock2.unlock();
+      if(rlock1.isHeldByCurrentThread()) {
+        rlock1.unlock();
+      }
+      if(rlock2.isHeldByCurrentThread()) {
+        rlock2.unlock();
+      }
     }
   }
 
