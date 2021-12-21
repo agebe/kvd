@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -18,9 +19,9 @@ public class DeadlockDetectorTest {
 
   private CompletableFuture<Boolean> s2 = new CompletableFuture<>();
 
-  private Object lock1 = new Object();
+  private ReentrantLock rlock1 = new ReentrantLock();
 
-  private Object lock2 = new Object();
+  private ReentrantLock rlock2 = new ReentrantLock();
 
   @Test
   public void test() throws Exception {
@@ -34,13 +35,22 @@ public class DeadlockDetectorTest {
       sync2();
     });
     Thread.sleep(100);
-    t1.start();
-    t2.start();
-    assertTrue(f.get(30, TimeUnit.SECONDS));
+    try {
+      t1.start();
+      t2.start();
+      assertTrue(f.get(30, TimeUnit.SECONDS));
+    } finally {
+      t1.interrupt();
+      t2.interrupt();
+      dd.stop();
+      t1.join(5000);
+      t2.join(5000);
+    }
   }
 
   private void sync1() {
-    synchronized(lock1) {
+    try {
+      rlock1.lockInterruptibly();
       log.info("got lock1");
       s1.complete(true);
       try {
@@ -48,14 +58,19 @@ public class DeadlockDetectorTest {
       } catch (InterruptedException | ExecutionException e) {
         throw new RuntimeException(e);
       }
-      synchronized(lock2) {
-        log.info("got lock2");
-      }
+      rlock2.lockInterruptibly();
+      log.info("got lock2");
+    } catch(InterruptedException e) {
+      throw new RuntimeException(e);
+    } finally {
+      rlock1.unlock();
+      rlock2.unlock();
     }
   }
 
-  private synchronized void sync2() {
-    synchronized(lock2) {
+  private void sync2() {
+    try {
+      rlock2.lockInterruptibly();
       log.info("got lock2");
       s2.complete(true);
       try {
@@ -63,9 +78,13 @@ public class DeadlockDetectorTest {
       } catch (InterruptedException | ExecutionException e) {
         throw new RuntimeException(e);
       }
-      synchronized(lock1) {
-        log.info("got lock1");
-      }
+      rlock1.lockInterruptibly();
+      log.info("got lock1");
+    } catch(InterruptedException e) {
+      throw new RuntimeException(e);
+    } finally {
+      rlock1.unlock();
+      rlock2.unlock();
     }
   }
 
