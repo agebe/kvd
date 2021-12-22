@@ -62,8 +62,7 @@ public class Key {
     if(key == null) {
       return "null";
     } else {
-      return StringUtils.substring(new String(key), 0, 20) + "/" +
-          StringUtils.substring(BaseEncoding.base16().lowerCase().encode(key), 0, 20);
+      return StringUtils.substring(BaseEncoding.base16().lowerCase().encode(key), 0, 20);
     }
   }
 

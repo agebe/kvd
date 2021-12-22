@@ -90,19 +90,16 @@ public class MapdbStorage {
     final ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
     // when the HTreeMap calls into the modification listener it holds onto locks internally.
     // make sure that we only call into synchronized methods async to avoid deadlocks.
-    builder.modificationListener((k, nv, ov, triggered) -> {
+    builder.modificationListener((k, ov, nv, triggered) -> {
       Key key = new Key(k);
-      log.trace("map modification event on key '{}', triggered '{}'", key, triggered);
+      Value oldValue = Value.deserialize(ov);
+      Value newValue = Value.deserialize(nv);
+      log.trace("map modification, key {}, triggered '{}', old-value {}, new-value {}",
+          key, triggered, oldValue, newValue);
+      deleteBlobs(oldValue, newValue);
       if(triggered) {
-        log.info("key expired '{}'", key);
-        deleteBlob(key, Value.deserialize(nv));
         // call notifyExpireListeners async to avoid deadlock
         executor.execute(() -> notifyExpireListeners(key));
-      } else {
-        log.trace("map modification, key {}, ov {}, nv {}", key, ov, nv);
-        if(nv != null) {
-          deleteBlob(key, Value.deserialize(nv));
-        }
       }
     });
     if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
@@ -175,14 +172,26 @@ public class MapdbStorage {
 //    return StringUtils.equals(blobName, v.blobs().get(header.getIndex()));
 //  }
 
-  private void deleteBlob(Key k, Value v) {
-    if(!v.isBlob()) {
+  private void deleteBlobs(Value ov, Value nv) {
+    if(ov == null) {
       return;
     }
-    if(v.blobs() == null) {
+    if(!ov.isBlob()) {
       return;
     }
-    for(String s : v.blobs()) {
+    if(nv == null) {
+      deleteBlobs(ov.blobs());
+    } else {
+      if(!ov.blobs().equals(nv.blobs())) {
+        var diff = new ArrayList<>(ov.blobs());
+        diff.removeAll(nv.blobs());
+        deleteBlobs(diff);
+      }
+    }
+  }
+
+  private void deleteBlobs(List<String> blobs) {
+    for(String s : blobs) {
       File f = new File(getBlobs(), s);
       if(!f.exists()) {
         continue;
@@ -218,7 +227,14 @@ public class MapdbStorage {
   }
 
   synchronized InputStream get(Key key) {
-    return toInputStream(getValue(key));
+    Value v = getValue(key);
+    if(v!=null) {
+      v.setAccessed(Value.now());
+      map.put(key.getBytes(), v.serialize());
+      return toInputStream(v);
+    } else {
+      return null;
+    }
   }
 
   private InputStream toInputStream(Value v) {
@@ -238,7 +254,14 @@ public class MapdbStorage {
   }
 
   synchronized boolean contains(Key key) {
-    return getValue(key) != null;
+    Value v = getValue(key);
+    if(v!=null) {
+      v.setAccessed(Value.now());
+      map.put(key.getBytes(), v.serialize());
+      return true;
+    } else {
+      return false;
+    }
   }
 
   synchronized void removeAll() {

@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import kvd.common.KvdException;
 
@@ -104,7 +105,7 @@ public class Value {
           buf.put(sb);
           return buf.array();
         })
-        .toList();
+        .collect(Collectors.toList());
     ByteBuffer buf = ByteBuffer.allocate(4+lb.stream().mapToInt(b -> b.length).sum());
     buf.putInt(lb.size());
     lb.forEach(buf::put);
@@ -135,7 +136,7 @@ public class Value {
     }
   }
 
-  private static Instant now() {
+  static Instant now() {
     return Instant.now().truncatedTo(ChronoUnit.SECONDS);
   }
 
