@@ -31,16 +31,16 @@ public class TimestampStore {
   private KvdLinkedList<Timestamp> accessed;
 
   public TimestampStore(StorageBackend backend) {
-    created = new KvdLinkedList<Timestamp>(backend,
-        "created",
-        Timestamp::serialize,
-        Timestamp::deserialize,
-        Timestamp::getKey);
-    accessed = new KvdLinkedList<Timestamp>(backend,
-        "accessed",
-        Timestamp::serialize,
-        Timestamp::deserialize,
-        Timestamp::getKey);
+//    created = new KvdLinkedList<Timestamp>(backend,
+//        "created",
+//        Timestamp::serialize,
+//        Timestamp::deserialize,
+//        Timestamp::getKey);
+//    accessed = new KvdLinkedList<Timestamp>(backend,
+//        "accessed",
+//        Timestamp::serialize,
+//        Timestamp::deserialize,
+//        Timestamp::getKey);
   }
 
   synchronized Set<Key> getExpired(Long expireAfterAccess, Long expireAfterWrite, int limit) {

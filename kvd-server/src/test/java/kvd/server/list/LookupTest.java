@@ -11,25 +11,20 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.util;
+package kvd.server.list;
 
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import kvd.common.Utils;
 import kvd.server.Key;
-import kvd.server.list.KvdLinkedList;
-import kvd.server.storage.StorageBackend;
-import kvd.server.storage.mem.MemStorageBackend;
 
 public class LookupTest {
 
   public static void main(String[] args) throws Exception {
-    StorageBackend storage;
-//    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-//    storage = new FileStorageBackend(tempDirWithPrefix.toFile(), new SimpleTrash());
-    storage = new MemStorageBackend();
-    KvdLinkedList<String> l = new KvdLinkedList<>(storage,
+    KvdLinkedList<String> l = new KvdLinkedList<>(
+        new MapKvdListStore(new HashMap<>()),
         "lookup2",
         Utils::toUTF8,
         Utils::fromUTF8,

@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
+import kvd.server.storage.mapdb.expire.ExpireDb;
 import kvd.server.util.FileUtils;
 import kvd.server.util.HumanReadable;
 
@@ -48,6 +49,8 @@ public class MapdbStorage {
   private HTreeMap<byte[], byte[]> map;
 
   private DB db;
+
+  private ExpireDb expireDb;
 
   private Long expireAfterAccessMs;
   private Long expireAfterWriteMs;
@@ -84,6 +87,7 @@ public class MapdbStorage {
         .valueSerializer(Serializer.BYTE_ARRAY);
     setupExpire(builder);
     map = builder.createOrOpen();
+    expireDb = new ExpireDb(base);
   }
 
   private void setupExpire(HashMapMaker<byte[],byte[]> builder) {
@@ -102,26 +106,26 @@ public class MapdbStorage {
         executor.execute(() -> notifyExpireListeners(key));
       }
     });
-    if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
-      log.info("keys never expire");
-      return;
-    }
-    long intervalMs = expireIntervalMs!=null?expireIntervalMs:Math.max(100, minExpireMs() / 10);
-    log.info("expire after access '{}', expire after write '{}', check interval '{}'",
-        HumanReadable.formatDurationOrEmpty(expireAfterAccessMs, TimeUnit.MILLISECONDS),
-        HumanReadable.formatDurationOrEmpty(expireAfterWriteMs, TimeUnit.MILLISECONDS),
-        HumanReadable.formatDuration(intervalMs, TimeUnit.MILLISECONDS));
-    if(expireAfterAccessMs != null) {
-      builder.expireAfterGet(expireAfterAccessMs, TimeUnit.MILLISECONDS);
-    }
-    if(expireAfterWriteMs != null) {
-      builder.expireAfterCreate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
-      builder.expireAfterUpdate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
-    }
-    builder.expireExecutor(executor);
-    builder.expireExecutorPeriod(intervalMs);
-    // could work if there is a way to get values from the HTreeMap without changing the access time.
-//    executor.scheduleWithFixedDelay(this::deleteOrphanedBlobs, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+//    if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
+//      log.info("keys never expire");
+//      return;
+//    }
+//    long intervalMs = expireIntervalMs!=null?expireIntervalMs:Math.max(100, minExpireMs() / 10);
+//    log.info("expire after access '{}', expire after write '{}', check interval '{}'",
+//        HumanReadable.formatDurationOrEmpty(expireAfterAccessMs, TimeUnit.MILLISECONDS),
+//        HumanReadable.formatDurationOrEmpty(expireAfterWriteMs, TimeUnit.MILLISECONDS),
+//        HumanReadable.formatDuration(intervalMs, TimeUnit.MILLISECONDS));
+//    if(expireAfterAccessMs != null) {
+//      builder.expireAfterGet(expireAfterAccessMs, TimeUnit.MILLISECONDS);
+//    }
+//    if(expireAfterWriteMs != null) {
+//      builder.expireAfterCreate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
+//      builder.expireAfterUpdate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
+//    }
+//    builder.expireExecutor(executor);
+//    builder.expireExecutorPeriod(intervalMs);
+//    // could work if there is a way to get values from the HTreeMap without changing the access time.
+////    executor.scheduleWithFixedDelay(this::deleteOrphanedBlobs, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
   }
 
 //  private void deleteOrphanedBlobs() {
@@ -231,6 +235,7 @@ public class MapdbStorage {
     if(v!=null) {
       v.setAccessed(Value.now());
       map.put(key.getBytes(), v.serialize());
+      expireDb.accessed(key, v.getAccessed());
       return toInputStream(v);
     } else {
       return null;
@@ -258,6 +263,7 @@ public class MapdbStorage {
     if(v!=null) {
       v.setAccessed(Value.now());
       map.put(key.getBytes(), v.serialize());
+      expireDb.accessed(key, v.getAccessed());
       return true;
     } else {
       return false;
@@ -282,6 +288,11 @@ public class MapdbStorage {
     } catch(Throwable t) {
       log.error("failed to write key/values into mapdb, rollback transaction", t);
       db.rollback();
+    }
+    try {
+      expireDb.updateAll(m);
+    } catch(Exception e) {
+      log.error("failed to update expire database", e);
     }
   }
 

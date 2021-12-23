@@ -13,9 +13,6 @@
  */
 package kvd.server.list;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
@@ -24,12 +21,10 @@ import com.google.common.primitives.Longs;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
-import kvd.server.storage.StorageBackend;
-import kvd.server.storage.Transaction;
 
 public class KvdLinkedListIterator<E> implements ListIterator<E> {
 
-  private StorageBackend storage;
+  private KvdListStore storage;
 
   private String name;
 
@@ -49,7 +44,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
 
   private ListNode current;
 
-  public KvdLinkedListIterator(StorageBackend storage,
+  public KvdLinkedListIterator(KvdListStore storage,
       String name,
       Function<E, byte[]> serializer,
       Function<byte[], E> deserializer,
@@ -62,10 +57,8 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     this.deserializer = deserializer;
     this.keyFunction = keyFunction;
     this.index = index;
-    storage.withTransactionVoid(tx -> {
-      initSize(tx);
-      seek(tx);
-    });
+    initSize();
+    seek();
   }
 
   public long size() {
@@ -82,11 +75,9 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     if(next != null) {
       current = next;
       prev = current;
-      return storage.withTransaction(tx -> {
-        next = getNode(tx, current.getNext());
-        index++;
-        return deserializer.apply(current.getData());
-      });
+      next = getNode(current.getNext());
+      index++;
+      return deserializer.apply(current.getData());
     } else {
       throw new NoSuchElementException();
     }
@@ -102,11 +93,9 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     if(prev != null) {
       current = prev;
       next = current;
-      return storage.withTransaction(tx -> {
-        prev = getNode(tx, current.getPrev());
-        index--;
-        return deserializer.apply(current.getData());
-      });
+      prev = getNode(current.getPrev());
+      index--;
+      return deserializer.apply(current.getData());
     } else {
       throw new NoSuchElementException();
     }
@@ -127,7 +116,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     if(current == null) {
       throw new IllegalStateException();
     }
-    storage.withTransactionVoid(tx -> removeCurrent(tx));
+    removeCurrent();
   }
 
   @Override
@@ -140,7 +129,7 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     }
     byte[] b = serializer.apply(e);
     current.setData(b);
-    storage.withTransactionVoid(tx -> putNode(tx, current.getKey(), current));
+    putNode(current.getKey(), current);
   }
 
   @Override
@@ -150,70 +139,64 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     }
     byte[] b = serializer.apply(e);
     Key nodeKey = newNodeKey(e);
-    storage.withTransactionVoid(tx -> {
-      if(tx.contains(nodeKey)) {
-        throw new DuplicateKeyException(String.format("key '%s' already in store", nodeKey));
-      }
-      if(isEmpty()) {
-        ListNode node = new ListNode(nodeKey, null, null, b);
-        putNode(tx, nodeKey, node);
-        setFirstPointer(tx, nodeKey);
-        setLastPointer(tx, nodeKey);
-        prev = node;
-      } else if((next != null) && (prev != null)) {
-        next.setPrev(nodeKey);
-        prev.setNext(nodeKey);
-        ListNode node = new ListNode(nodeKey, prev.getKey(), next.getKey(), b);
-        putNode(tx, next.getKey(), next);
-        putNode(tx, prev.getKey(), prev);
-        putNode(tx, nodeKey, node);
-        prev = node;
-      } else if(next != null) {
-        // add to front
-        Key first = getFirstPointer(tx);
-        next.setPrev(nodeKey);
-        putNode(tx, first, next);
-        setFirstPointer(tx, nodeKey);
-        ListNode node = new ListNode(nodeKey, null, first, b);
-        putNode(tx, nodeKey, node);
-      } else if(prev != null) {
-        // add to end
-        Key last = getLastPointer(tx);
-        prev.setNext(nodeKey);
-        putNode(tx, last, prev);
-        setLastPointer(tx, nodeKey);
-        ListNode node = new ListNode(nodeKey, last, null, b);
-        putNode(tx, nodeKey, node);
-      } else {
-        throw new KvdException("unexpected case");
-      }
-      current = null;
-      index++;
-      incSize(tx);
-    });
+    if(storage.contains(nodeKey)) {
+      throw new DuplicateKeyException(String.format("key '%s' already in store", nodeKey));
+    }
+    if(isEmpty()) {
+      ListNode node = new ListNode(nodeKey, null, null, b);
+      putNode(nodeKey, node);
+      setFirstPointer(nodeKey);
+      setLastPointer(nodeKey);
+      prev = node;
+    } else if((next != null) && (prev != null)) {
+      next.setPrev(nodeKey);
+      prev.setNext(nodeKey);
+      ListNode node = new ListNode(nodeKey, prev.getKey(), next.getKey(), b);
+      putNode(next.getKey(), next);
+      putNode(prev.getKey(), prev);
+      putNode(nodeKey, node);
+      prev = node;
+    } else if(next != null) {
+      // add to front
+      Key first = getFirstPointer();
+      next.setPrev(nodeKey);
+      putNode(first, next);
+      setFirstPointer(nodeKey);
+      ListNode node = new ListNode(nodeKey, null, first, b);
+      putNode(nodeKey, node);
+    } else if(prev != null) {
+      // add to end
+      Key last = getLastPointer();
+      prev.setNext(nodeKey);
+      putNode(last, prev);
+      setLastPointer(nodeKey);
+      ListNode node = new ListNode(nodeKey, last, null, b);
+      putNode(nodeKey, node);
+    } else {
+      throw new KvdException("unexpected case");
+    }
+    current = null;
+    index++;
+    incSize();
   }
 
   public E lookup(Key key) {
     Key nodeKey = newNodeKey(key);
-    return storage.withTransaction(tx -> {
-      ListNode node = getNode(tx, nodeKey);
-      return node!=null?deserializer.apply(node.getData()):null;
-    });
+    ListNode node = getNode(nodeKey);
+    return node!=null?deserializer.apply(node.getData()):null;
   }
 
   public E lookupRemove(Key key) {
     Key nodeKey = newNodeKey(key);
-    return storage.withTransaction(tx -> {
-      ListNode node = getNode(tx, nodeKey);
-      if(node != null) {
-        E e = deserializer.apply(node.getData());
-        current = node;
-        removeCurrent(tx);
-        return e;
-      } else {
-        return null;
-      }
-    });
+    ListNode node = getNode(nodeKey);
+    if(node != null) {
+      E e = deserializer.apply(node.getData());
+      current = node;
+      removeCurrent();
+      return e;
+    } else {
+      return null;
+    }
   }
 
   private Key listKey() {
@@ -240,82 +223,79 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
     return newNodeKey(keyFunction.apply(element));
   }
 
-  private ListNode getNode(Transaction tx, Key key) {
+  private ListNode getNode(Key key) {
     if(key == null) {
       return null;
     } else {
-      try(InputStream in = tx.get(key)) {
-        return in!=null?ListNode.deserialize(in):null;
-      } catch(IOException e) {
-        throw new KvdException(String.format("list get node failed for '%s'", key), e);
-      }
+      byte[] buf = storage.get(key);
+      return buf!=null?ListNode.deserialize(buf):null;
     }
   }
 
-  private void putNode(Transaction tx, Key key, ListNode node) {
-    try(OutputStream out = tx.put(key)) {
-      node.serialize(out);
-    } catch(IOException e) {
+  private void putNode(Key key, ListNode node) {
+    try {
+      storage.put(key, node.serialize());
+    } catch(Exception e) {
       throw new KvdException(String.format("list put node failed for '%s'", key), e);
     }
   }
 
-  private void removeNode(Transaction tx, Key key) {
-    tx.remove(key);
+  private void removeNode(Key key) {
+    storage.remove(key);
   }
 
-  private void setListPointer(Transaction tx, Key key, Key value) {
+  private void setListPointer(Key key, Key value) {
     if(value == null) {
-      tx.remove(key);
+      storage.remove(key);
     } else {
-      tx.putBytes(key, value.getBytes());
+      storage.put(key, value.getBytes());
     }
   }
 
-  private void setFirstPointer(Transaction tx, Key nodeKey) {
-    setListPointer(tx, firstKey(), nodeKey);
+  private void setFirstPointer(Key nodeKey) {
+    setListPointer(firstKey(), nodeKey);
   }
 
-  private void setLastPointer(Transaction tx, Key nodeKey) {
-    setListPointer(tx, lastKey(), nodeKey);
+  private void setLastPointer(Key nodeKey) {
+    setListPointer(lastKey(), nodeKey);
   }
 
-  private Key getListPointer(Transaction tx, Key key) {
-    byte[] b = tx.getBytes(key);
+  private Key getListPointer(Key key) {
+    byte[] b = storage.get(key);
     return b!=null?new Key(b):null;
   }
 
-  private Key getFirstPointer(Transaction tx) {
-    return getListPointer(tx, firstKey());
+  private Key getFirstPointer() {
+    return getListPointer(firstKey());
   }
 
-  private Key getLastPointer(Transaction tx) {
-    return getListPointer(tx, lastKey());
+  private Key getLastPointer() {
+    return getListPointer(lastKey());
   }
 
-  private void seek(Transaction tx) {
+  private void seek() {
     if(size == 0) {
       // nothing to do
     } else if(index == 0) {
-      next = getNode(tx, getFirstPointer(tx));
+      next = getNode(getFirstPointer());
     } else if(index == size) {
-      prev = getNode(tx, getLastPointer(tx));
+      prev = getNode(getLastPointer());
     } else {
       long distanceFromFront = index;
       long distanceFromEnd = (size - index);
       if(distanceFromFront <= distanceFromEnd) {
-        seekFromFront(tx);
+        seekFromFront();
       } else {
-        seekFromEnd(tx);
+        seekFromEnd();
       }
     }
   }
 
-  private void seekFromFront(Transaction tx) {
+  private void seekFromFront() {
     if((index < 0) || (index >= size)) {
       throw new IndexOutOfBoundsException(index+"/"+size);
     }
-    next = getNode(tx, getFirstPointer(tx));
+    next = getNode(getFirstPointer());
     prev = null;
     for(long i=0;i<size;i++) {
       if(i == index) {
@@ -325,16 +305,16 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
         throw new IndexOutOfBoundsException(index+"/"+size);
       }
       prev = next;
-      next = getNode(tx, next.getNext());
+      next = getNode(next.getNext());
     }
   }
 
-  private void seekFromEnd(Transaction tx) {
+  private void seekFromEnd() {
     if((index < 0) || (index >= size)) {
       throw new IndexOutOfBoundsException(index+"/"+size);
     }
     next = null;
-    prev =  getNode(tx, getLastPointer(tx));
+    prev =  getNode(getLastPointer());
     for(long i=size;i>=0;i--) {
       if(i == index) {
         return;
@@ -343,88 +323,88 @@ public class KvdLinkedListIterator<E> implements ListIterator<E> {
         throw new IndexOutOfBoundsException(index+"/"+size);
       }
       next = prev;
-      prev = getNode(tx, prev.getPrev());
+      prev = getNode(prev.getPrev());
     }
   }
 
-  private void putSize(Transaction tx, long size) {
-    tx.putBytes(sizeKey(), Longs.toByteArray(size));
+  private void putSize(long size) {
+    storage.put(sizeKey(), Longs.toByteArray(size));
   }
 
-  private Long getSize(Transaction tx) {
-    byte[] b = tx.getBytes(sizeKey());
+  private Long getSize() {
+    byte[] b = storage.get(sizeKey());
     return b!=null?Longs.fromByteArray(b):null;
   }
 
-  private void initSize(Transaction tx) {
-    Long l = getSize(tx);
+  private void initSize() {
+    Long l = getSize();
     if(l == null) {
       size = 0;
-      putSize(tx, size);
+      putSize(size);
     } else {
       size = l;
     }
   }
 
-  private void incSize(Transaction tx) {
+  private void incSize() {
     size++;
-    putSize(tx, size);
+    putSize(size);
   }
 
-  private void decSize(Transaction tx) {
+  private void decSize() {
     size--;
-    putSize(tx, size);
+    putSize(size);
   }
 
   private boolean isEmpty() {
     return size == 0;
   }
 
-  private void removeCurrent(Transaction tx) {
+  private void removeCurrent() {
     // if the last move was next then fix the index
     if(current == prev) {
       index = Math.max(index-1, 0);
     }
-    unlink(tx, current);
+    unlink(current);
     current = null;
-    decSize(tx);
+    decSize();
   }
 
-  private void unlink(Transaction tx, ListNode node) {
+  private void unlink(ListNode node) {
     if(node.isFirst() && node.isLast()) {
       if(size != 1) {
         throw new IllegalStateException("expected size to be 1 but was " + size);
       }
-      setFirstPointer(tx, null);
-      setLastPointer(tx, null);
+      setFirstPointer(null);
+      setLastPointer(null);
       prev = null;
       next = null;
       index = 0;
     } else if(node.isFirst()) {
-      ListNode n2 = getNode(tx, node.getNext());
+      ListNode n2 = getNode(node.getNext());
       n2.setPrev(null);
-      putNode(tx, node.getNext(), n2);
-      setFirstPointer(tx, node.getNext());
+      putNode(node.getNext(), n2);
+      setFirstPointer(node.getNext());
       prev = null;
       next = n2;
     } else if(node.isLast()) {
-      ListNode n2 = getNode(tx, node.getPrev());
+      ListNode n2 = getNode(node.getPrev());
       n2.setNext(null);
-      putNode(tx, node.getPrev(), n2);
-      setLastPointer(tx, node.getPrev());
+      putNode(node.getPrev(), n2);
+      setLastPointer(node.getPrev());
       prev = n2;
       next = null;
     } else {
-      ListNode p = getNode(tx, node.getPrev());
-      ListNode n = getNode(tx, node.getNext());
+      ListNode p = getNode(node.getPrev());
+      ListNode n = getNode(node.getNext());
       p.setNext(node.getNext());
       n.setPrev(node.getPrev());
-      putNode(tx, node.getPrev(), p);
-      putNode(tx, node.getNext(), n);
+      putNode(node.getPrev(), p);
+      putNode(node.getNext(), n);
       prev = p;
       next = n;
     }
-    removeNode(tx, node.getKey());
+    removeNode(node.getKey());
   }
 
 }

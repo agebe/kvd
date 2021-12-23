@@ -94,7 +94,6 @@ public class MapdbTx extends AbstractTransaction {
         throw new KvdException("unknown value type " + vt);
       }
     } else {
-      // TODO maybe store value in tx map, expire?
       return store.get(key);
     }
   }
@@ -107,7 +106,6 @@ public class MapdbTx extends AbstractTransaction {
       ValueType vt = v.getType();
       return !ValueType.REMOVE.equals(vt);
     } else {
-   // TODO maybe store value in tx map, expire?
       return store.contains(key);
     }
   }

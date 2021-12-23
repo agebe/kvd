@@ -13,13 +13,10 @@
  */
 package kvd.server.list;
 
-import java.io.DataInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-import org.apache.commons.io.IOUtils;
+import java.nio.ByteBuffer;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
@@ -78,8 +75,10 @@ public class ListNode {
     return next == null;
   }
 
-  public void serialize(OutputStream out) {
-    try(DataOutputStream d = new DataOutputStream(out)) {
+  public byte[] serialize() {
+    // TODO use ByteBuffer
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    try(DataOutputStream d = new DataOutputStream(buf)) {
       writeKey(d, key);
       writeKey(d, prev);
       writeKey(d, next);
@@ -88,6 +87,7 @@ public class ListNode {
     } catch(Exception e) {
       throw new KvdException("failed to serialize list node", e);
     }
+    return buf.toByteArray();
   }
 
   private static void writeKey(DataOutputStream out, Key key) throws IOException {
@@ -100,27 +100,28 @@ public class ListNode {
     }
   }
 
-  public static ListNode deserialize(InputStream in) {
-    try(DataInputStream d = new DataInputStream(in)) {
-      Key key = readKey(d);
-      Key prev = readKey(d);
-      Key next = readKey(d);
-      int length = d.readInt();
+  public static ListNode deserialize(byte[] buf) {
+    try {
+      ByteBuffer b = ByteBuffer.wrap(buf);
+      Key key = readKey(b);
+      Key prev = readKey(b);
+      Key next = readKey(b);
+      int length = b.getInt();
       byte[] data = new byte[length];
-      d.read(data);
+      b.get(data);
       return new ListNode(key, prev, next, data);
     } catch(Exception e) {
       throw new KvdException("failed to deserialize list node", e);
     }
   }
 
-  private static Key readKey(DataInputStream in) throws IOException {
-    int l = in.readInt();
+  private static Key readKey(ByteBuffer b) {
+    int l = b.getInt();
     if(l <= 0) {
       return null;
     } else {
       byte[] buf = new byte[l];
-      IOUtils.readFully(in, buf);
+      b.get(buf);
       return new Key(buf);
     }
   }

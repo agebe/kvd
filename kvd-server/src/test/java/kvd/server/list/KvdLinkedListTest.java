@@ -11,7 +11,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.util;
+package kvd.server.list;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -41,20 +42,14 @@ import com.google.common.collect.ImmutableList;
 
 import kvd.common.Utils;
 import kvd.server.Key;
-import kvd.server.list.DuplicateKeyException;
-import kvd.server.list.KvdLinkedList;
-import kvd.server.storage.StorageBackend;
-import kvd.server.storage.mem.MemStorageBackend;
 
 public class KvdLinkedListTest {
 
-  private static StorageBackend storage;
+  private static KvdListStore storage;
 
   @BeforeAll
   public static void setup() throws Exception {
-//    Path tempDirWithPrefix = Files.createTempDirectory("kvd");
-//    storage = new FileStorageBackend(tempDirWithPrefix.toFile(), new SimpleTrash());
-    storage = new MemStorageBackend();
+    storage = new MapKvdListStore(new HashMap<>());
   }
 
   @AfterAll

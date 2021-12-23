@@ -60,7 +60,7 @@ public class Value {
     return type;
   }
 
-  Instant getCreated() {
+  public Instant getCreated() {
     return created;
   }
 
@@ -68,7 +68,7 @@ public class Value {
     this.created = created;
   }
 
-  Instant getAccessed() {
+  public Instant getAccessed() {
     return accessed;
   }
 
@@ -136,7 +136,7 @@ public class Value {
     }
   }
 
-  static Instant now() {
+  public static Instant now() {
     return Instant.now().truncatedTo(ChronoUnit.SECONDS);
   }
 

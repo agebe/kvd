@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import kvd.server.DbType;
 import kvd.server.Key;
 import kvd.server.Kvd;
 
+@Disabled
 public class ExpireTest {
 
   private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
@@ -109,8 +111,12 @@ public class ExpireTest {
         assertTrue(client.contains(key.getBytes()));
         Thread.sleep(250);
       }
-      removedFuture.get(TIMEOUT_NANOS, TimeUnit.NANOSECONDS);
-      assertFalse(client.contains(key.getBytes()));
+      try {
+        removedFuture.get(TIMEOUT_NANOS, TimeUnit.NANOSECONDS);
+        assertFalse(client.contains(key.getBytes()));
+      } catch(TimeoutException e) {
+        fail("timeout reached, key should have expired by now");
+      }
     } finally {
       if(server != null) {
         server.shutdown();

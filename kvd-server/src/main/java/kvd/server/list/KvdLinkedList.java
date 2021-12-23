@@ -26,7 +26,6 @@ import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 
 import kvd.server.Key;
-import kvd.server.storage.StorageBackend;
 
 /**
  * LinkedList implementation backed by the key/value store.
@@ -36,7 +35,7 @@ import kvd.server.storage.StorageBackend;
 // not all operations are working on large lists (> int range)
 public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<E>, Queue<E>, Deque<E> {
 
-  private StorageBackend storage;
+  private KvdListStore storage;
 
   private String name;
 
@@ -46,7 +45,7 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
 
   private Function<E, Key> keyFunction;
 
-  public KvdLinkedList(StorageBackend storage,
+  public KvdLinkedList(KvdListStore storage,
       String name,
       Function<E, byte[]> serializer,
       Function<byte[], E> deserializer) {
@@ -57,7 +56,7 @@ public class KvdLinkedList<E> extends AbstractSequentialList<E> implements List<
         new RandomKeyFunction<>());
   }
 
-  public KvdLinkedList(StorageBackend storage,
+  public KvdLinkedList(KvdListStore storage,
       String name,
       Function<E, byte[]> serializer,
       Function<byte[], E> deserializer,
