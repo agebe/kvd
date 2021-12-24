@@ -11,12 +11,13 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package kvd.server.storage.timestamp;
+package kvd.server.storage.mapdb.expire;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -36,37 +37,49 @@ public class ExpiredKeysRemover {
 
   private Long expireAfterWriteMs;
 
-  private Long expireCheckInterval;
+  private Long expireCheckIntervalMs;
 
   private StorageBackend storage;
 
-  private TimestampStore timestampStore;
+  private ExpireDb expireDb;
 
   private Thread removeExpiredThread;
 
-  private List<Consumer<Key>> listeners = new ArrayList<>();
+  private List<Consumer<List<Key>>> listeners = new ArrayList<>();
+
+  private AtomicBoolean stop = new AtomicBoolean();
 
   public ExpiredKeysRemover(
       Long expireAfterAccessMs,
       Long expireAfterWriteMs,
-      Long expireCheckInterval,
+      Long expireCheckIntervalMs,
       StorageBackend storage,
-      TimestampStore timestampStore) {
+      ExpireDb expireDb) {
     super();
     this.expireAfterAccessMs = expireAfterAccessMs;
     this.expireAfterWriteMs = expireAfterWriteMs;
-    this.expireCheckInterval = expireCheckInterval;
+    this.expireCheckIntervalMs = expireCheckIntervalMs;
     this.storage = storage;
-    this.timestampStore = timestampStore;
+    this.expireDb = expireDb;
   }
 
   public synchronized void start() {
     if(removeExpiredThread == null) {
-      this.registerRemovalListener(k -> log.info("removed expired key '{}'", k));
+      this.registerRemovalListener(l -> l.forEach(k -> log.info("key '{}' expired", k)));
       removeExpiredThread = setupRemoveExpiredThread();
+      removeExpiredThread.setDaemon(true);
       removeExpiredThread.start();
     }
   }
+
+  public synchronized void stop() {
+    if(removeExpiredThread != null) {
+      stop.set(true);
+      listeners.clear();
+      removeExpiredThread.interrupt();
+    }
+  }
+
 
   private long minExpireMs() {
     if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
@@ -87,17 +100,17 @@ public class ExpiredKeysRemover {
         log.info("keys never expire");
         return;
       }
-      long sleepMs = expireCheckInterval!=null?expireCheckInterval:Math.max(100, minExpireMs() / 10);
+      long sleepMs = expireCheckIntervalMs!=null?expireCheckIntervalMs:Math.max(100, minExpireMs() / 10);
       log.info("expire after access '{}', expire after write '{}', check interval '{}'",
           HumanReadable.formatDurationOrEmpty(expireAfterAccessMs, TimeUnit.MILLISECONDS),
           HumanReadable.formatDurationOrEmpty(expireAfterWriteMs, TimeUnit.MILLISECONDS),
           HumanReadable.formatDuration(sleepMs, TimeUnit.MILLISECONDS));
       try {
-        for(;;) {
+        while(!stop.get()) {
           try {
             Thread.sleep(sleepMs);
           } catch(InterruptedException e) {
-            log.debug("interrupted, exiting...");
+            log.info("interrupted, exiting...");
             break;
           }
           try {
@@ -108,7 +121,7 @@ public class ExpiredKeysRemover {
           }
         }
       } finally {
-        log.debug("exit");
+        log.info("exit");
       }
     };
     return new Thread(r, "remove-expired");
@@ -131,7 +144,7 @@ public class ExpiredKeysRemover {
   private boolean invalidateExpiredTx() {
     final List<Key> removed = new ArrayList<>();
     boolean result = storage.withTransaction(tx -> {
-      Set<Key> expired = timestampStore.getExpired(expireAfterAccessMs, expireAfterWriteMs, EXPIRE_LIMIT_PER_TX);
+      Set<Key> expired = expireDb.getExpired(expireAfterAccessMs, expireAfterWriteMs, EXPIRE_LIMIT_PER_TX);
       expired.forEach(key -> {
         try {
           tx.writeLockNowOrFail(key);
@@ -142,23 +155,31 @@ public class ExpiredKeysRemover {
           log.trace("remove expired key '{}' failed", key, e);
         }
       });
-      log.trace("expired.size '{}'", expired.size());
+      log.debug("expired.size '{}'", expired.size());
       return expired.size() >= EXPIRE_LIMIT_PER_TX;
     });
-    removed.forEach(this::notifyListeners);
+    if(!removed.isEmpty()) {
+      getCopyOfListeners().forEach(l -> {
+        try {
+          l.accept(removed);
+        } catch(Exception e) {
+          log.warn("exception on expire listener '{}', '{}'", l, removed, e);
+        }
+      });
+    }
     return result;
   }
 
-  public synchronized void registerRemovalListener(Consumer<Key> listener) {
+  public synchronized void registerRemovalListener(Consumer<List<Key>> listener) {
     listeners.add(listener);
   }
 
-  public synchronized void unregisterRemovalListener(Consumer<Key> listener) {
+  public synchronized void unregisterRemovalListener(Consumer<List<Key>> listener) {
     listeners.remove(listener);
   }
 
-  private synchronized void notifyListeners(Key key) {
-    listeners.forEach(c -> c.accept(key));
+  private synchronized List<Consumer<List<Key>>> getCopyOfListeners() {
+    return new ArrayList<>(listeners);
   }
 
 }

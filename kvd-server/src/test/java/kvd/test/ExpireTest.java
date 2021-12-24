@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -32,7 +31,6 @@ import kvd.server.DbType;
 import kvd.server.Key;
 import kvd.server.Kvd;
 
-@Disabled
 public class ExpireTest {
 
   private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
@@ -96,12 +94,12 @@ public class ExpireTest {
     Kvd server = null;
     try {
       Kvd.KvdOptions options = TestUtils.prepareServer(type);
-      options.expireAfterAccess = "1s";
+      options.expireAfterAccess = "2s";
       options.logLevel = "info";
       server = new Kvd();
       server.run(options);
-      server.registerExpireListener(k -> {
-        if(key.equals(k)) {
+      server.registerExpireListener(l -> {
+        if(l.contains(key)) {
           removedFuture.complete(true);
         }
       });
@@ -161,7 +159,6 @@ public class ExpireTest {
 
   @ParameterizedTest
   @EnumSource(DbType.class)
-  @Disabled
   public void writeExpireTestTxLocked(DbType type) throws Exception {
     Kvd server = null;
     try {

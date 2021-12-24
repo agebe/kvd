@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.management.ThreadInfo;
 import java.net.URL;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.jar.Manifest;
@@ -40,6 +41,7 @@ import kvd.server.storage.concurrent.LockMode;
 import kvd.server.storage.concurrent.OptimisticLockStorageBackend;
 import kvd.server.storage.concurrent.PessimisticLockStorageBackend;
 import kvd.server.storage.mapdb.MapdbStorageBackend;
+import kvd.server.storage.mapdb.expire.ExpiredKeysRemover;
 import kvd.server.util.DeadlockDetector;
 import kvd.server.util.HumanReadable;
 import kvd.server.util.HumanReadableBytes;
@@ -120,6 +122,8 @@ public class Kvd {
 
   private MapdbStorageBackend mapdb;
 
+  private ExpiredKeysRemover expiredKeysRemover;
+
   private DeadlockDetector deadlockDetector = new DeadlockDetector();
 
   private StorageBackend setupConcurrencyControl(KvdOptions options, StorageBackend downstream) {
@@ -145,9 +149,6 @@ public class Kvd {
     log.info("default db using mapdb storage");
     return new MapdbStorageBackend(
         defaultDb,
-        HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
-        HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
-        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
         HumanReadableBytes.parseLong(options.blobThreshold),
         HumanReadableBytes.parseLong(options.blobSplitSize));
   }
@@ -203,6 +204,13 @@ public class Kvd {
     setupDataDir(options);
     mapdb = createDefaultDb(options);
     StorageBackend sb = setupConcurrencyControl(options, mapdb);
+    expiredKeysRemover = new ExpiredKeysRemover(
+        HumanReadable.parseDurationToMillisOrNull(options.expireAfterAccess, TimeUnit.SECONDS),
+        HumanReadable.parseDurationToMillisOrNull(options.expireAfterWrite, TimeUnit.SECONDS),
+        HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
+        sb,
+        mapdb.getStore().getExpireDb());
+    expiredKeysRemover.start();
     handler = new SocketConnectHandler(
         options.maxClients,
         (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS),
@@ -217,12 +225,13 @@ public class Kvd {
     return socketServer;
   }
 
-  public void registerExpireListener(Consumer<Key> listener) {
-    mapdb.getStore().registerExpireListener(listener);
+  public void registerExpireListener(Consumer<List<Key>> listener) {
+    expiredKeysRemover.registerRemovalListener(listener);
   }
 
   public void shutdown() {
     getSocketServer().stop();
+    expiredKeysRemover.stop();
   }
 
   public KvdClient newLocalClient() {

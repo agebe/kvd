@@ -19,13 +19,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import org.mapdb.DB;
-import org.mapdb.DB.HashMapMaker;
 import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
 import org.mapdb.Serializer;
@@ -36,7 +31,6 @@ import kvd.common.KvdException;
 import kvd.server.Key;
 import kvd.server.storage.mapdb.expire.ExpireDb;
 import kvd.server.util.FileUtils;
-import kvd.server.util.HumanReadable;
 
 public class MapdbStorage {
 
@@ -52,23 +46,10 @@ public class MapdbStorage {
 
   private ExpireDb expireDb;
 
-  private Long expireAfterAccessMs;
-  private Long expireAfterWriteMs;
-  private Long expireIntervalMs;
-
-  private List<Consumer<Key>> expireListeners = new ArrayList<>();
-
-  public MapdbStorage(
-      File base,
-      Long expireAfterAccessMs,
-      Long expireAfterWriteMs,
-      Long expireIntervalMs) {
+  public MapdbStorage(File base) {
     super();
     this.mapdb = new File(base, "mapdb");
     this.blobs = new File(base, "blobs");
-    this.expireAfterAccessMs = expireAfterAccessMs;
-    this.expireAfterWriteMs = expireAfterWriteMs;
-    this.expireIntervalMs = expireIntervalMs;
     FileUtils.createDirIfMissing(mapdb);
     FileUtils.createDirIfMissing(blobs);
     // TODO test corrupted database
@@ -81,52 +62,25 @@ public class MapdbStorage {
         .fileMmapEnable()
         .closeOnJvmShutdown()
         .make();
-    var builder = db
+    map = db
         .hashMap("map")
         .keySerializer(Serializer.BYTE_ARRAY)
-        .valueSerializer(Serializer.BYTE_ARRAY);
-    setupExpire(builder);
-    map = builder.createOrOpen();
+        .valueSerializer(Serializer.BYTE_ARRAY)
+        .modificationListener((k, ov, nv, triggered) -> {
+          Key key = new Key(k);
+          Value oldValue = Value.deserialize(ov);
+          Value newValue = Value.deserialize(nv);
+          log.trace("map modification, key {}, triggered '{}', old-value {}, new-value {}",
+              key, triggered, oldValue, newValue);
+          deleteBlobs(oldValue, newValue);
+        })
+        .createOrOpen();
     expireDb = new ExpireDb(base);
   }
 
-  private void setupExpire(HashMapMaker<byte[],byte[]> builder) {
-    final ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
-    // when the HTreeMap calls into the modification listener it holds onto locks internally.
-    // make sure that we only call into synchronized methods async to avoid deadlocks.
-    builder.modificationListener((k, ov, nv, triggered) -> {
-      Key key = new Key(k);
-      Value oldValue = Value.deserialize(ov);
-      Value newValue = Value.deserialize(nv);
-      log.trace("map modification, key {}, triggered '{}', old-value {}, new-value {}",
-          key, triggered, oldValue, newValue);
-      deleteBlobs(oldValue, newValue);
-      if(triggered) {
-        // call notifyExpireListeners async to avoid deadlock
-        executor.execute(() -> notifyExpireListeners(key));
-      }
-    });
-//    if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
-//      log.info("keys never expire");
-//      return;
-//    }
-//    long intervalMs = expireIntervalMs!=null?expireIntervalMs:Math.max(100, minExpireMs() / 10);
-//    log.info("expire after access '{}', expire after write '{}', check interval '{}'",
-//        HumanReadable.formatDurationOrEmpty(expireAfterAccessMs, TimeUnit.MILLISECONDS),
-//        HumanReadable.formatDurationOrEmpty(expireAfterWriteMs, TimeUnit.MILLISECONDS),
-//        HumanReadable.formatDuration(intervalMs, TimeUnit.MILLISECONDS));
-//    if(expireAfterAccessMs != null) {
-//      builder.expireAfterGet(expireAfterAccessMs, TimeUnit.MILLISECONDS);
-//    }
-//    if(expireAfterWriteMs != null) {
-//      builder.expireAfterCreate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
-//      builder.expireAfterUpdate(expireAfterWriteMs, TimeUnit.MILLISECONDS);
-//    }
-//    builder.expireExecutor(executor);
-//    builder.expireExecutorPeriod(intervalMs);
-//    // could work if there is a way to get values from the HTreeMap without changing the access time.
+//  private void setupExpire(HashMapMaker<byte[],byte[]> builder) {
 ////    executor.scheduleWithFixedDelay(this::deleteOrphanedBlobs, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
-  }
+//  }
 
 //  private void deleteOrphanedBlobs() {
 //    try(Stream<Path> stream = Files.walk(blobs.toPath())) {
@@ -206,26 +160,6 @@ public class MapdbStorage {
     }
   }
 
-  public synchronized void registerExpireListener(Consumer<Key> listener) {
-    expireListeners.add(listener);
-  }
-
-  private synchronized void notifyExpireListeners(Key key) {
-    expireListeners.forEach(l -> l.accept(key));
-  }
-
-  private long minExpireMs() {
-    if((expireAfterAccessMs == null) && (expireAfterWriteMs == null)) {
-      return -1;
-    } else if((expireAfterAccessMs != null) && (expireAfterWriteMs != null)) {
-      return Math.min(expireAfterAccessMs, expireAfterWriteMs);
-    } else if(expireAfterAccessMs != null) {
-      return expireAfterAccessMs;
-    } else {
-      return expireAfterWriteMs;
-    }
-  }
-
   private synchronized Value getValue(Key key) {
     return Value.deserialize(map.get(key.getBytes()));
   }
@@ -298,6 +232,10 @@ public class MapdbStorage {
 
   File getBlobs() {
     return blobs;
+  }
+
+  public ExpireDb getExpireDb() {
+    return expireDb;
   }
 
 }

@@ -15,7 +15,10 @@ package kvd.server.storage.mapdb.expire;
 
 import java.io.File;
 import java.time.Instant;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.mapdb.DB;
@@ -23,6 +26,7 @@ import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
 import org.mapdb.Serializer;
 
+import kvd.common.KvdException;
 import kvd.server.Key;
 import kvd.server.list.KvdLinkedList;
 import kvd.server.list.MapByteArrayKvdListStore;
@@ -105,6 +109,45 @@ public class ExpireDb {
       }
     } finally {
       lock.unlock();
+    }
+  }
+
+  public Set<Key> getExpired(Long expireAfterAccessMs, Long expireAfterWriteMs, int limit) {
+    lock.lock();
+    try {
+      Instant now = Value.now();
+      Set<Key> expired = new LinkedHashSet<>();
+      if(limit <= 0) {
+        throw new KvdException("wrong limit (needs to be positive int), " + limit);
+      }
+      if(expireAfterAccessMs != null) {
+        getExpired(accessed, now, expireAfterAccessMs, expired, limit);
+      }
+      if(expireAfterWriteMs != null) {
+        getExpired(created, now, expireAfterWriteMs, expired, limit - expired.size());
+      }
+      return expired;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void getExpired(
+      KvdLinkedList<Timestamp> list,
+      Instant now,
+      long expiredDuration,
+      Set<Key> expired,
+      int limit) {
+    Iterator<Timestamp> iter = list.iterator();
+    for(int i=0;(i<limit)&&iter.hasNext();i++) {
+      Timestamp ts = iter.next();
+      Instant instant = Instant.ofEpochSecond(ts.getTimestamp());
+      if(now.isAfter(instant.plusMillis(expiredDuration))) {
+        expired.add(ts.getKey());
+      } else {
+        // list is ordered by timestamps
+        break;
+      }
     }
   }
 
