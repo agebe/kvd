@@ -220,18 +220,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private void containsRequest(Packet packet) {
     Key key = new Key(packet.getByteBody().toByteArray());
-    if(key.isInternalKey()) {
+    int txId = packet.getTx();
+    Tx tx = transactions.get(txId);
+    log.debug("contains req, txId '{}', tx '{}'", txId, tx);
+    if((txId!=0) && (tx==null)) {
+      log.warn("received contains request for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
     } else {
-      int txId = packet.getTx();
-      Tx tx = transactions.get(txId);
-      log.debug("contains req, txId '{}', tx '{}'", txId, tx);
-      if((txId!=0) && (tx==null)) {
-        log.warn("received contains request for tx '{}' but transaction does not exit", txId);
-        client.sendAsync(Packets.packet(PacketType.CONTAINS_ABORT, packet.getChannel()));
-      } else {
-        pool.execute(() -> containsRequest(packet, tx!=null?tx.getTransaction():null, key));
-      }
+      pool.execute(() -> containsRequest(packet, tx!=null?tx.getTransaction():null, key));
     }
   }
 
@@ -263,18 +259,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private void removeRequest(Packet packet) {
     Key key = new Key(packet.getByteBody().toByteArray());
-    if(key.isInternalKey()) {
+    int txId = packet.getTx();
+    Tx tx = transactions.get(txId);
+    log.debug("remove req, txId '{}', tx '{}'", txId, tx);
+    if((txId!=0) && (tx==null)) {
+      log.warn("received remove request for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
     } else {
-      int txId = packet.getTx();
-      Tx tx = transactions.get(txId);
-      log.debug("remove req, txId '{}', tx '{}'", txId, tx);
-      if((txId!=0) && (tx==null)) {
-        log.warn("received remove request for tx '{}' but transaction does not exit", txId);
-        client.sendAsync(Packets.packet(PacketType.REMOVE_ABORT, packet.getChannel()));
-      } else {
-        pool.execute(() -> removeRequest(packet, tx!=null?tx.getTransaction():null, key));
-      }
+      pool.execute(() -> removeRequest(packet, tx!=null?tx.getTransaction():null, key));
     }
   }
 
@@ -304,18 +296,14 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private void lockRequest(Packet packet) {
     Key key = new Key(packet.getByteBody().toByteArray());
-    if(key.isInternalKey()) {
+    int txId = packet.getTx();
+    Tx tx = transactions.get(txId);
+    log.debug("lock req, txId '{}', tx '{}'", txId, tx);
+    if(tx==null) {
+      // can only lock key within transaction
       client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
     } else {
-      int txId = packet.getTx();
-      Tx tx = transactions.get(txId);
-      log.debug("lock req, txId '{}', tx '{}'", txId, tx);
-      if(tx==null) {
-        // can only lock key within transaction
-        client.sendAsync(Packets.packet(PacketType.ABORT, packet.getChannel()));
-      } else {
-        pool.execute(() -> lockRequest(packet, tx!=null?tx.getTransaction():null, key));
-      }
+      pool.execute(() -> lockRequest(packet, tx!=null?tx.getTransaction():null, key));
     }
   }
 

@@ -58,23 +58,18 @@ public class PutConsumer implements ChannelConsumer {
       if(out != null) {
         throw new KvdException("put already initialized");
       }
-      if(key.isInternalKey()) {
-        aborted = true;
-        client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
-      } else {
-        try {
-          out = tx.put(key);
-          // the client waits for a PUT_INIT or PUT_ABORT response before proceeding
-          // PUT_INIT means put init complete normal (no body required)
-          client.sendAsync(Packets.packet(PacketType.PUT_INIT, packet.getChannel()));
-        } catch(Exception e) {
-          if(e instanceof AcquireLockException) {
-            log.debug("put init acquire lock failed", e);
-          } else {
-            log.warn("put init failed with exception", e);
-          }
-          client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
+      try {
+        out = tx.put(key);
+        // the client waits for a PUT_INIT or PUT_ABORT response before proceeding
+        // PUT_INIT means put init complete normal (no body required)
+        client.sendAsync(Packets.packet(PacketType.PUT_INIT, packet.getChannel()));
+      } catch(Exception e) {
+        if(e instanceof AcquireLockException) {
+          log.debug("put init acquire lock failed", e);
+        } else {
+          log.warn("put init failed with exception", e);
         }
+        client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
       }
     } else if(PacketType.PUT_DATA.equals(packet.getType())) {
       if(out != null) {

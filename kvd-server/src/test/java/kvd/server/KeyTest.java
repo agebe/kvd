@@ -14,8 +14,6 @@
 package kvd.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -29,15 +27,6 @@ public class KeyTest {
     assertEquals("k2", new String(k2.getBytes()));
     Key combined = Key.of(k1, k2);
     assertEquals("k1k2", new String(combined.getBytes()));
-    assertFalse(k1.isInternalKey());
-    assertFalse(k2.isInternalKey());
-    assertFalse(combined.isInternalKey());
-    Key internal = new Key(Key.INTERNAL_PREFIX);
-    assertTrue(internal.isInternalKey());
-    assertTrue(Key.of(internal, k1).isInternalKey());
-    assertTrue(Key.of(internal, k2).isInternalKey());
-    assertTrue(Key.of(internal, combined).isInternalKey());
-    assertTrue(Key.of(internal, Key.of(combined, k1)).isInternalKey());
   }
 
 }

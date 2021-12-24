@@ -21,17 +21,11 @@ import com.google.common.io.BaseEncoding;
 
 public class Key {
 
-  public static final byte[] INTERNAL_PREFIX = "__kvd_".getBytes();
-
   private byte[] key;
 
   public Key(byte[] key) {
     super();
     this.key = key;
-  }
-
-  public boolean isInternalKey() {
-    return isInternalKey(key);
   }
 
   @Override
@@ -64,21 +58,6 @@ public class Key {
     } else {
       return StringUtils.substring(BaseEncoding.base16().lowerCase().encode(key), 0, 20);
     }
-  }
-
-  public static boolean isInternalKey(byte[] key) {
-    if(key == null) {
-      return false;
-    }
-    for(int i=0;i<INTERNAL_PREFIX.length;i++) {
-      if(key.length < i) {
-        return false;
-      }
-      if(key[i] != INTERNAL_PREFIX[i]) {
-        return false;
-      }
-    }
-    return true;
   }
 
   public static Key of(String s) {
