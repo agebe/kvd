@@ -14,8 +14,8 @@
 package kvd.server;
 
 import java.util.Arrays;
-
-import org.apache.commons.lang3.StringUtils;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import com.google.common.io.BaseEncoding;
 
@@ -56,7 +56,13 @@ public class Key {
     if(key == null) {
       return "null";
     } else {
-      return StringUtils.substring(BaseEncoding.base16().lowerCase().encode(key), 0, 20);
+      String s = IntStream.range(0, Math.min(key.length, 20))
+      .mapToObj(i -> {
+        byte[] b = new byte[] {key[i]};
+        return Character.isISOControl(b[0])?BaseEncoding.base16().lowerCase().encode(b):new String(b);
+      })
+      .collect(Collectors.joining());
+      return key.length<=20?s:s+"...";
     }
   }
 
