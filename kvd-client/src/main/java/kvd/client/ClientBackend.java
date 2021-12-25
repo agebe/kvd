@@ -75,6 +75,13 @@ class ClientBackend {
       sendThread.start();
       receiveThread = new Thread(this::receiveLoop, "kvd-receive-" + clientId);
       receiveThread.start();
+      try {
+        sendAsync(Packets.hello());
+        waitForHelloReceived();
+      } catch(InterruptedException e) {
+        throw new KvdException("hello interrupted", e);
+      }
+      // start ping loop after hello packets
       pingThread = new Thread(this::pingLoop, "kvd-ping-" + clientId);
       pingThread.start();
     } else {
@@ -86,7 +93,6 @@ class ClientBackend {
     log.trace("starting ping loop");
     try {
       while(!isClosed()) {
-        // do the sleep first before the ping so the ping is sent after the initial hello packet
         for(int i=0;i<10;i++) {
           if(isClosed()) {
             break;
@@ -155,6 +161,7 @@ class ClientBackend {
               }
             }
           }
+          // TODO hard-coded timeout
           if(Utils.isTimeout(lastReceiveNs, 15)) {
             throw new KvdException("receive timeout");
           }
@@ -227,6 +234,7 @@ class ClientBackend {
 
   public void waitForHelloReceived() {
     try {
+      // TODO hard-coded timeout
       helloReceivedFuture.get(1, TimeUnit.MINUTES);
     } catch(Exception e) {
       throw new KvdException("wait for server hello failed", e);

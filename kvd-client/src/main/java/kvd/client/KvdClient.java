@@ -95,8 +95,6 @@ public class KvdClient implements KvdOperations, AutoCloseable {
         }
       });
       backend.start();
-      backend.sendAsync(Packets.hello());
-      backend.waitForHelloReceived();
     } catch(Exception e) {
       throw new KvdException(String.format("failed to connect to '%s'", builder.getServerAddress()), e);
     }
