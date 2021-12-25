@@ -66,6 +66,8 @@ public class KvdClient implements KvdOperations, AutoCloseable {
 
   private long transactionDefaultTimeoutMs;
 
+  private int serverTimeoutSeconds;
+
   private ThreadLocal<KvdTransaction> transactions = new ThreadLocal<>();
 
   /**
@@ -82,11 +84,12 @@ public class KvdClient implements KvdOperations, AutoCloseable {
   KvdClient(KvdClientBuilder builder) {
     try {
       this.transactionDefaultTimeoutMs = builder.getTransactionDefaultTimeoutMs();
+      this.serverTimeoutSeconds = builder.getServerTimeoutSeconds();
       HostAndPort hp = HostAndPort.fromString(builder.getServerAddress()).withDefaultPort(3030);
       log.trace("connecting to '{}'", hp);
       Socket socket = new Socket(InetAddress.getByName(hp.getHost()), hp.getPort());
       socket.setSoTimeout(builder.getSocketSoTimeoutMs());
-      backend = new ClientBackend(socket, () -> {
+      backend = new ClientBackend(socket, serverTimeoutSeconds, () -> {
         try {
           log.debug("client backend close notification");
           close();

@@ -29,6 +29,8 @@ public class KvdClientBuilder {
 
   private int socketSoTimeoutMs = (int)TimeUnit.MINUTES.toMillis(1);
 
+  private int serverTimeoutSeconds = 60;
+
   public KvdClientBuilder() {
     super();
   }
@@ -53,6 +55,11 @@ public class KvdClientBuilder {
     return this;
   }
 
+  public KvdClientBuilder setServerTimeoutSeconds(int serverTimeoutSeconds) {
+    this.serverTimeoutSeconds = serverTimeoutSeconds;
+    return this;
+  }
+
   /**
    * Create the KvdClient connecting to the given server.
    * @param serverAddress The serverAddress is in the form 
@@ -74,6 +81,10 @@ public class KvdClientBuilder {
 
   int getSocketSoTimeoutMs() {
     return socketSoTimeoutMs;
+  }
+
+  int getServerTimeoutSeconds() {
+    return serverTimeoutSeconds;
   }
 
 }

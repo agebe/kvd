@@ -46,6 +46,8 @@ class ClientBackend {
 
   private Socket socket;
 
+  private int serverTimeoutSeconds;
+
   private BlockingQueue<Packet> sendQueue = new ArrayBlockingQueue<>(100);
 
   private Map<Integer, Consumer<Packet>> channelReceivers = new HashMap<>();
@@ -64,8 +66,9 @@ class ClientBackend {
 
   private CompletableFuture<Boolean> helloReceivedFuture = new CompletableFuture<>();
 
-  public ClientBackend(Socket socket, Runnable onClose) {
+  public ClientBackend(Socket socket, int serverTimeoutSeconds, Runnable onClose) {
     this.socket = socket;
+    this.serverTimeoutSeconds = serverTimeoutSeconds;
     this.onClose = onClose;
   }
 
@@ -161,8 +164,7 @@ class ClientBackend {
               }
             }
           }
-          // TODO hard-coded timeout
-          if(Utils.isTimeout(lastReceiveNs, 15)) {
+          if(Utils.isTimeout(lastReceiveNs, serverTimeoutSeconds)) {
             throw new KvdException("receive timeout");
           }
         } catch(SocketTimeoutException e) {
@@ -234,8 +236,7 @@ class ClientBackend {
 
   public void waitForHelloReceived() {
     try {
-      // TODO hard-coded timeout
-      helloReceivedFuture.get(1, TimeUnit.MINUTES);
+      helloReceivedFuture.get(serverTimeoutSeconds, TimeUnit.SECONDS);
     } catch(Exception e) {
       throw new KvdException("wait for server hello failed", e);
     }
