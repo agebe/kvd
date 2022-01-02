@@ -105,6 +105,7 @@ public class ExpiredKeysRemover {
           HumanReadable.formatDurationOrEmpty(expireAfterAccessMs, TimeUnit.MILLISECONDS),
           HumanReadable.formatDurationOrEmpty(expireAfterWriteMs, TimeUnit.MILLISECONDS),
           HumanReadable.formatDuration(sleepMs, TimeUnit.MILLISECONDS));
+      log.info("keys '{}'", expireDb.size());
       try {
         while(!stop.get()) {
           try {
@@ -114,8 +115,11 @@ public class ExpiredKeysRemover {
             break;
           }
           try {
-            log.debug("check expired");
+            log.trace("check expired");
             invalidateExpired();
+            if(log.isDebugEnabled()) {
+              log.debug("expire db size '{}'", expireDb.size());
+            }
           } catch(Throwable t) {
             log.error("failed in remove expired thread", t);
           }
@@ -130,7 +134,6 @@ public class ExpiredKeysRemover {
   private void invalidateExpired() {
     int i = 0;
     for(;;) {
-      log.trace("invalidateExpired '{}'", i);
       if(!invalidateExpiredTx()) {
         log.trace("break");
         break;
@@ -152,10 +155,10 @@ public class ExpiredKeysRemover {
           removed.add(key);
         } catch(Exception e) {
           // writeLockNowOrFail throws exception if key is already locked, simply skip the key and try again later
-          log.trace("remove expired key '{}' failed", key, e);
+          log.debug("remove expired key '{}' failed, try again later...", key, e);
         }
       });
-      log.debug("expired.size '{}'", expired.size());
+      log.trace("expired.size '{}'", expired.size());
       return expired.size() >= EXPIRE_LIMIT_PER_TX;
     });
     if(!removed.isEmpty()) {

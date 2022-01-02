@@ -25,6 +25,8 @@ import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
 import org.mapdb.Serializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import kvd.common.KvdException;
 import kvd.server.Key;
@@ -33,8 +35,11 @@ import kvd.server.list.MapByteArrayKvdListStore;
 import kvd.server.storage.mapdb.Value;
 import kvd.server.storage.mapdb.ValueType;
 import kvd.server.util.FileUtils;
+import kvd.server.util.HumanReadable;
 
 public class ExpireDb {
+
+  private static final Logger log = LoggerFactory.getLogger(ExpireDb.class);
 
   private DB db;
 
@@ -121,10 +126,10 @@ public class ExpireDb {
         throw new KvdException("wrong limit (needs to be positive int), " + limit);
       }
       if(expireAfterAccessMs != null) {
-        getExpired(accessed, now, expireAfterAccessMs, expired, limit);
+        getExpired(accessed, now, expireAfterAccessMs, expired, limit, "access");
       }
       if(expireAfterWriteMs != null) {
-        getExpired(created, now, expireAfterWriteMs, expired, limit - expired.size());
+        getExpired(created, now, expireAfterWriteMs, expired, limit - expired.size(), "write");
       }
       return expired;
     } finally {
@@ -137,17 +142,34 @@ public class ExpireDb {
       Instant now,
       long expiredDuration,
       Set<Key> expired,
-      int limit) {
+      int limit,
+      String type) {
     Iterator<Timestamp> iter = list.iterator();
     for(int i=0;(i<limit)&&iter.hasNext();i++) {
       Timestamp ts = iter.next();
       Instant instant = Instant.ofEpochSecond(ts.getTimestamp());
       if(now.isAfter(instant.plusMillis(expiredDuration))) {
+        log.debug("expire after {}, add key '{}' to expire list", type, ts.getKey());
         expired.add(ts.getKey());
       } else {
         // list is ordered by timestamps
+        log.debug("expire after {}, break loop on key '{}', expires at '{}' (in '{}'), now '{}'",
+            type,
+            ts.getKey(),
+            instant.plusMillis(expiredDuration),
+            HumanReadable.formatDuration(instant.plusMillis(expiredDuration).getEpochSecond() - now.getEpochSecond()),
+            now);
         break;
       }
+    }
+  }
+
+  public long size() {
+    lock.lock();
+    try {
+      return created.size();
+    } finally {
+      lock.unlock();
     }
   }
 

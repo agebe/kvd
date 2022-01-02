@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.jar.Manifest;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -67,8 +68,9 @@ public class Kvd {
     @Parameter(names="--max-clients", description="maximum number of clients that can connect to the server at the same time")
     public int maxClients = 100;
 
-    @Parameter(names="--log-level", description="logback log level (trace, debug, info, warn, error, all, off)")
-    public String logLevel = "info";
+    @Parameter(names="--log-level", description="logback log level (trace, debug, info, warn, error, all, off)."
+        + " Configure multiple loggers separated by comma")
+    public String logLevel = "root:info";
 
     @Parameter(names= {"--concurrency-control", "-cc"}, description="default concurrency control, options: NONE,"
         + " optimistic (non-blocking, OPTW or OPTRW), pessimistic (blocking, PESW or PESRW)")
@@ -190,7 +192,7 @@ public class Kvd {
   }
 
   public void run(KvdOptions options) throws IOException {
-    setLogLevel("kvd", options.logLevel);
+    setupLogLevels(options.logLevel);
     Version version = getVersion();
     if(version != null) {
       log.info("{}", version.version());
@@ -264,6 +266,17 @@ public class Kvd {
     } else {
       new Kvd().run(options);
     }
+  }
+
+  private static void setupLogLevels(String s) {
+    Stream.of(StringUtils.split(s, ',')).forEachOrdered(l -> {
+      String[] split = StringUtils.split(l, ':');
+      if(split.length == 1) {
+        setLogLevel("root", split[0]);
+      } else {
+        setLogLevel(split[0], split[1]);
+      }
+    });
   }
 
   public static void setLogLevel(String name, String level) {
