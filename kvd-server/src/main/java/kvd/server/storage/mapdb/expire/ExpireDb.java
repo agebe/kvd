@@ -149,7 +149,7 @@ public class ExpireDb {
       Timestamp ts = iter.next();
       Instant instant = Instant.ofEpochSecond(ts.getTimestamp());
       if(now.isAfter(instant.plusMillis(expiredDuration))) {
-        log.debug("expire after {}, add key '{}' to expire list", type, ts.getKey());
+        log.trace("expire after {}, add key '{}' to expire list", type, ts.getKey());
         expired.add(ts.getKey());
       } else {
         // list is ordered by timestamps

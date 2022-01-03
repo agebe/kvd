@@ -115,11 +115,7 @@ public class ExpiredKeysRemover {
             break;
           }
           try {
-            log.trace("check expired");
             invalidateExpired();
-            if(log.isDebugEnabled()) {
-              log.debug("expire db size '{}'", expireDb.size());
-            }
           } catch(Throwable t) {
             log.error("failed in remove expired thread", t);
           }
@@ -132,19 +128,25 @@ public class ExpiredKeysRemover {
   }
 
   private void invalidateExpired() {
+    log.trace("invalidate expired start");
     int i = 0;
+    long startNs = System.nanoTime();
     for(;;) {
       if(!invalidateExpiredTx()) {
-        log.trace("break");
         break;
-      } else {
-        log.trace("loop, '{}'", i);
       }
       i++;
+    }
+    if(log.isDebugEnabled()) {
+      log.debug("invalidate expired took '{}' in '{}' iteration(s), expire db size '{}'",
+          HumanReadable.formatDuration(System.nanoTime() - startNs, TimeUnit.NANOSECONDS),
+          i,
+          expireDb.size());
     }
   }
 
   private boolean invalidateExpiredTx() {
+    long startNs = System.nanoTime();
     final List<Key> removed = new ArrayList<>();
     boolean result = storage.withTransaction(tx -> {
       Set<Key> expired = expireDb.getExpired(expireAfterAccessMs, expireAfterWriteMs, EXPIRE_LIMIT_PER_TX);
@@ -158,7 +160,6 @@ public class ExpiredKeysRemover {
           log.debug("remove expired key '{}' failed, try again later...", key, e);
         }
       });
-      log.trace("expired.size '{}'", expired.size());
       return expired.size() >= EXPIRE_LIMIT_PER_TX;
     });
     if(!removed.isEmpty()) {
@@ -170,6 +171,10 @@ public class ExpiredKeysRemover {
         }
       });
     }
+    log.trace("invalidate expired '{}' entries, took '{}', continue '{}'",
+        removed.size(),
+        HumanReadable.formatDuration(System.nanoTime() - startNs, TimeUnit.NANOSECONDS),
+        result);
     return result;
   }
 
