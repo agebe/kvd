@@ -109,6 +109,9 @@ public class Kvd {
     @Parameter(names="--disable-deadlock-detector", description="disable thread deadlock detector")
     public boolean disableDeadlockDetector;
 
+    @Parameter(names="--log-expired", description="info log expired keys")
+    public boolean logExpired;
+
     public long deadlockDetectorIntervalMs = TimeUnit.MINUTES.toMillis(1);
 
     public Consumer<ThreadInfo[]> deadlockDectorAction = ti -> {
@@ -212,7 +215,7 @@ public class Kvd {
         HumanReadable.parseDurationToMillisOrNull(options.expireCheckInterval, TimeUnit.SECONDS),
         sb,
         mapdb.getStore().getExpireDb());
-    expiredKeysRemover.start();
+    expiredKeysRemover.start(options.logExpired);
     handler = new SocketConnectHandler(
         options.maxClients,
         (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS),

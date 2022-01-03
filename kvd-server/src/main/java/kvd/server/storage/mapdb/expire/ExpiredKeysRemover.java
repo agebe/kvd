@@ -63,9 +63,11 @@ public class ExpiredKeysRemover {
     this.expireDb = expireDb;
   }
 
-  public synchronized void start() {
+  public synchronized void start(boolean logExpired) {
     if(removeExpiredThread == null) {
-      this.registerRemovalListener(l -> l.forEach(k -> log.info("key '{}' expired", k)));
+      if(logExpired) {
+        this.registerRemovalListener(l -> l.forEach(k -> log.info("key '{}' expired", k)));
+      }
       removeExpiredThread = setupRemoveExpiredThread();
       removeExpiredThread.setDaemon(true);
       removeExpiredThread.start();
@@ -105,7 +107,7 @@ public class ExpiredKeysRemover {
           HumanReadable.formatDurationOrEmpty(expireAfterAccessMs, TimeUnit.MILLISECONDS),
           HumanReadable.formatDurationOrEmpty(expireAfterWriteMs, TimeUnit.MILLISECONDS),
           HumanReadable.formatDuration(sleepMs, TimeUnit.MILLISECONDS));
-      log.info("keys '{}'", expireDb.size());
+      log.info("db has '{}' key/value(s)", expireDb.size());
       try {
         while(!stop.get()) {
           try {
@@ -130,37 +132,52 @@ public class ExpiredKeysRemover {
   private void invalidateExpired() {
     log.trace("invalidate expired start");
     int i = 0;
+    long expired = 0;
     long startNs = System.nanoTime();
     for(;;) {
-      if(!invalidateExpiredTx()) {
+      i++;
+      int exp = invalidateExpiredTx();
+      expired += exp;
+      if(exp < EXPIRE_LIMIT_PER_TX) {
         break;
       }
-      i++;
     }
-    if(log.isDebugEnabled()) {
-      log.debug("invalidate expired took '{}' in '{}' iteration(s), expire db size '{}'",
+    String msg = "invalidate expired '{}' key/value(s), in '{}' / '{}' iteration(s), db has '{}' key/value(s)";
+    if(expired > 0) {
+      log.info(
+          msg,
+          expired,
           HumanReadable.formatDuration(System.nanoTime() - startNs, TimeUnit.NANOSECONDS),
           i,
           expireDb.size());
+    } else {
+      if(log.isDebugEnabled()) {
+        log.debug(
+            msg,
+            expired,
+            HumanReadable.formatDuration(System.nanoTime() - startNs, TimeUnit.NANOSECONDS),
+            i,
+            expireDb.size());
+      }
     }
   }
 
-  private boolean invalidateExpiredTx() {
+  private int invalidateExpiredTx() {
     long startNs = System.nanoTime();
-    final List<Key> removed = new ArrayList<>();
-    boolean result = storage.withTransaction(tx -> {
+    List<Key> removed = storage.withTransaction(tx -> {
       Set<Key> expired = expireDb.getExpired(expireAfterAccessMs, expireAfterWriteMs, EXPIRE_LIMIT_PER_TX);
+      List<Key> l = new ArrayList<>();
       expired.forEach(key -> {
         try {
           tx.writeLockNowOrFail(key);
           tx.remove(key);
-          removed.add(key);
+          l.add(key);
         } catch(Exception e) {
           // writeLockNowOrFail throws exception if key is already locked, simply skip the key and try again later
           log.debug("remove expired key '{}' failed, try again later...", key, e);
         }
       });
-      return expired.size() >= EXPIRE_LIMIT_PER_TX;
+      return l;
     });
     if(!removed.isEmpty()) {
       getCopyOfListeners().forEach(l -> {
@@ -171,11 +188,11 @@ public class ExpiredKeysRemover {
         }
       });
     }
-    log.trace("invalidate expired '{}' entries, took '{}', continue '{}'",
+    log.trace("invalidate expired '{}' key/value(s), in '{}', continue '{}'",
         removed.size(),
         HumanReadable.formatDuration(System.nanoTime() - startNs, TimeUnit.NANOSECONDS),
-        result);
-    return result;
+        removed.size() >= EXPIRE_LIMIT_PER_TX);
+    return removed.size();
   }
 
   public synchronized void registerRemovalListener(Consumer<List<Key>> listener) {
