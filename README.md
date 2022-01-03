@@ -52,6 +52,9 @@ Usage: kvd [options]
     --default-db-name
       name of the default database
       Default: default
+    --disable-deadlock-detector
+      disable thread deadlock detector
+      Default: false
     --expire-after-access
       removes entries from the database after no access within this fixed 
       duration. Defaults to never expire. Duration unit can be specified ms, 
@@ -65,9 +68,13 @@ Usage: kvd [options]
       d, defaults to seconds.
     --help
       show usage
+    --log-expired
+      info log expired keys
+      Default: false
     --log-level
-      logback log level (trace, debug, info, warn, error, all, off)
-      Default: info
+      logback log level (trace, debug, info, warn, error, all, off). Configure 
+      multiple loggers separated by comma
+      Default: root:info
     --max-clients
       maximum number of clients that can connect to the server at the same 
       time 
@@ -85,12 +92,12 @@ Usage: kvd [options]
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.5.0
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.6.0
 ```
 
 You might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.5.0 --datadir /datadir
+$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.6.0 --datadir /datadir
 ```
 
 ### Running the server from source
@@ -111,7 +118,7 @@ For the example below to work you need to add the kvd-client library as a depend
 Gradle:
 ```gradle
 dependencies {
-  implementation 'io.github.agebe:kvd-client:0.5.0'
+  implementation 'io.github.agebe:kvd-client:0.6.0'
 }
 ```
 
@@ -120,7 +127,7 @@ Maven:
 <dependency>
   <groupId>io.github.agebe</groupId>
   <artifactId>kvd-client</artifactId>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
 </dependency>
 ```
 
