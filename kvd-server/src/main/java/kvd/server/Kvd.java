@@ -112,6 +112,9 @@ public class Kvd {
     @Parameter(names="--log-expired", description="info log expired keys")
     public boolean logExpired;
 
+    @Parameter(names="--enable-mmap", description="use file mmap access in mapdb")
+    public boolean enableMmap;
+
     public long deadlockDetectorIntervalMs = TimeUnit.MINUTES.toMillis(1);
 
     public Consumer<ThreadInfo[]> deadlockDectorAction = ti -> {
@@ -155,7 +158,8 @@ public class Kvd {
     return new MapdbStorageBackend(
         defaultDb,
         HumanReadableBytes.parseLong(options.blobThreshold),
-        HumanReadableBytes.parseLong(options.blobSplitSize));
+        HumanReadableBytes.parseLong(options.blobSplitSize),
+        options.enableMmap);
   }
 
   private void logJvmInfo() {

@@ -39,7 +39,8 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
   public MapdbStorageBackend(
       File base,
       long blobThreshold,
-      long blobSplitSize) {
+      long blobSplitSize,
+      boolean enableMmap) {
     super();
     if(blobThreshold < 0) {
       throw new KvdException("blob threshold needs to be positive int");
@@ -47,7 +48,7 @@ public class MapdbStorageBackend extends AbstractStorageBackend {
     if(blobThreshold > 1072693248l) {
       throw new KvdException("blob threshold needs to be <= 1072693248 bytes");
     }
-    this.store = new MapdbStorage(base);
+    this.store = new MapdbStorage(base, enableMmap);
     this.blobThreshold = (int)blobThreshold;
     this.blobSplitSize = blobSplitSize;
     log.info("blob threshold {}/{}, split at {}/{}",

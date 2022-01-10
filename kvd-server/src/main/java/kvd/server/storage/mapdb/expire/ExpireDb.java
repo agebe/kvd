@@ -51,16 +51,18 @@ public class ExpireDb {
 
   private ReentrantLock lock = new ReentrantLock(true);
 
-  public ExpireDb(File base) {
+  public ExpireDb(File base, boolean enableMmap) {
     super();
     File expiredb = new File(base, "expiredb");
     FileUtils.createDirIfMissing(expiredb);
-    db = DBMaker
+    DBMaker.Maker dbBuilder = DBMaker
         .fileDB(new File(expiredb, "map"))
         .transactionEnable()
-        .fileMmapEnable()
-        .closeOnJvmShutdown()
-        .make();
+        .closeOnJvmShutdown();
+    if(enableMmap) {
+      dbBuilder.fileMmapEnable();
+    }
+    db = dbBuilder.make();
     var builder = db
         .hashMap("map")
         .keySerializer(Serializer.BYTE_ARRAY)

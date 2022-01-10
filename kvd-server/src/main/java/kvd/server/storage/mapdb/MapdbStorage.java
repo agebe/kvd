@@ -46,7 +46,7 @@ public class MapdbStorage {
 
   private ExpireDb expireDb;
 
-  public MapdbStorage(File base) {
+  public MapdbStorage(File base, boolean enableMmap) {
     super();
     this.mapdb = new File(base, "mapdb");
     this.blobs = new File(base, "blobs");
@@ -56,12 +56,14 @@ public class MapdbStorage {
     // maybe add try catch, if opening fails delete the folders and try again
     // data seems to be lost so it might be better to automatically start with a clean db
     // or try to rebuild the database from the blob files
-    db = DBMaker
+    DBMaker.Maker dbBuilder = DBMaker
         .fileDB(new File(mapdb, "map"))
         .transactionEnable()
-        .fileMmapEnable()
-        .closeOnJvmShutdown()
-        .make();
+        .closeOnJvmShutdown();
+    if(enableMmap) {
+      dbBuilder.fileMmapEnable();
+    }
+    db = dbBuilder.make();
     map = db
         .hashMap("map")
         .keySerializer(Serializer.BYTE_ARRAY)
@@ -75,7 +77,7 @@ public class MapdbStorage {
           deleteBlobs(oldValue, newValue);
         })
         .createOrOpen();
-    expireDb = new ExpireDb(base);
+    expireDb = new ExpireDb(base, enableMmap);
   }
 
 //  private void setupExpire(HashMapMaker<byte[],byte[]> builder) {
