@@ -62,6 +62,7 @@ public class MapdbStorage {
         .closeOnJvmShutdown();
     if(enableMmap) {
       dbBuilder.fileMmapEnable();
+      log.info("mapdb file mmap enabled");
     }
     db = dbBuilder.make();
     map = db
