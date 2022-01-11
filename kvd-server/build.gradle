@@ -17,7 +17,7 @@ dependencies {
   implementation 'org.apache.commons:commons-lang3:3.12.0'
   implementation 'commons-io:commons-io:2.11.0'
   implementation 'com.google.guava:guava:31.0.1-jre'
-  implementation 'com.beust:jcommander:1.81'
+  implementation 'com.beust:jcommander:1.82'
   implementation 'ch.qos.logback:logback-classic:1.2.10'
   implementation 'org.jgrapht:jgrapht-core:1.5.1'
   implementation 'org.mapdb:mapdb:3.0.8'
