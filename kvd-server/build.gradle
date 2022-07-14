@@ -16,7 +16,7 @@ dependencies {
   implementation project(':kvd-client')
   implementation 'org.apache.commons:commons-lang3:3.12.0'
   implementation 'commons-io:commons-io:2.11.0'
-  implementation 'com.google.guava:guava:31.0.1-jre'
+  implementation 'com.google.guava:guava:31.1-jre'
   implementation 'com.beust:jcommander:1.82'
   implementation 'ch.qos.logback:logback-classic:1.2.10'
   implementation 'org.jgrapht:jgrapht-core:1.5.1'
