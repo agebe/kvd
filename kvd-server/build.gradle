@@ -18,7 +18,7 @@ dependencies {
   implementation 'commons-io:commons-io:2.11.0'
   implementation 'com.google.guava:guava:31.1-jre'
   implementation 'com.beust:jcommander:1.82'
-  implementation 'ch.qos.logback:logback-classic:1.2.11'
+  implementation 'ch.qos.logback:logback-classic:1.4.5'
   implementation 'org.jgrapht:jgrapht-core:1.5.1'
   implementation 'org.mapdb:mapdb:3.0.8'
   testImplementation 'com.google.code.gson:gson:2.10.1'
