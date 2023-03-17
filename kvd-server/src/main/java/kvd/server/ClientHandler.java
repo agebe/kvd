@@ -48,6 +48,8 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private long clientId;
 
+  private Kvd.KvdOptions options;
+
   private int socketSoTimeoutMs;
 
   private int clientTimeoutSeconds;
@@ -94,13 +96,15 @@ public class ClientHandler implements Runnable, AutoCloseable {
   private Map<Integer, ScheduledFuture<?>> txTimeouts = new HashMap<>();
 
   public ClientHandler(long clientId,
+      Kvd.KvdOptions options,
       int socketSoTimeoutMs,
       int clientTimeoutSeconds,
       Socket socket,
       StorageBackend storage) {
-    this.clientId = clientId;
+    this.options = options;
     this.socketSoTimeoutMs = socketSoTimeoutMs;
     this.clientTimeoutSeconds = clientTimeoutSeconds;
+    this.clientId = clientId;
     this.socket = socket;
     this.storage = storage;
   }
@@ -176,7 +180,11 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received put init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.PUT_ABORT, packet.getChannel()));
     } else {
-      final PutConsumer c = new PutConsumer(storage, client, tx!=null?tx.getTransaction():null);
+      final PutConsumer c = new PutConsumer(
+          storage,
+          client,
+          (tx!=null?tx.getTransaction():null),
+          options.logAccess);
       createChannel(packet, c);
       // execute async as this might block
       pool.execute(() -> c.accept(packet));
@@ -201,7 +209,12 @@ public class ClientHandler implements Runnable, AutoCloseable {
       log.warn("received get init for tx '{}' but transaction does not exit", txId);
       client.sendAsync(Packets.packet(PacketType.GET_ABORT, packet.getChannel()));
     } else {
-      final GetConsumer c = new GetConsumer(packet.getChannel(), storage, client, tx!=null?tx.getTransaction():null);
+      final GetConsumer c = new GetConsumer(
+          packet.getChannel(),
+          storage,
+          client,
+          (tx!=null?tx.getTransaction():null),
+          options.logAccess);
       createChannel(packet, c);
       pool.execute(() -> c.accept(packet));
     }
@@ -249,11 +262,21 @@ public class ClientHandler implements Runnable, AutoCloseable {
     }
   }
 
+  private void logAccess(String type, Key key, Transaction tx) {
+    if(options.logAccess) {
+      log.info("{} '{}' / tx '{}'", type, key, tx.handle());
+    }
+  }
+
   private boolean contains(Transaction tx, Key key) {
     if(tx!=null) {
+      logAccess("contains", key, tx);
       return tx.contains(key);
     } else {
-      return storage.withTransaction(newTx -> newTx.contains(key));
+      return storage.withTransaction(newTx -> {
+        logAccess("contains", key, newTx);
+        return newTx.contains(key);
+      });
     }
   }
 
@@ -288,9 +311,13 @@ public class ClientHandler implements Runnable, AutoCloseable {
 
   private boolean remove(Transaction tx, Key key) {
     if(tx!=null) {
+      logAccess("remove", key, tx);
       return tx.remove(key);
     } else {
-      return storage.withTransaction(newTx -> newTx.remove(key));
+      return storage.withTransaction(newTx -> {
+        logAccess("remove", key, newTx);
+        return newTx.remove(key);
+      });
     }
   }
 

@@ -36,7 +36,7 @@ public class SocketConnectHandler implements Consumer<Socket> {
 
   private Set<ClientHandler> clients = new HashSet<>();
 
-  private int maxClients;
+  private Kvd.KvdOptions options;
 
   private int socketSoTimeoutMs;
 
@@ -44,17 +44,14 @@ public class SocketConnectHandler implements Consumer<Socket> {
 
   private StorageBackend storage;
 
-  public SocketConnectHandler(int maxClients,
-      int socketSoTimeoutMs,
-      int clientTimeoutSeconds,
-      StorageBackend storage) {
+  public SocketConnectHandler(Kvd.KvdOptions options, StorageBackend storage) {
     super();
-    if(maxClients <= 0) {
-      throw new KvdException("invalid max clients " + maxClients);
+    this.options = options;
+    if(options.maxClients <= 0) {
+      throw new KvdException("invalid max clients " + options.maxClients);
     }
-    this.maxClients = maxClients;
-    this.socketSoTimeoutMs = socketSoTimeoutMs;
-    this.clientTimeoutSeconds = clientTimeoutSeconds;
+    this.socketSoTimeoutMs = (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS);
+    this.clientTimeoutSeconds = (int)HumanReadable.parseDuration(options.clientTimeoutSeconds, TimeUnit.SECONDS, TimeUnit.SECONDS);
     this.storage = storage;
     log.info("client timeout '{}', socket so timeout '{}'",
         HumanReadable.formatDuration(clientTimeoutSeconds, TimeUnit.SECONDS),
@@ -64,9 +61,10 @@ public class SocketConnectHandler implements Consumer<Socket> {
   @Override
   public synchronized void accept(Socket socket) {
     try {
-      if(clients.size() < maxClients) {
+      if(clients.size() < options.maxClients) {
         long clientId = clientIdCounter.getAndIncrement();
         final ClientHandler client = new ClientHandler(clientId,
+            options,
             socketSoTimeoutMs,
             clientTimeoutSeconds,
             socket,
@@ -88,7 +86,7 @@ public class SocketConnectHandler implements Consumer<Socket> {
         }, "client-" + clientId);
         t.start();
       } else {
-        log.warn("not accepting now connections (max clients reached '{}')", maxClients);
+        log.warn("not accepting now connections (max clients reached '{}')", options.maxClients);
         socket.close();
       }
     } catch(Exception e) {

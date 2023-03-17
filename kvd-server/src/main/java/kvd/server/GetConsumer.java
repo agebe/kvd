@@ -41,12 +41,15 @@ public class GetConsumer implements ChannelConsumer {
 
   private boolean txOwner;
 
-  public GetConsumer(int channel, StorageBackend storage, ClientResponseHandler client, Transaction tx) {
+  private boolean logAccess;
+
+  public GetConsumer(int channel, StorageBackend storage, ClientResponseHandler client, Transaction tx, boolean logAccess) {
     super();
     this.channel = channel;
     this.client = client;
     txOwner = (tx==null);
     this.tx = txOwner?storage.begin():tx;
+    this.logAccess = logAccess;
   }
 
   @Override
@@ -57,6 +60,9 @@ public class GetConsumer implements ChannelConsumer {
       }
       try {
         Key key = new Key(packet.getByteBody().toByteArray());
+        if(logAccess) {
+          log.info("get '{}' / tx '{}'", key, tx.handle());
+        }
         try(InputStream in = tx.get(key)) {
           if(in != null) {
             // Send an empty packet so the client can distinguish between

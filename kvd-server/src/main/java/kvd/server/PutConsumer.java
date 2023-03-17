@@ -39,12 +39,15 @@ public class PutConsumer implements ChannelConsumer {
 
   private boolean txOwner;
 
-  public PutConsumer(StorageBackend storage, ClientResponseHandler client, Transaction tx) {
+  private boolean logAccess;
+
+  public PutConsumer(StorageBackend storage, ClientResponseHandler client, Transaction tx, boolean logAccess) {
     super();
     this.client = client;
  // if no transaction has been passed in this put will create a transaction but also needs to commit it on 'PUT_FINISH'
     txOwner = (tx==null);
     this.tx = txOwner?storage.begin():tx;
+    this.logAccess = logAccess;
   }
 
   @Override
@@ -55,6 +58,9 @@ public class PutConsumer implements ChannelConsumer {
     }
     if(PacketType.PUT_INIT.equals(packet.getType())) {
       Key key = new Key(packet.getPutInit().getKey().toByteArray());
+      if(logAccess) {
+        log.info("put '{}' / tx '{}'", key, tx.handle());
+      }
       if(out != null) {
         throw new KvdException("put already initialized");
       }

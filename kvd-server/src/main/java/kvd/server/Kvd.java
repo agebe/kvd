@@ -115,6 +115,9 @@ public class Kvd {
     @Parameter(names="--enable-mmap", description="use file mmap access in mapdb")
     public boolean enableMmap;
 
+    @Parameter(names="--log-access", description="info log accessed keys")
+    public boolean logAccess;
+
     public long deadlockDetectorIntervalMs = TimeUnit.MINUTES.toMillis(1);
 
     public Consumer<ThreadInfo[]> deadlockDectorAction = ti -> {
@@ -220,11 +223,7 @@ public class Kvd {
         sb,
         mapdb.getStore().getExpireDb());
     expiredKeysRemover.start(options.logExpired);
-    handler = new SocketConnectHandler(
-        options.maxClients,
-        (int)HumanReadable.parseDuration(options.soTimeoutMs, TimeUnit.MILLISECONDS, TimeUnit.MILLISECONDS),
-        (int)HumanReadable.parseDuration(options.clientTimeoutSeconds, TimeUnit.SECONDS, TimeUnit.SECONDS),
-        sb);
+    handler = new SocketConnectHandler(options, sb);
     socketServer = new SimpleSocketServer(options.port, handler);
     socketServer.start();
     log.info("started socket server on port '{}', max clients '{}'", socketServer.getLocalPort(), options.maxClients);

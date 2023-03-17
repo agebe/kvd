@@ -47,6 +47,7 @@ public class SimpleTest {
 //      client.removeAll();
 //      client.putString("foo", "bar");
       client.getString("simple");
+      client.remove("simple");
     }
   }
 }
