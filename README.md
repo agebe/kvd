@@ -96,12 +96,12 @@ Usage: kvd [options]
 
 To start a test server for playing do this:
 ```bash
-$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.6.2
+$ docker run --rm -ti --name kvd -p 3030:3030 agebe/kvd:0.7.0
 ```
 
 You might want to keep the database files between restarts or change some JVM settings etc. do this:
 ```bash
-$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.6.2 --datadir /datadir
+$ docker run --rm --name kvd -ti -v myvolume:/datadir -p 3030:3030 -e JAVA_OPTS="-verbose:gc" agebe/kvd:0.7.0 --datadir /datadir
 ```
 
 ### Running the server from source
@@ -122,7 +122,7 @@ For the example below to work you need to add the kvd-client library as a depend
 Gradle:
 ```gradle
 dependencies {
-  implementation 'io.github.agebe:kvd-client:0.6.2'
+  implementation 'io.github.agebe:kvd-client:0.7.0'
 }
 ```
 
@@ -131,7 +131,7 @@ Maven:
 <dependency>
   <groupId>io.github.agebe</groupId>
   <artifactId>kvd-client</artifactId>
-  <version>0.6.2</version>
+  <version>0.7.0</version>
 </dependency>
 ```
 
