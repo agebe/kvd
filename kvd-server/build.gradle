@@ -1,15 +1,14 @@
 plugins {
   id 'application'
-  id 'com.palantir.docker' version '0.34.0'
 }
 
 mainClassName = 'kvd.server.Kvd'
 
-docker {
-  name project.name
-  tags 'latest'
-  dockerfile file('Dockerfile')
-  files tasks.installDist.outputs
+task dockerPrepare(type: Copy) {
+  dependsOn 'installDist'
+  from('build/install/kvd-server')
+  from('Dockerfile')
+  into('build/docker')
 }
 
 dependencies {
