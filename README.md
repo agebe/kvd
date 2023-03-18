@@ -1,5 +1,3 @@
-[![Build Status](https://app.travis-ci.com/agebe/kvd.svg?branch=main)](https://app.travis-ci.com/github/agebe/kvd/builds)
-
 # kvd
 
 kvd is a simple streaming key value client/server database with support for large values. kvd supports following operations:
