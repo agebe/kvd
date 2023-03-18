@@ -122,7 +122,7 @@ public class ClientHandler implements Runnable, AutoCloseable {
   public void run() {
     try {
       socket.setSoTimeout(socketSoTimeoutMs);
-      log.info("client connect, id '{}'", clientId);
+      log.info("client connect from '{}', id '{}'", socket.getRemoteSocketAddress(), clientId);
       in = socket.getInputStream();
       setupResponseHandler(socket.getOutputStream());
       Packets.receiveHello(in);
