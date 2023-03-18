@@ -1,16 +1,8 @@
 # from https://github.com/actions/starter-workflows/blob/main/ci/gradle.yml
 name: Java CI with Gradle
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ $default-branch ]
-  pull_request:
-    branches: [ $default-branch ]
-
+on: [workflow_dispatch, push, pull_request]
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
