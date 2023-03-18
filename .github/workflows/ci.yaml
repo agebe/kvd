@@ -2,6 +2,7 @@
 name: Java CI with Gradle
 
 on:
+  workflow_dispatch
   push:
     branches: [ $default-branch ]
   pull_request:
