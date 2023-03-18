@@ -69,6 +69,9 @@ Usage: kvd [options]
       d, defaults to seconds.
     --help
       show usage
+    --log-access
+      info log accessed keys
+      Default: false
     --log-expired
       info log expired keys
       Default: false
