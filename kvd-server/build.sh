@@ -18,6 +18,6 @@ else
   DOCKER_TAG=$TAG
 fi
 # make sure downloaded tools (e.g. formerly protoc) does not dirty the git workspace. All downloaded/extracted files need to be covered by .gitignore otherwise dirty shows up in version
-docker run --pull always --rm -ti -u gradle --name "kvd-build" -v "$PWD/kvd":/home/gradle/project -w /home/gradle/project -e "GRADLE_USER_HOME=/home/gradle/project/.gradle" gradle:jdk11 bash -c "gradle dockerPrepare"
+docker run --pull always --rm -ti -u gradle --name "kvd-build" -v "$PWD/kvd":/home/gradle/project -w /home/gradle/project -e "GRADLE_USER_HOME=/home/gradle/project/.gradle" gradle:8-jdk11 bash -c "gradle dockerPrepare"
 ( cd kvd/kvd-server/build/docker && docker build --pull -t kvd:$DOCKER_TAG . )
 echo done
