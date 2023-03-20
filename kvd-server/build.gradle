@@ -19,7 +19,7 @@ dependencies {
   implementation 'com.beust:jcommander:1.82'
   implementation 'ch.qos.logback:logback-classic:1.4.5'
   implementation 'org.jgrapht:jgrapht-core:1.5.1'
-  implementation 'org.mapdb:mapdb:3.0.8'
+  implementation 'org.mapdb:mapdb:3.0.9'
   testImplementation 'com.google.code.gson:gson:2.10.1'
 }
 
